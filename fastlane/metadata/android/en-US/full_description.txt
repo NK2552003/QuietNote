@@ -1,0 +1,5 @@
+QuietNote is an offline-first personal productivity space for notes, journals, tasks, habits, routines, calendar planning, reminders, and focus sessions.
+
+Your information stays on your device. Use the built-in clock to see today’s progress and start a saved focus timer. Notifications are optional and can be enabled in Settings.
+
+The app also includes optional on-device AI capture and voice input where supported by the device.

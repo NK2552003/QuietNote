@@ -1,0 +1,3 @@
+Initial F-Droid release preparation.
+
+Includes offline notes, journals, tasks, habits, reminders, focus timers, and on-device AI capture.

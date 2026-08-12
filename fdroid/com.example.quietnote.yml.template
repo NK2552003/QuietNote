@@ -1,0 +1,20 @@
+# Copy this file into the F-Droid data repository once the public source
+# repository and the project licence are final. Values marked TODO must not be
+# guessed because they become published release metadata.
+Categories:
+  - Writing
+  - Time
+License: TODO-CHOOSE-AN-OSI-LICENSE
+AuthorName: QuietNote
+SourceCode: TODO-PUBLIC-SOURCE-REPOSITORY
+IssueTracker: TODO-PUBLIC-ISSUE-TRACKER
+RepoType: git
+Repo: TODO-PUBLIC-SOURCE-REPOSITORY
+Builds:
+  - versionName: '1.0.0'
+    versionCode: 1
+    gradle:
+      - yes
+    output: build/app/outputs/flutter-apk/app-release.apk
+AutoUpdateMode: None
+UpdateCheckMode: None
