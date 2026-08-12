@@ -20,10 +20,11 @@ class CalendarEventPreviewScreen extends ConsumerWidget {
   ) => FutureBuilder<CalendarEvent?>(
     future: ref.read(calendarRepositoryProvider).getEventById(eventId),
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done)
+      if (snapshot.connectionState != ConnectionState.done) {
         return const UiPage(child: Center(child: CircularProgressIndicator()));
+      }
       final event = snapshot.data;
-      if (event == null)
+      if (event == null) {
         return const UiPage(
           header: UiHeader(title: 'Event'),
           child: UiEmptyState(
@@ -32,6 +33,7 @@ class CalendarEventPreviewScreen extends ConsumerWidget {
             icon: Icons.event_busy_outlined,
           ),
         );
+      }
       final tint = event.color == null
           ? categoryColor(context, event.category)
           : Color(event.color!);

@@ -147,8 +147,9 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
       _reminderTime = habit.reminderTime == null
           ? null
           : TimeOfDay.fromDateTime(habit.reminderTime!);
-      if (habit.goalTarget != null)
+      if (habit.goalTarget != null) {
         _goalTargetController.text = _trimNum(habit.goalTarget!);
+      }
       _goalUnitController.text = habit.goalUnit ?? '';
       _notesController.text = habit.notes ?? '';
     }
@@ -259,8 +260,9 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
     final checkId = _isEditing ? widget.habitId! : (newId ?? '');
     if (reminderDateTime != null && checkId.isNotEmpty) {
       var nextReminder = reminderDateTime;
-      if (!nextReminder.isAfter(DateTime.now()))
+      if (!nextReminder.isAfter(DateTime.now())) {
         nextReminder = nextReminder.add(const Duration(days: 1));
+      }
       await NotificationService().cancelReminder(checkId.hashCode);
       await NotificationService().scheduleReminder(
         checkId.hashCode,

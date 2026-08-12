@@ -222,12 +222,13 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
     }
     final available = await _speech.initialize(
       onStatus: (status) {
-        if (mounted && (status == 'done' || status == 'notListening'))
+        if (mounted && (status == 'done' || status == 'notListening')) {
           setState(() => _listening = false);
+        }
       },
     );
     if (!available) {
-      if (mounted)
+      if (mounted) {
         UiToast.show(
           context,
           title: 'Voice input unavailable',
@@ -235,6 +236,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
               'Enable microphone and speech recognition access to dictate your journal.',
           intent: UiIntent.warning,
         );
+      }
       return;
     }
     setState(() => _listening = true);

@@ -51,8 +51,9 @@ class _UiNavShellState extends State<UiNavShell> {
     if (icon == Icons.checklist_outlined) return Icons.task_alt_rounded;
     if (icon == Icons.notes_outlined) return Icons.sticky_note_2_rounded;
     if (icon == Icons.route_outlined) return Icons.alt_route_rounded;
-    if (icon == Icons.calendar_month_outlined)
+    if (icon == Icons.calendar_month_outlined) {
       return Icons.calendar_month_rounded;
+    }
     if (icon == Icons.flag_outlined) return Icons.flag_rounded;
     if (icon == Icons.menu_book_outlined) return Icons.menu_book_rounded;
     if (icon == Icons.insights_outlined) return Icons.insights_rounded;

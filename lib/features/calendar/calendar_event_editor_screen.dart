@@ -243,8 +243,9 @@ class _CalendarEventEditorScreenState
 
     final description = _descController.text.trim();
     var endTime = _endDate;
-    if (!endTime.isAfter(_startDate))
+    if (!endTime.isAfter(_startDate)) {
       endTime = _startDate.add(const Duration(hours: 1));
+    }
     final reminderOffset = _reminderSel == _reminderNone ? null : _reminderSel;
     final recurrenceRule = _recurrenceSel == _recurNone ? null : _recurrenceSel;
     final linkedGoalId = _linkedGoalSel.isEmpty ? null : _linkedGoalSel;

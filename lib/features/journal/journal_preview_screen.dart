@@ -21,10 +21,11 @@ class JournalPreviewScreen extends ConsumerWidget {
   ) => FutureBuilder<JournalData?>(
     future: ref.read(journalRepositoryProvider).getEntry(entryId),
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done)
+      if (snapshot.connectionState != ConnectionState.done) {
         return const UiPage(child: Center(child: CircularProgressIndicator()));
+      }
       final entry = snapshot.data;
-      if (entry == null)
+      if (entry == null) {
         return const UiPage(
           header: UiHeader(title: 'Journal'),
           child: UiEmptyState(
@@ -33,6 +34,7 @@ class JournalPreviewScreen extends ConsumerWidget {
             icon: Icons.menu_book_outlined,
           ),
         );
+      }
       return UiPage(
         header: UiHeader(
           title: entry.title,

@@ -111,7 +111,9 @@ final aggregatedCalendarEventsProvider = StreamProvider<List<CalendarEvent>>((re
   }));
 
   ref.onDispose(() async {
-    for (final s in subs) await s.cancel();
+    for (final s in subs) {
+      await s.cancel();
+    }
     await controller.close();
   });
 

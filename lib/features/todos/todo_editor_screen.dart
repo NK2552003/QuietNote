@@ -114,8 +114,9 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
   String? get _headerSubtitle {
     if (!_isEditing) return null;
     final parts = <String>[];
-    if (_dueDate != null)
+    if (_dueDate != null) {
       parts.add('Due ${DateFormat.yMMMd().format(_dueDate!)}');
+    }
     if (_subtasks.isNotEmpty) {
       final done = _subtasks.where((s) => s['isCompleted'] == true).length;
       parts.add('$done/${_subtasks.length} subtasks');

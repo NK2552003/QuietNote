@@ -136,13 +136,14 @@ class _AiScreenState extends ConsumerState<AiScreen>
       final answer = await ref.read(aiEngineProvider.notifier).answer(text);
       if (mounted) setState(() => _answer = answer);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         UiToast.show(
           context,
           title: 'AI could not respond',
           message: '$error',
           intent: UiIntent.warning,
         );
+      }
     } finally {
       if (mounted) setState(() => _isAnswering = false);
     }
@@ -159,7 +160,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
     try {
       await AiVoiceService.instance.speak(_answer!);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         UiToast.show(
           context,
           title: 'Speech output unavailable',
@@ -167,6 +168,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
               'Install or enable a device text-to-speech voice and try again.',
           intent: UiIntent.warning,
         );
+      }
     } finally {
       if (mounted) setState(() => _speaking = false);
     }
@@ -188,8 +190,9 @@ class _AiScreenState extends ConsumerState<AiScreen>
     }
     final available = await _speech.initialize(
       onStatus: (status) {
-        if (mounted && (status == 'done' || status == 'notListening'))
+        if (mounted && (status == 'done' || status == 'notListening')) {
           setState(() => _listening = false);
+        }
       },
       onError: (_) {
         if (mounted) {
@@ -204,7 +207,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
       },
     );
     if (!available) {
-      if (mounted)
+      if (mounted) {
         UiToast.show(
           context,
           title: 'Voice input unavailable',
@@ -212,6 +215,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
               'Enable microphone and speech recognition access to use voice capture.',
           intent: UiIntent.warning,
         );
+      }
       return;
     }
     setState(() => _listening = true);

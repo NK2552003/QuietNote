@@ -28,9 +28,9 @@ class NotePreviewScreen extends ConsumerWidget {
         }
         final note = snapshot.data;
         if (note == null) {
-          return UiPage(
-            header: const UiHeader(title: 'Note'),
-            child: const UiEmptyState(
+          return const UiPage(
+            header: UiHeader(title: 'Note'),
+            child: UiEmptyState(
               title: 'Note not found',
               message: 'It may have been deleted.',
               icon: Icons.note_alt_outlined,
