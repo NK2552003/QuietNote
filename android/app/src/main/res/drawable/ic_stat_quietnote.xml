@@ -1,0 +1,8 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- White-only silhouette required by Android's status-bar notification UI. -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M12,2a10,10 0,1 0,0 20a10,10 0,0 0,0 -20M12,5a1,1 0,0 1,1 1v5.4l3.3,2a1,1 0,0 1,-1,1.7l-3.8,-2.3A1,1 0,0 1,11,12V6a1,1 0,0 1,1 -1"/>
+</vector>
