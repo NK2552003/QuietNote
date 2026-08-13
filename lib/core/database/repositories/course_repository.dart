@@ -30,6 +30,36 @@ final allAssessmentsStreamProvider = StreamProvider<List<Assessment>>((ref) {
   return repo.watchAllAssessments();
 });
 
+final courseTasksStreamProvider =
+    StreamProvider.family<List<Task>, String>((ref, courseId) {
+  final repo = ref.watch(courseRepositoryProvider);
+  return repo.watchTasksForCourse(courseId);
+});
+
+final courseNotesStreamProvider =
+    StreamProvider.family<List<Note>, String>((ref, courseId) {
+  final repo = ref.watch(courseRepositoryProvider);
+  return repo.watchNotesForCourse(courseId);
+});
+
+final courseEventsStreamProvider =
+    StreamProvider.family<List<CalendarEvent>, String>((ref, courseId) {
+  final repo = ref.watch(courseRepositoryProvider);
+  return repo.watchEventsForCourse(courseId);
+});
+
+final courseFocusSessionsStreamProvider =
+    StreamProvider.family<List<FocusSession>, String>((ref, courseId) {
+  final repo = ref.watch(courseRepositoryProvider);
+  return repo.watchFocusSessionsForCourse(courseId);
+});
+
+final courseGoalsStreamProvider =
+    StreamProvider.family<List<Goal>, String>((ref, courseId) {
+  final repo = ref.watch(courseRepositoryProvider);
+  return repo.watchGoalsForCourse(courseId);
+});
+
 /// Weighted average (0-100 scale) across a set of assessments, following the
 /// grade-tracker spec: each assessment contributes `score/maxScore*100`
 /// scaled by its `weight`. Returns 0 for an empty list or when every weight
@@ -71,13 +101,63 @@ class CourseRepository {
     return _db.select(_db.assessments).watch();
   }
 
-  Future<String> addCourse(String name, {double? targetGrade}) async {
+  Stream<List<Task>> watchTasksForCourse(String courseId) {
+    return (_db.select(_db.tasks)
+          ..where((t) => t.courseId.equals(courseId))
+          ..orderBy([(t) => drift.OrderingTerm.desc(t.dueDate)]))
+        .watch();
+  }
+
+  Stream<List<Note>> watchNotesForCourse(String courseId) {
+    return (_db.select(_db.notes)
+          ..where((n) => n.courseId.equals(courseId))
+          ..orderBy([(n) => drift.OrderingTerm.desc(n.createdAt)]))
+        .watch();
+  }
+
+  Stream<List<CalendarEvent>> watchEventsForCourse(String courseId) {
+    return (_db.select(_db.calendarEvents)
+          ..where((e) => e.courseId.equals(courseId))
+          ..orderBy([(e) => drift.OrderingTerm.asc(e.startTime)]))
+        .watch();
+  }
+
+  Stream<List<FocusSession>> watchFocusSessionsForCourse(String courseId) {
+    return (_db.select(_db.focusSessions)
+          ..where((s) => s.courseId.equals(courseId))
+          ..orderBy([(s) => drift.OrderingTerm.desc(s.startedAt)]))
+        .watch();
+  }
+
+  Stream<List<Goal>> watchGoalsForCourse(String courseId) {
+    return (_db.select(_db.goals)..where((g) => g.courseId.equals(courseId)))
+        .watch();
+  }
+
+  Future<String> addCourse(
+    String name, {
+    double? targetGrade,
+    String? code,
+    String? instructor,
+    String? room,
+    int? color,
+    String? schedule,
+    String? term,
+    String? notes,
+  }) async {
     final id = const Uuid().v4();
     await _db.into(_db.courses).insert(
           CoursesCompanion.insert(
             id: id,
             name: name,
             targetGrade: drift.Value(targetGrade),
+            code: drift.Value(code),
+            instructor: drift.Value(instructor),
+            room: drift.Value(room),
+            color: drift.Value(color),
+            schedule: drift.Value(schedule),
+            term: drift.Value(term),
+            notes: drift.Value(notes),
           ),
         );
     return id;
@@ -87,11 +167,25 @@ class CourseRepository {
     String id, {
     required String name,
     double? targetGrade,
+    String? code,
+    String? instructor,
+    String? room,
+    int? color,
+    String? schedule,
+    String? term,
+    String? notes,
   }) async {
     await (_db.update(_db.courses)..where((c) => c.id.equals(id))).write(
       CoursesCompanion(
         name: drift.Value(name),
         targetGrade: drift.Value(targetGrade),
+        code: drift.Value(code),
+        instructor: drift.Value(instructor),
+        room: drift.Value(room),
+        color: drift.Value(color),
+        schedule: drift.Value(schedule),
+        term: drift.Value(term),
+        notes: drift.Value(notes),
       ),
     );
   }

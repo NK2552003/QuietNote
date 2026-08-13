@@ -7,6 +7,7 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/calendar_repository.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
+import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/notifications/notification_service.dart';
 
 const int _reminderNone = -1;
@@ -96,6 +97,7 @@ class _CalendarEventEditorScreenState
   int _reminderSel = _reminderNone;
   String _recurrenceSel = _recurNone;
   String _linkedGoalSel = _goalNone;
+  String _linkedCourseSel = '';
 
   @override
   void initState() {
@@ -134,6 +136,7 @@ class _CalendarEventEditorScreenState
       _reminderSel = event.reminderOffset ?? _reminderNone;
       _recurrenceSel = event.recurrenceRule ?? _recurNone;
       _linkedGoalSel = event.linkedGoalId ?? _goalNone;
+      _linkedCourseSel = event.courseId ?? '';
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -249,6 +252,7 @@ class _CalendarEventEditorScreenState
     final reminderOffset = _reminderSel == _reminderNone ? null : _reminderSel;
     final recurrenceRule = _recurrenceSel == _recurNone ? null : _recurrenceSel;
     final linkedGoalId = _linkedGoalSel.isEmpty ? null : _linkedGoalSel;
+    final linkedCourseId = _linkedCourseSel.isEmpty ? null : _linkedCourseSel;
     final color = categoryColor(context, _category).toARGB32();
 
     late final String eventId;
@@ -268,6 +272,7 @@ class _CalendarEventEditorScreenState
             recurrenceRule: recurrenceRule,
             reminderOffset: reminderOffset,
             linkedGoalId: linkedGoalId,
+            courseId: linkedCourseId,
           );
     } else {
       eventId = await ref
@@ -283,6 +288,7 @@ class _CalendarEventEditorScreenState
             recurrenceRule: recurrenceRule,
             reminderOffset: reminderOffset,
             linkedGoalId: linkedGoalId,
+            courseId: linkedCourseId,
           );
     }
 
@@ -564,6 +570,27 @@ class _CalendarEventEditorScreenState
                     ...goals.map((g) => UiOption(value: g.id, label: g.title)),
                   ],
                   onChanged: (v) => setState(() => _linkedGoalSel = v),
+                ),
+                const SizedBox(height: 16),
+                Builder(
+                  builder: (context) {
+                    final coursesAsync = ref.watch(coursesStreamProvider);
+                    final courses = coursesAsync.value ?? const <Course>[];
+                    return UiSelect<String>(
+                      label: 'Linked course',
+                      hintText: 'No course',
+                      value: _linkedCourseSel,
+                      leadingIcon: Icons.school_outlined,
+                      options: [
+                        const UiOption(value: '', label: 'No course'),
+                        ...courses.map((c) => UiOption(
+                              value: c.id,
+                              label: c.code != null ? '${c.code} - ${c.name}' : c.name,
+                            )),
+                      ],
+                      onChanged: (v) => setState(() => _linkedCourseSel = v),
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
               ],

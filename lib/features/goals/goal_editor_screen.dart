@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
+import 'package:quietnote/core/database/repositories/course_repository.dart';
 
 /// Preset goal categories. Shared with the goals list so tags stay visually
 /// consistent — each maps to one of the app's chart-series colors.
@@ -73,6 +75,7 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
   String _category = goalCategoryNames.first;
   int _priority = 0;
   DateTime? _deadline;
+  String _linkedCourseSel = '';
   List<Map<String, dynamic>> _milestones = [];
 
   @override
@@ -104,6 +107,7 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
       _category = goal.category ?? goalCategoryNames.first;
       _priority = goal.priority;
       _deadline = goal.deadline;
+      _linkedCourseSel = goal.courseId ?? '';
       if (goal.milestones != null) {
         try {
           final decoded = jsonDecode(goal.milestones!) as List;
@@ -175,6 +179,7 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
     final current = (double.tryParse(_currentController.text.trim()) ?? 0.0)
         .clamp(0.0, target == 0 ? 0.0 : target);
     final milestonesJson = _milestones.isEmpty ? null : jsonEncode(_milestones);
+    final linkedCourseId = _linkedCourseSel.isEmpty ? null : _linkedCourseSel;
 
     late final String goalId;
     if (_isEditing) {
@@ -190,6 +195,7 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
             category: _category,
             priority: _priority,
             milestones: milestonesJson,
+            courseId: linkedCourseId,
           );
     } else {
       goalId = await ref
@@ -202,6 +208,7 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
             category: _category,
             priority: _priority,
             milestones: milestonesJson,
+            courseId: linkedCourseId,
           );
     }
 
@@ -422,6 +429,27 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
                       ),
                     ],
                   ),
+                const SizedBox(height: 16),
+                Builder(
+                  builder: (context) {
+                    final coursesAsync = ref.watch(coursesStreamProvider);
+                    final courses = coursesAsync.value ?? const <Course>[];
+                    return UiSelect<String>(
+                      label: 'Linked course',
+                      hintText: 'No course',
+                      value: _linkedCourseSel,
+                      leadingIcon: Icons.school_outlined,
+                      options: [
+                        const UiOption(value: '', label: 'No course'),
+                        ...courses.map((c) => UiOption(
+                              value: c.id,
+                              label: c.code != null ? '${c.code} - ${c.name}' : c.name,
+                            )),
+                      ],
+                      onChanged: (v) => setState(() => _linkedCourseSel = v),
+                    );
+                  },
+                ),
                 const SizedBox(height: 20),
                 Row(
                   children: [

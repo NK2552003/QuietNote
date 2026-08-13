@@ -1200,6 +1200,17 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _courseIdMeta = const VerificationMeta(
+    'courseId',
+  );
+  @override
+  late final GeneratedColumn<String> courseId = GeneratedColumn<String>(
+    'course_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1213,6 +1224,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     recurrenceRule,
     linkedGoalId,
     reminderOffset,
+    courseId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1305,6 +1317,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         ),
       );
     }
+    if (data.containsKey('course_id')) {
+      context.handle(
+        _courseIdMeta,
+        courseId.isAcceptableOrUnknown(data['course_id']!, _courseIdMeta),
+      );
+    }
     return context;
   }
 
@@ -1358,6 +1376,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.int,
         data['${effectivePrefix}reminder_offset'],
       ),
+      courseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}course_id'],
+      ),
     );
   }
 
@@ -1379,6 +1401,7 @@ class Task extends DataClass implements Insertable<Task> {
   final String? recurrenceRule;
   final String? linkedGoalId;
   final int? reminderOffset;
+  final String? courseId;
   const Task({
     required this.id,
     required this.title,
@@ -1391,6 +1414,7 @@ class Task extends DataClass implements Insertable<Task> {
     this.recurrenceRule,
     this.linkedGoalId,
     this.reminderOffset,
+    this.courseId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1417,6 +1441,9 @@ class Task extends DataClass implements Insertable<Task> {
     }
     if (!nullToAbsent || reminderOffset != null) {
       map['reminder_offset'] = Variable<int>(reminderOffset);
+    }
+    if (!nullToAbsent || courseId != null) {
+      map['course_id'] = Variable<String>(courseId);
     }
     return map;
   }
@@ -1446,6 +1473,9 @@ class Task extends DataClass implements Insertable<Task> {
       reminderOffset: reminderOffset == null && nullToAbsent
           ? const Value.absent()
           : Value(reminderOffset),
+      courseId: courseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courseId),
     );
   }
 
@@ -1466,6 +1496,7 @@ class Task extends DataClass implements Insertable<Task> {
       recurrenceRule: serializer.fromJson<String?>(json['recurrenceRule']),
       linkedGoalId: serializer.fromJson<String?>(json['linkedGoalId']),
       reminderOffset: serializer.fromJson<int?>(json['reminderOffset']),
+      courseId: serializer.fromJson<String?>(json['courseId']),
     );
   }
   @override
@@ -1483,6 +1514,7 @@ class Task extends DataClass implements Insertable<Task> {
       'recurrenceRule': serializer.toJson<String?>(recurrenceRule),
       'linkedGoalId': serializer.toJson<String?>(linkedGoalId),
       'reminderOffset': serializer.toJson<int?>(reminderOffset),
+      'courseId': serializer.toJson<String?>(courseId),
     };
   }
 
@@ -1498,6 +1530,7 @@ class Task extends DataClass implements Insertable<Task> {
     Value<String?> recurrenceRule = const Value.absent(),
     Value<String?> linkedGoalId = const Value.absent(),
     Value<int?> reminderOffset = const Value.absent(),
+    Value<String?> courseId = const Value.absent(),
   }) => Task(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -1514,6 +1547,7 @@ class Task extends DataClass implements Insertable<Task> {
     reminderOffset: reminderOffset.present
         ? reminderOffset.value
         : this.reminderOffset,
+    courseId: courseId.present ? courseId.value : this.courseId,
   );
   Task copyWithCompanion(TasksCompanion data) {
     return Task(
@@ -1536,6 +1570,7 @@ class Task extends DataClass implements Insertable<Task> {
       reminderOffset: data.reminderOffset.present
           ? data.reminderOffset.value
           : this.reminderOffset,
+      courseId: data.courseId.present ? data.courseId.value : this.courseId,
     );
   }
 
@@ -1552,7 +1587,8 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('subtasks: $subtasks, ')
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('linkedGoalId: $linkedGoalId, ')
-          ..write('reminderOffset: $reminderOffset')
+          ..write('reminderOffset: $reminderOffset, ')
+          ..write('courseId: $courseId')
           ..write(')'))
         .toString();
   }
@@ -1570,6 +1606,7 @@ class Task extends DataClass implements Insertable<Task> {
     recurrenceRule,
     linkedGoalId,
     reminderOffset,
+    courseId,
   );
   @override
   bool operator ==(Object other) =>
@@ -1585,7 +1622,8 @@ class Task extends DataClass implements Insertable<Task> {
           other.subtasks == this.subtasks &&
           other.recurrenceRule == this.recurrenceRule &&
           other.linkedGoalId == this.linkedGoalId &&
-          other.reminderOffset == this.reminderOffset);
+          other.reminderOffset == this.reminderOffset &&
+          other.courseId == this.courseId);
 }
 
 class TasksCompanion extends UpdateCompanion<Task> {
@@ -1600,6 +1638,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<String?> recurrenceRule;
   final Value<String?> linkedGoalId;
   final Value<int?> reminderOffset;
+  final Value<String?> courseId;
   final Value<int> rowid;
   const TasksCompanion({
     this.id = const Value.absent(),
@@ -1613,6 +1652,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.recurrenceRule = const Value.absent(),
     this.linkedGoalId = const Value.absent(),
     this.reminderOffset = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TasksCompanion.insert({
@@ -1627,6 +1667,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.recurrenceRule = const Value.absent(),
     this.linkedGoalId = const Value.absent(),
     this.reminderOffset = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title);
@@ -1642,6 +1683,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<String>? recurrenceRule,
     Expression<String>? linkedGoalId,
     Expression<int>? reminderOffset,
+    Expression<String>? courseId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1656,6 +1698,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
       if (linkedGoalId != null) 'linked_goal_id': linkedGoalId,
       if (reminderOffset != null) 'reminder_offset': reminderOffset,
+      if (courseId != null) 'course_id': courseId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1672,6 +1715,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<String?>? recurrenceRule,
     Value<String?>? linkedGoalId,
     Value<int?>? reminderOffset,
+    Value<String?>? courseId,
     Value<int>? rowid,
   }) {
     return TasksCompanion(
@@ -1686,6 +1730,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       linkedGoalId: linkedGoalId ?? this.linkedGoalId,
       reminderOffset: reminderOffset ?? this.reminderOffset,
+      courseId: courseId ?? this.courseId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1726,6 +1771,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (reminderOffset.present) {
       map['reminder_offset'] = Variable<int>(reminderOffset.value);
     }
+    if (courseId.present) {
+      map['course_id'] = Variable<String>(courseId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1746,6 +1794,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('linkedGoalId: $linkedGoalId, ')
           ..write('reminderOffset: $reminderOffset, ')
+          ..write('courseId: $courseId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1807,8 +1856,26 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _courseIdMeta = const VerificationMeta(
+    'courseId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, title, content, createdAt, tags];
+  late final GeneratedColumn<String> courseId = GeneratedColumn<String>(
+    'course_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    content,
+    createdAt,
+    tags,
+    courseId,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1854,6 +1921,12 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
       );
     }
+    if (data.containsKey('course_id')) {
+      context.handle(
+        _courseIdMeta,
+        courseId.isAcceptableOrUnknown(data['course_id']!, _courseIdMeta),
+      );
+    }
     return context;
   }
 
@@ -1883,6 +1956,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.string,
         data['${effectivePrefix}tags'],
       ),
+      courseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}course_id'],
+      ),
     );
   }
 
@@ -1902,12 +1979,14 @@ class Note extends DataClass implements Insertable<Note> {
   /// convention already used by `imagePaths` and `daysOfWeek` elsewhere in
   /// this schema.
   final String? tags;
+  final String? courseId;
   const Note({
     required this.id,
     required this.title,
     required this.content,
     required this.createdAt,
     this.tags,
+    this.courseId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1919,6 +1998,9 @@ class Note extends DataClass implements Insertable<Note> {
     if (!nullToAbsent || tags != null) {
       map['tags'] = Variable<String>(tags);
     }
+    if (!nullToAbsent || courseId != null) {
+      map['course_id'] = Variable<String>(courseId);
+    }
     return map;
   }
 
@@ -1929,6 +2011,9 @@ class Note extends DataClass implements Insertable<Note> {
       content: Value(content),
       createdAt: Value(createdAt),
       tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
+      courseId: courseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courseId),
     );
   }
 
@@ -1943,6 +2028,7 @@ class Note extends DataClass implements Insertable<Note> {
       content: serializer.fromJson<String>(json['content']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       tags: serializer.fromJson<String?>(json['tags']),
+      courseId: serializer.fromJson<String?>(json['courseId']),
     );
   }
   @override
@@ -1954,6 +2040,7 @@ class Note extends DataClass implements Insertable<Note> {
       'content': serializer.toJson<String>(content),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'tags': serializer.toJson<String?>(tags),
+      'courseId': serializer.toJson<String?>(courseId),
     };
   }
 
@@ -1963,12 +2050,14 @@ class Note extends DataClass implements Insertable<Note> {
     String? content,
     DateTime? createdAt,
     Value<String?> tags = const Value.absent(),
+    Value<String?> courseId = const Value.absent(),
   }) => Note(
     id: id ?? this.id,
     title: title ?? this.title,
     content: content ?? this.content,
     createdAt: createdAt ?? this.createdAt,
     tags: tags.present ? tags.value : this.tags,
+    courseId: courseId.present ? courseId.value : this.courseId,
   );
   Note copyWithCompanion(NotesCompanion data) {
     return Note(
@@ -1977,6 +2066,7 @@ class Note extends DataClass implements Insertable<Note> {
       content: data.content.present ? data.content.value : this.content,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       tags: data.tags.present ? data.tags.value : this.tags,
+      courseId: data.courseId.present ? data.courseId.value : this.courseId,
     );
   }
 
@@ -1987,13 +2077,15 @@ class Note extends DataClass implements Insertable<Note> {
           ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('createdAt: $createdAt, ')
-          ..write('tags: $tags')
+          ..write('tags: $tags, ')
+          ..write('courseId: $courseId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, content, createdAt, tags);
+  int get hashCode =>
+      Object.hash(id, title, content, createdAt, tags, courseId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2002,7 +2094,8 @@ class Note extends DataClass implements Insertable<Note> {
           other.title == this.title &&
           other.content == this.content &&
           other.createdAt == this.createdAt &&
-          other.tags == this.tags);
+          other.tags == this.tags &&
+          other.courseId == this.courseId);
 }
 
 class NotesCompanion extends UpdateCompanion<Note> {
@@ -2011,6 +2104,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
   final Value<String> content;
   final Value<DateTime> createdAt;
   final Value<String?> tags;
+  final Value<String?> courseId;
   final Value<int> rowid;
   const NotesCompanion({
     this.id = const Value.absent(),
@@ -2018,6 +2112,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.content = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.tags = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotesCompanion.insert({
@@ -2026,6 +2121,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     required String content,
     this.createdAt = const Value.absent(),
     this.tags = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -2036,6 +2132,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Expression<String>? content,
     Expression<DateTime>? createdAt,
     Expression<String>? tags,
+    Expression<String>? courseId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2044,6 +2141,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
       if (content != null) 'content': content,
       if (createdAt != null) 'created_at': createdAt,
       if (tags != null) 'tags': tags,
+      if (courseId != null) 'course_id': courseId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2054,6 +2152,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Value<String>? content,
     Value<DateTime>? createdAt,
     Value<String?>? tags,
+    Value<String?>? courseId,
     Value<int>? rowid,
   }) {
     return NotesCompanion(
@@ -2062,6 +2161,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       tags: tags ?? this.tags,
+      courseId: courseId ?? this.courseId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2084,6 +2184,9 @@ class NotesCompanion extends UpdateCompanion<Note> {
     if (tags.present) {
       map['tags'] = Variable<String>(tags.value);
     }
+    if (courseId.present) {
+      map['course_id'] = Variable<String>(courseId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2098,6 +2201,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
           ..write('content: $content, ')
           ..write('createdAt: $createdAt, ')
           ..write('tags: $tags, ')
+          ..write('courseId: $courseId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2655,6 +2759,17 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _courseIdMeta = const VerificationMeta(
+    'courseId',
+  );
+  @override
+  late final GeneratedColumn<String> courseId = GeneratedColumn<String>(
+    'course_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2666,6 +2781,7 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
     progressPercent,
     priority,
     milestones,
+    courseId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2739,6 +2855,12 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
         milestones.isAcceptableOrUnknown(data['milestones']!, _milestonesMeta),
       );
     }
+    if (data.containsKey('course_id')) {
+      context.handle(
+        _courseIdMeta,
+        courseId.isAcceptableOrUnknown(data['course_id']!, _courseIdMeta),
+      );
+    }
     return context;
   }
 
@@ -2784,6 +2906,10 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
         DriftSqlType.string,
         data['${effectivePrefix}milestones'],
       ),
+      courseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}course_id'],
+      ),
     );
   }
 
@@ -2803,6 +2929,7 @@ class Goal extends DataClass implements Insertable<Goal> {
   final int progressPercent;
   final int priority;
   final String? milestones;
+  final String? courseId;
   const Goal({
     required this.id,
     required this.title,
@@ -2813,6 +2940,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     required this.progressPercent,
     required this.priority,
     this.milestones,
+    this.courseId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2831,6 +2959,9 @@ class Goal extends DataClass implements Insertable<Goal> {
     map['priority'] = Variable<int>(priority);
     if (!nullToAbsent || milestones != null) {
       map['milestones'] = Variable<String>(milestones);
+    }
+    if (!nullToAbsent || courseId != null) {
+      map['course_id'] = Variable<String>(courseId);
     }
     return map;
   }
@@ -2852,6 +2983,9 @@ class Goal extends DataClass implements Insertable<Goal> {
       milestones: milestones == null && nullToAbsent
           ? const Value.absent()
           : Value(milestones),
+      courseId: courseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courseId),
     );
   }
 
@@ -2870,6 +3004,7 @@ class Goal extends DataClass implements Insertable<Goal> {
       progressPercent: serializer.fromJson<int>(json['progressPercent']),
       priority: serializer.fromJson<int>(json['priority']),
       milestones: serializer.fromJson<String?>(json['milestones']),
+      courseId: serializer.fromJson<String?>(json['courseId']),
     );
   }
   @override
@@ -2885,6 +3020,7 @@ class Goal extends DataClass implements Insertable<Goal> {
       'progressPercent': serializer.toJson<int>(progressPercent),
       'priority': serializer.toJson<int>(priority),
       'milestones': serializer.toJson<String?>(milestones),
+      'courseId': serializer.toJson<String?>(courseId),
     };
   }
 
@@ -2898,6 +3034,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     int? progressPercent,
     int? priority,
     Value<String?> milestones = const Value.absent(),
+    Value<String?> courseId = const Value.absent(),
   }) => Goal(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -2908,6 +3045,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     progressPercent: progressPercent ?? this.progressPercent,
     priority: priority ?? this.priority,
     milestones: milestones.present ? milestones.value : this.milestones,
+    courseId: courseId.present ? courseId.value : this.courseId,
   );
   Goal copyWithCompanion(GoalsCompanion data) {
     return Goal(
@@ -2924,6 +3062,7 @@ class Goal extends DataClass implements Insertable<Goal> {
       milestones: data.milestones.present
           ? data.milestones.value
           : this.milestones,
+      courseId: data.courseId.present ? data.courseId.value : this.courseId,
     );
   }
 
@@ -2938,7 +3077,8 @@ class Goal extends DataClass implements Insertable<Goal> {
           ..write('category: $category, ')
           ..write('progressPercent: $progressPercent, ')
           ..write('priority: $priority, ')
-          ..write('milestones: $milestones')
+          ..write('milestones: $milestones, ')
+          ..write('courseId: $courseId')
           ..write(')'))
         .toString();
   }
@@ -2954,6 +3094,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     progressPercent,
     priority,
     milestones,
+    courseId,
   );
   @override
   bool operator ==(Object other) =>
@@ -2967,7 +3108,8 @@ class Goal extends DataClass implements Insertable<Goal> {
           other.category == this.category &&
           other.progressPercent == this.progressPercent &&
           other.priority == this.priority &&
-          other.milestones == this.milestones);
+          other.milestones == this.milestones &&
+          other.courseId == this.courseId);
 }
 
 class GoalsCompanion extends UpdateCompanion<Goal> {
@@ -2980,6 +3122,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
   final Value<int> progressPercent;
   final Value<int> priority;
   final Value<String?> milestones;
+  final Value<String?> courseId;
   final Value<int> rowid;
   const GoalsCompanion({
     this.id = const Value.absent(),
@@ -2991,6 +3134,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     this.progressPercent = const Value.absent(),
     this.priority = const Value.absent(),
     this.milestones = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GoalsCompanion.insert({
@@ -3003,6 +3147,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     this.progressPercent = const Value.absent(),
     this.priority = const Value.absent(),
     this.milestones = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -3017,6 +3162,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     Expression<int>? progressPercent,
     Expression<int>? priority,
     Expression<String>? milestones,
+    Expression<String>? courseId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3029,6 +3175,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
       if (progressPercent != null) 'progress_percent': progressPercent,
       if (priority != null) 'priority': priority,
       if (milestones != null) 'milestones': milestones,
+      if (courseId != null) 'course_id': courseId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3043,6 +3190,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     Value<int>? progressPercent,
     Value<int>? priority,
     Value<String?>? milestones,
+    Value<String?>? courseId,
     Value<int>? rowid,
   }) {
     return GoalsCompanion(
@@ -3055,6 +3203,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
       progressPercent: progressPercent ?? this.progressPercent,
       priority: priority ?? this.priority,
       milestones: milestones ?? this.milestones,
+      courseId: courseId ?? this.courseId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3089,6 +3238,9 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     if (milestones.present) {
       map['milestones'] = Variable<String>(milestones.value);
     }
+    if (courseId.present) {
+      map['course_id'] = Variable<String>(courseId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3107,6 +3259,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
           ..write('progressPercent: $progressPercent, ')
           ..write('priority: $priority, ')
           ..write('milestones: $milestones, ')
+          ..write('courseId: $courseId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3604,6 +3757,17 @@ class $CalendarEventsTable extends CalendarEvents
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _courseIdMeta = const VerificationMeta(
+    'courseId',
+  );
+  @override
+  late final GeneratedColumn<String> courseId = GeneratedColumn<String>(
+    'course_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3617,6 +3781,7 @@ class $CalendarEventsTable extends CalendarEvents
     recurrenceRule,
     reminderOffset,
     linkedGoalId,
+    courseId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3713,6 +3878,12 @@ class $CalendarEventsTable extends CalendarEvents
         ),
       );
     }
+    if (data.containsKey('course_id')) {
+      context.handle(
+        _courseIdMeta,
+        courseId.isAcceptableOrUnknown(data['course_id']!, _courseIdMeta),
+      );
+    }
     return context;
   }
 
@@ -3766,6 +3937,10 @@ class $CalendarEventsTable extends CalendarEvents
         DriftSqlType.string,
         data['${effectivePrefix}linked_goal_id'],
       ),
+      courseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}course_id'],
+      ),
     );
   }
 
@@ -3787,6 +3962,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
   final String? recurrenceRule;
   final int? reminderOffset;
   final String? linkedGoalId;
+  final String? courseId;
   const CalendarEvent({
     required this.id,
     required this.title,
@@ -3799,6 +3975,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     this.recurrenceRule,
     this.reminderOffset,
     this.linkedGoalId,
+    this.courseId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3825,6 +4002,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     }
     if (!nullToAbsent || linkedGoalId != null) {
       map['linked_goal_id'] = Variable<String>(linkedGoalId);
+    }
+    if (!nullToAbsent || courseId != null) {
+      map['course_id'] = Variable<String>(courseId);
     }
     return map;
   }
@@ -3854,6 +4034,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       linkedGoalId: linkedGoalId == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedGoalId),
+      courseId: courseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courseId),
     );
   }
 
@@ -3874,6 +4057,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       recurrenceRule: serializer.fromJson<String?>(json['recurrenceRule']),
       reminderOffset: serializer.fromJson<int?>(json['reminderOffset']),
       linkedGoalId: serializer.fromJson<String?>(json['linkedGoalId']),
+      courseId: serializer.fromJson<String?>(json['courseId']),
     );
   }
   @override
@@ -3891,6 +4075,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       'recurrenceRule': serializer.toJson<String?>(recurrenceRule),
       'reminderOffset': serializer.toJson<int?>(reminderOffset),
       'linkedGoalId': serializer.toJson<String?>(linkedGoalId),
+      'courseId': serializer.toJson<String?>(courseId),
     };
   }
 
@@ -3906,6 +4091,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     Value<String?> recurrenceRule = const Value.absent(),
     Value<int?> reminderOffset = const Value.absent(),
     Value<String?> linkedGoalId = const Value.absent(),
+    Value<String?> courseId = const Value.absent(),
   }) => CalendarEvent(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -3922,6 +4108,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
         ? reminderOffset.value
         : this.reminderOffset,
     linkedGoalId: linkedGoalId.present ? linkedGoalId.value : this.linkedGoalId,
+    courseId: courseId.present ? courseId.value : this.courseId,
   );
   CalendarEvent copyWithCompanion(CalendarEventsCompanion data) {
     return CalendarEvent(
@@ -3944,6 +4131,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       linkedGoalId: data.linkedGoalId.present
           ? data.linkedGoalId.value
           : this.linkedGoalId,
+      courseId: data.courseId.present ? data.courseId.value : this.courseId,
     );
   }
 
@@ -3960,7 +4148,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
           ..write('category: $category, ')
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('reminderOffset: $reminderOffset, ')
-          ..write('linkedGoalId: $linkedGoalId')
+          ..write('linkedGoalId: $linkedGoalId, ')
+          ..write('courseId: $courseId')
           ..write(')'))
         .toString();
   }
@@ -3978,6 +4167,7 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     recurrenceRule,
     reminderOffset,
     linkedGoalId,
+    courseId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3993,7 +4183,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
           other.category == this.category &&
           other.recurrenceRule == this.recurrenceRule &&
           other.reminderOffset == this.reminderOffset &&
-          other.linkedGoalId == this.linkedGoalId);
+          other.linkedGoalId == this.linkedGoalId &&
+          other.courseId == this.courseId);
 }
 
 class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
@@ -4008,6 +4199,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
   final Value<String?> recurrenceRule;
   final Value<int?> reminderOffset;
   final Value<String?> linkedGoalId;
+  final Value<String?> courseId;
   final Value<int> rowid;
   const CalendarEventsCompanion({
     this.id = const Value.absent(),
@@ -4021,6 +4213,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
     this.recurrenceRule = const Value.absent(),
     this.reminderOffset = const Value.absent(),
     this.linkedGoalId = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CalendarEventsCompanion.insert({
@@ -4035,6 +4228,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
     this.recurrenceRule = const Value.absent(),
     this.reminderOffset = const Value.absent(),
     this.linkedGoalId = const Value.absent(),
+    this.courseId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -4052,6 +4246,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
     Expression<String>? recurrenceRule,
     Expression<int>? reminderOffset,
     Expression<String>? linkedGoalId,
+    Expression<String>? courseId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4066,6 +4261,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
       if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
       if (reminderOffset != null) 'reminder_offset': reminderOffset,
       if (linkedGoalId != null) 'linked_goal_id': linkedGoalId,
+      if (courseId != null) 'course_id': courseId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4082,6 +4278,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
     Value<String?>? recurrenceRule,
     Value<int?>? reminderOffset,
     Value<String?>? linkedGoalId,
+    Value<String?>? courseId,
     Value<int>? rowid,
   }) {
     return CalendarEventsCompanion(
@@ -4096,6 +4293,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       reminderOffset: reminderOffset ?? this.reminderOffset,
       linkedGoalId: linkedGoalId ?? this.linkedGoalId,
+      courseId: courseId ?? this.courseId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4136,6 +4334,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
     if (linkedGoalId.present) {
       map['linked_goal_id'] = Variable<String>(linkedGoalId.value);
     }
+    if (courseId.present) {
+      map['course_id'] = Variable<String>(courseId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4156,6 +4357,7 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEvent> {
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('reminderOffset: $reminderOffset, ')
           ..write('linkedGoalId: $linkedGoalId, ')
+          ..write('courseId: $courseId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5173,6 +5375,48 @@ class $FocusSessionsTable extends FocusSessions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _courseIdMeta = const VerificationMeta(
+    'courseId',
+  );
+  @override
+  late final GeneratedColumn<String> courseId = GeneratedColumn<String>(
+    'course_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<String> taskId = GeneratedColumn<String>(
+    'task_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _habitIdMeta = const VerificationMeta(
+    'habitId',
+  );
+  @override
+  late final GeneratedColumn<String> habitId = GeneratedColumn<String>(
+    'habit_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reflectionMeta = const VerificationMeta(
+    'reflection',
+  );
+  @override
+  late final GeneratedColumn<String> reflection = GeneratedColumn<String>(
+    'reflection',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5183,6 +5427,10 @@ class $FocusSessionsTable extends FocusSessions
     status,
     cyclesCompleted,
     presetId,
+    courseId,
+    taskId,
+    habitId,
+    reflection,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5255,6 +5503,30 @@ class $FocusSessionsTable extends FocusSessions
         presetId.isAcceptableOrUnknown(data['preset_id']!, _presetIdMeta),
       );
     }
+    if (data.containsKey('course_id')) {
+      context.handle(
+        _courseIdMeta,
+        courseId.isAcceptableOrUnknown(data['course_id']!, _courseIdMeta),
+      );
+    }
+    if (data.containsKey('task_id')) {
+      context.handle(
+        _taskIdMeta,
+        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    }
+    if (data.containsKey('habit_id')) {
+      context.handle(
+        _habitIdMeta,
+        habitId.isAcceptableOrUnknown(data['habit_id']!, _habitIdMeta),
+      );
+    }
+    if (data.containsKey('reflection')) {
+      context.handle(
+        _reflectionMeta,
+        reflection.isAcceptableOrUnknown(data['reflection']!, _reflectionMeta),
+      );
+    }
     return context;
   }
 
@@ -5296,6 +5568,22 @@ class $FocusSessionsTable extends FocusSessions
         DriftSqlType.string,
         data['${effectivePrefix}preset_id'],
       ),
+      courseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}course_id'],
+      ),
+      taskId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}task_id'],
+      ),
+      habitId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}habit_id'],
+      ),
+      reflection: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reflection'],
+      ),
     );
   }
 
@@ -5320,6 +5608,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
   /// The [FocusPreset] name this session was started from, or `null` for a
   /// manually-entered custom duration.
   final String? presetId;
+  final String? courseId;
+  final String? taskId;
+  final String? habitId;
+  final String? reflection;
   const FocusSession({
     required this.id,
     required this.startedAt,
@@ -5329,6 +5621,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     required this.status,
     required this.cyclesCompleted,
     this.presetId,
+    this.courseId,
+    this.taskId,
+    this.habitId,
+    this.reflection,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5344,6 +5640,18 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     map['cycles_completed'] = Variable<int>(cyclesCompleted);
     if (!nullToAbsent || presetId != null) {
       map['preset_id'] = Variable<String>(presetId);
+    }
+    if (!nullToAbsent || courseId != null) {
+      map['course_id'] = Variable<String>(courseId);
+    }
+    if (!nullToAbsent || taskId != null) {
+      map['task_id'] = Variable<String>(taskId);
+    }
+    if (!nullToAbsent || habitId != null) {
+      map['habit_id'] = Variable<String>(habitId);
+    }
+    if (!nullToAbsent || reflection != null) {
+      map['reflection'] = Variable<String>(reflection);
     }
     return map;
   }
@@ -5362,6 +5670,18 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       presetId: presetId == null && nullToAbsent
           ? const Value.absent()
           : Value(presetId),
+      courseId: courseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courseId),
+      taskId: taskId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(taskId),
+      habitId: habitId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(habitId),
+      reflection: reflection == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reflection),
     );
   }
 
@@ -5379,6 +5699,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       status: serializer.fromJson<String>(json['status']),
       cyclesCompleted: serializer.fromJson<int>(json['cyclesCompleted']),
       presetId: serializer.fromJson<String?>(json['presetId']),
+      courseId: serializer.fromJson<String?>(json['courseId']),
+      taskId: serializer.fromJson<String?>(json['taskId']),
+      habitId: serializer.fromJson<String?>(json['habitId']),
+      reflection: serializer.fromJson<String?>(json['reflection']),
     );
   }
   @override
@@ -5393,6 +5717,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       'status': serializer.toJson<String>(status),
       'cyclesCompleted': serializer.toJson<int>(cyclesCompleted),
       'presetId': serializer.toJson<String?>(presetId),
+      'courseId': serializer.toJson<String?>(courseId),
+      'taskId': serializer.toJson<String?>(taskId),
+      'habitId': serializer.toJson<String?>(habitId),
+      'reflection': serializer.toJson<String?>(reflection),
     };
   }
 
@@ -5405,6 +5733,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     String? status,
     int? cyclesCompleted,
     Value<String?> presetId = const Value.absent(),
+    Value<String?> courseId = const Value.absent(),
+    Value<String?> taskId = const Value.absent(),
+    Value<String?> habitId = const Value.absent(),
+    Value<String?> reflection = const Value.absent(),
   }) => FocusSession(
     id: id ?? this.id,
     startedAt: startedAt ?? this.startedAt,
@@ -5414,6 +5746,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     status: status ?? this.status,
     cyclesCompleted: cyclesCompleted ?? this.cyclesCompleted,
     presetId: presetId.present ? presetId.value : this.presetId,
+    courseId: courseId.present ? courseId.value : this.courseId,
+    taskId: taskId.present ? taskId.value : this.taskId,
+    habitId: habitId.present ? habitId.value : this.habitId,
+    reflection: reflection.present ? reflection.value : this.reflection,
   );
   FocusSession copyWithCompanion(FocusSessionsCompanion data) {
     return FocusSession(
@@ -5429,6 +5765,12 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           ? data.cyclesCompleted.value
           : this.cyclesCompleted,
       presetId: data.presetId.present ? data.presetId.value : this.presetId,
+      courseId: data.courseId.present ? data.courseId.value : this.courseId,
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      habitId: data.habitId.present ? data.habitId.value : this.habitId,
+      reflection: data.reflection.present
+          ? data.reflection.value
+          : this.reflection,
     );
   }
 
@@ -5442,7 +5784,11 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           ..write('durationMinutes: $durationMinutes, ')
           ..write('status: $status, ')
           ..write('cyclesCompleted: $cyclesCompleted, ')
-          ..write('presetId: $presetId')
+          ..write('presetId: $presetId, ')
+          ..write('courseId: $courseId, ')
+          ..write('taskId: $taskId, ')
+          ..write('habitId: $habitId, ')
+          ..write('reflection: $reflection')
           ..write(')'))
         .toString();
   }
@@ -5457,6 +5803,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     status,
     cyclesCompleted,
     presetId,
+    courseId,
+    taskId,
+    habitId,
+    reflection,
   );
   @override
   bool operator ==(Object other) =>
@@ -5469,7 +5819,11 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           other.durationMinutes == this.durationMinutes &&
           other.status == this.status &&
           other.cyclesCompleted == this.cyclesCompleted &&
-          other.presetId == this.presetId);
+          other.presetId == this.presetId &&
+          other.courseId == this.courseId &&
+          other.taskId == this.taskId &&
+          other.habitId == this.habitId &&
+          other.reflection == this.reflection);
 }
 
 class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
@@ -5481,6 +5835,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
   final Value<String> status;
   final Value<int> cyclesCompleted;
   final Value<String?> presetId;
+  final Value<String?> courseId;
+  final Value<String?> taskId;
+  final Value<String?> habitId;
+  final Value<String?> reflection;
   final Value<int> rowid;
   const FocusSessionsCompanion({
     this.id = const Value.absent(),
@@ -5491,6 +5849,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     this.status = const Value.absent(),
     this.cyclesCompleted = const Value.absent(),
     this.presetId = const Value.absent(),
+    this.courseId = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.habitId = const Value.absent(),
+    this.reflection = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FocusSessionsCompanion.insert({
@@ -5502,6 +5864,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     this.status = const Value.absent(),
     this.cyclesCompleted = const Value.absent(),
     this.presetId = const Value.absent(),
+    this.courseId = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.habitId = const Value.absent(),
+    this.reflection = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        startedAt = Value(startedAt),
@@ -5516,6 +5882,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     Expression<String>? status,
     Expression<int>? cyclesCompleted,
     Expression<String>? presetId,
+    Expression<String>? courseId,
+    Expression<String>? taskId,
+    Expression<String>? habitId,
+    Expression<String>? reflection,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5527,6 +5897,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
       if (status != null) 'status': status,
       if (cyclesCompleted != null) 'cycles_completed': cyclesCompleted,
       if (presetId != null) 'preset_id': presetId,
+      if (courseId != null) 'course_id': courseId,
+      if (taskId != null) 'task_id': taskId,
+      if (habitId != null) 'habit_id': habitId,
+      if (reflection != null) 'reflection': reflection,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5540,6 +5914,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     Value<String>? status,
     Value<int>? cyclesCompleted,
     Value<String?>? presetId,
+    Value<String?>? courseId,
+    Value<String?>? taskId,
+    Value<String?>? habitId,
+    Value<String?>? reflection,
     Value<int>? rowid,
   }) {
     return FocusSessionsCompanion(
@@ -5551,6 +5929,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
       status: status ?? this.status,
       cyclesCompleted: cyclesCompleted ?? this.cyclesCompleted,
       presetId: presetId ?? this.presetId,
+      courseId: courseId ?? this.courseId,
+      taskId: taskId ?? this.taskId,
+      habitId: habitId ?? this.habitId,
+      reflection: reflection ?? this.reflection,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5582,6 +5964,18 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     if (presetId.present) {
       map['preset_id'] = Variable<String>(presetId.value);
     }
+    if (courseId.present) {
+      map['course_id'] = Variable<String>(courseId.value);
+    }
+    if (taskId.present) {
+      map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (habitId.present) {
+      map['habit_id'] = Variable<String>(habitId.value);
+    }
+    if (reflection.present) {
+      map['reflection'] = Variable<String>(reflection.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5599,6 +5993,10 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
           ..write('status: $status, ')
           ..write('cyclesCompleted: $cyclesCompleted, ')
           ..write('presetId: $presetId, ')
+          ..write('courseId: $courseId, ')
+          ..write('taskId: $taskId, ')
+          ..write('habitId: $habitId, ')
+          ..write('reflection: $reflection, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5639,8 +6037,86 @@ class $CoursesTable extends Courses with TableInfo<$CoursesTable, Course> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
   @override
-  List<GeneratedColumn> get $columns => [id, name, targetGrade];
+  late final GeneratedColumn<String> code = GeneratedColumn<String>(
+    'code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _instructorMeta = const VerificationMeta(
+    'instructor',
+  );
+  @override
+  late final GeneratedColumn<String> instructor = GeneratedColumn<String>(
+    'instructor',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _roomMeta = const VerificationMeta('room');
+  @override
+  late final GeneratedColumn<String> room = GeneratedColumn<String>(
+    'room',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<int> color = GeneratedColumn<int>(
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _scheduleMeta = const VerificationMeta(
+    'schedule',
+  );
+  @override
+  late final GeneratedColumn<String> schedule = GeneratedColumn<String>(
+    'schedule',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _termMeta = const VerificationMeta('term');
+  @override
+  late final GeneratedColumn<String> term = GeneratedColumn<String>(
+    'term',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    targetGrade,
+    code,
+    instructor,
+    room,
+    color,
+    schedule,
+    term,
+    notes,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -5675,6 +6151,48 @@ class $CoursesTable extends Courses with TableInfo<$CoursesTable, Course> {
         ),
       );
     }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
+      );
+    }
+    if (data.containsKey('instructor')) {
+      context.handle(
+        _instructorMeta,
+        instructor.isAcceptableOrUnknown(data['instructor']!, _instructorMeta),
+      );
+    }
+    if (data.containsKey('room')) {
+      context.handle(
+        _roomMeta,
+        room.isAcceptableOrUnknown(data['room']!, _roomMeta),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
+    if (data.containsKey('schedule')) {
+      context.handle(
+        _scheduleMeta,
+        schedule.isAcceptableOrUnknown(data['schedule']!, _scheduleMeta),
+      );
+    }
+    if (data.containsKey('term')) {
+      context.handle(
+        _termMeta,
+        term.isAcceptableOrUnknown(data['term']!, _termMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
     return context;
   }
 
@@ -5696,6 +6214,34 @@ class $CoursesTable extends Courses with TableInfo<$CoursesTable, Course> {
         DriftSqlType.double,
         data['${effectivePrefix}target_grade'],
       ),
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code'],
+      ),
+      instructor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}instructor'],
+      ),
+      room: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}room'],
+      ),
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color'],
+      ),
+      schedule: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}schedule'],
+      ),
+      term: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}term'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
     );
   }
 
@@ -5709,7 +6255,25 @@ class Course extends DataClass implements Insertable<Course> {
   final String id;
   final String name;
   final double? targetGrade;
-  const Course({required this.id, required this.name, this.targetGrade});
+  final String? code;
+  final String? instructor;
+  final String? room;
+  final int? color;
+  final String? schedule;
+  final String? term;
+  final String? notes;
+  const Course({
+    required this.id,
+    required this.name,
+    this.targetGrade,
+    this.code,
+    this.instructor,
+    this.room,
+    this.color,
+    this.schedule,
+    this.term,
+    this.notes,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -5717,6 +6281,27 @@ class Course extends DataClass implements Insertable<Course> {
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || targetGrade != null) {
       map['target_grade'] = Variable<double>(targetGrade);
+    }
+    if (!nullToAbsent || code != null) {
+      map['code'] = Variable<String>(code);
+    }
+    if (!nullToAbsent || instructor != null) {
+      map['instructor'] = Variable<String>(instructor);
+    }
+    if (!nullToAbsent || room != null) {
+      map['room'] = Variable<String>(room);
+    }
+    if (!nullToAbsent || color != null) {
+      map['color'] = Variable<int>(color);
+    }
+    if (!nullToAbsent || schedule != null) {
+      map['schedule'] = Variable<String>(schedule);
+    }
+    if (!nullToAbsent || term != null) {
+      map['term'] = Variable<String>(term);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
     }
     return map;
   }
@@ -5728,6 +6313,21 @@ class Course extends DataClass implements Insertable<Course> {
       targetGrade: targetGrade == null && nullToAbsent
           ? const Value.absent()
           : Value(targetGrade),
+      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
+      instructor: instructor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(instructor),
+      room: room == null && nullToAbsent ? const Value.absent() : Value(room),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
+      schedule: schedule == null && nullToAbsent
+          ? const Value.absent()
+          : Value(schedule),
+      term: term == null && nullToAbsent ? const Value.absent() : Value(term),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
     );
   }
 
@@ -5740,6 +6340,13 @@ class Course extends DataClass implements Insertable<Course> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       targetGrade: serializer.fromJson<double?>(json['targetGrade']),
+      code: serializer.fromJson<String?>(json['code']),
+      instructor: serializer.fromJson<String?>(json['instructor']),
+      room: serializer.fromJson<String?>(json['room']),
+      color: serializer.fromJson<int?>(json['color']),
+      schedule: serializer.fromJson<String?>(json['schedule']),
+      term: serializer.fromJson<String?>(json['term']),
+      notes: serializer.fromJson<String?>(json['notes']),
     );
   }
   @override
@@ -5749,6 +6356,13 @@ class Course extends DataClass implements Insertable<Course> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'targetGrade': serializer.toJson<double?>(targetGrade),
+      'code': serializer.toJson<String?>(code),
+      'instructor': serializer.toJson<String?>(instructor),
+      'room': serializer.toJson<String?>(room),
+      'color': serializer.toJson<int?>(color),
+      'schedule': serializer.toJson<String?>(schedule),
+      'term': serializer.toJson<String?>(term),
+      'notes': serializer.toJson<String?>(notes),
     };
   }
 
@@ -5756,10 +6370,24 @@ class Course extends DataClass implements Insertable<Course> {
     String? id,
     String? name,
     Value<double?> targetGrade = const Value.absent(),
+    Value<String?> code = const Value.absent(),
+    Value<String?> instructor = const Value.absent(),
+    Value<String?> room = const Value.absent(),
+    Value<int?> color = const Value.absent(),
+    Value<String?> schedule = const Value.absent(),
+    Value<String?> term = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
   }) => Course(
     id: id ?? this.id,
     name: name ?? this.name,
     targetGrade: targetGrade.present ? targetGrade.value : this.targetGrade,
+    code: code.present ? code.value : this.code,
+    instructor: instructor.present ? instructor.value : this.instructor,
+    room: room.present ? room.value : this.room,
+    color: color.present ? color.value : this.color,
+    schedule: schedule.present ? schedule.value : this.schedule,
+    term: term.present ? term.value : this.term,
+    notes: notes.present ? notes.value : this.notes,
   );
   Course copyWithCompanion(CoursesCompanion data) {
     return Course(
@@ -5768,6 +6396,15 @@ class Course extends DataClass implements Insertable<Course> {
       targetGrade: data.targetGrade.present
           ? data.targetGrade.value
           : this.targetGrade,
+      code: data.code.present ? data.code.value : this.code,
+      instructor: data.instructor.present
+          ? data.instructor.value
+          : this.instructor,
+      room: data.room.present ? data.room.value : this.room,
+      color: data.color.present ? data.color.value : this.color,
+      schedule: data.schedule.present ? data.schedule.value : this.schedule,
+      term: data.term.present ? data.term.value : this.term,
+      notes: data.notes.present ? data.notes.value : this.notes,
     );
   }
 
@@ -5776,37 +6413,83 @@ class Course extends DataClass implements Insertable<Course> {
     return (StringBuffer('Course(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('targetGrade: $targetGrade')
+          ..write('targetGrade: $targetGrade, ')
+          ..write('code: $code, ')
+          ..write('instructor: $instructor, ')
+          ..write('room: $room, ')
+          ..write('color: $color, ')
+          ..write('schedule: $schedule, ')
+          ..write('term: $term, ')
+          ..write('notes: $notes')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, targetGrade);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    targetGrade,
+    code,
+    instructor,
+    room,
+    color,
+    schedule,
+    term,
+    notes,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Course &&
           other.id == this.id &&
           other.name == this.name &&
-          other.targetGrade == this.targetGrade);
+          other.targetGrade == this.targetGrade &&
+          other.code == this.code &&
+          other.instructor == this.instructor &&
+          other.room == this.room &&
+          other.color == this.color &&
+          other.schedule == this.schedule &&
+          other.term == this.term &&
+          other.notes == this.notes);
 }
 
 class CoursesCompanion extends UpdateCompanion<Course> {
   final Value<String> id;
   final Value<String> name;
   final Value<double?> targetGrade;
+  final Value<String?> code;
+  final Value<String?> instructor;
+  final Value<String?> room;
+  final Value<int?> color;
+  final Value<String?> schedule;
+  final Value<String?> term;
+  final Value<String?> notes;
   final Value<int> rowid;
   const CoursesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.targetGrade = const Value.absent(),
+    this.code = const Value.absent(),
+    this.instructor = const Value.absent(),
+    this.room = const Value.absent(),
+    this.color = const Value.absent(),
+    this.schedule = const Value.absent(),
+    this.term = const Value.absent(),
+    this.notes = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CoursesCompanion.insert({
     required String id,
     required String name,
     this.targetGrade = const Value.absent(),
+    this.code = const Value.absent(),
+    this.instructor = const Value.absent(),
+    this.room = const Value.absent(),
+    this.color = const Value.absent(),
+    this.schedule = const Value.absent(),
+    this.term = const Value.absent(),
+    this.notes = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -5814,12 +6497,26 @@ class CoursesCompanion extends UpdateCompanion<Course> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<double>? targetGrade,
+    Expression<String>? code,
+    Expression<String>? instructor,
+    Expression<String>? room,
+    Expression<int>? color,
+    Expression<String>? schedule,
+    Expression<String>? term,
+    Expression<String>? notes,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (targetGrade != null) 'target_grade': targetGrade,
+      if (code != null) 'code': code,
+      if (instructor != null) 'instructor': instructor,
+      if (room != null) 'room': room,
+      if (color != null) 'color': color,
+      if (schedule != null) 'schedule': schedule,
+      if (term != null) 'term': term,
+      if (notes != null) 'notes': notes,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5828,12 +6525,26 @@ class CoursesCompanion extends UpdateCompanion<Course> {
     Value<String>? id,
     Value<String>? name,
     Value<double?>? targetGrade,
+    Value<String?>? code,
+    Value<String?>? instructor,
+    Value<String?>? room,
+    Value<int?>? color,
+    Value<String?>? schedule,
+    Value<String?>? term,
+    Value<String?>? notes,
     Value<int>? rowid,
   }) {
     return CoursesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       targetGrade: targetGrade ?? this.targetGrade,
+      code: code ?? this.code,
+      instructor: instructor ?? this.instructor,
+      room: room ?? this.room,
+      color: color ?? this.color,
+      schedule: schedule ?? this.schedule,
+      term: term ?? this.term,
+      notes: notes ?? this.notes,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5850,6 +6561,27 @@ class CoursesCompanion extends UpdateCompanion<Course> {
     if (targetGrade.present) {
       map['target_grade'] = Variable<double>(targetGrade.value);
     }
+    if (code.present) {
+      map['code'] = Variable<String>(code.value);
+    }
+    if (instructor.present) {
+      map['instructor'] = Variable<String>(instructor.value);
+    }
+    if (room.present) {
+      map['room'] = Variable<String>(room.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<int>(color.value);
+    }
+    if (schedule.present) {
+      map['schedule'] = Variable<String>(schedule.value);
+    }
+    if (term.present) {
+      map['term'] = Variable<String>(term.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5862,6 +6594,13 @@ class CoursesCompanion extends UpdateCompanion<Course> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('targetGrade: $targetGrade, ')
+          ..write('code: $code, ')
+          ..write('instructor: $instructor, ')
+          ..write('room: $room, ')
+          ..write('color: $color, ')
+          ..write('schedule: $schedule, ')
+          ..write('term: $term, ')
+          ..write('notes: $notes, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5923,9 +6662,7 @@ class $AssessmentsTable extends Assessments
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _weightMeta = const VerificationMeta(
-    'weight',
-  );
+  static const VerificationMeta _weightMeta = const VerificationMeta('weight');
   @override
   late final GeneratedColumn<double> weight = GeneratedColumn<double>(
     'weight',
@@ -6837,6 +7574,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<String?> recurrenceRule,
       Value<String?> linkedGoalId,
       Value<int?> reminderOffset,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 typedef $$TasksTableUpdateCompanionBuilder =
@@ -6852,6 +7590,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<String?> recurrenceRule,
       Value<String?> linkedGoalId,
       Value<int?> reminderOffset,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 
@@ -6915,6 +7654,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<int> get reminderOffset => $composableBuilder(
     column: $table.reminderOffset,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get courseId => $composableBuilder(
+    column: $table.courseId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6982,6 +7726,11 @@ class $$TasksTableOrderingComposer
     column: $table.reminderOffset,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TasksTableAnnotationComposer
@@ -7033,6 +7782,9 @@ class $$TasksTableAnnotationComposer
     column: $table.reminderOffset,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get courseId =>
+      $composableBuilder(column: $table.courseId, builder: (column) => column);
 }
 
 class $$TasksTableTableManager
@@ -7074,6 +7826,7 @@ class $$TasksTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<String?> linkedGoalId = const Value.absent(),
                 Value<int?> reminderOffset = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
@@ -7087,6 +7840,7 @@ class $$TasksTableTableManager
                 recurrenceRule: recurrenceRule,
                 linkedGoalId: linkedGoalId,
                 reminderOffset: reminderOffset,
+                courseId: courseId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7102,6 +7856,7 @@ class $$TasksTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<String?> linkedGoalId = const Value.absent(),
                 Value<int?> reminderOffset = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
@@ -7115,6 +7870,7 @@ class $$TasksTableTableManager
                 recurrenceRule: recurrenceRule,
                 linkedGoalId: linkedGoalId,
                 reminderOffset: reminderOffset,
+                courseId: courseId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7146,6 +7902,7 @@ typedef $$NotesTableCreateCompanionBuilder =
       required String content,
       Value<DateTime> createdAt,
       Value<String?> tags,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 typedef $$NotesTableUpdateCompanionBuilder =
@@ -7155,6 +7912,7 @@ typedef $$NotesTableUpdateCompanionBuilder =
       Value<String> content,
       Value<DateTime> createdAt,
       Value<String?> tags,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 
@@ -7188,6 +7946,11 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
 
   ColumnFilters<String> get tags => $composableBuilder(
     column: $table.tags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get courseId => $composableBuilder(
+    column: $table.courseId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7225,6 +7988,11 @@ class $$NotesTableOrderingComposer
     column: $table.tags,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NotesTableAnnotationComposer
@@ -7250,6 +8018,9 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<String> get tags =>
       $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumn<String> get courseId =>
+      $composableBuilder(column: $table.courseId, builder: (column) => column);
 }
 
 class $$NotesTableTableManager
@@ -7285,6 +8056,7 @@ class $$NotesTableTableManager
                 Value<String> content = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> tags = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesCompanion(
                 id: id,
@@ -7292,6 +8064,7 @@ class $$NotesTableTableManager
                 content: content,
                 createdAt: createdAt,
                 tags: tags,
+                courseId: courseId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7301,6 +8074,7 @@ class $$NotesTableTableManager
                 required String content,
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> tags = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesCompanion.insert(
                 id: id,
@@ -7308,6 +8082,7 @@ class $$NotesTableTableManager
                 content: content,
                 createdAt: createdAt,
                 tags: tags,
+                courseId: courseId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7580,6 +8355,7 @@ typedef $$GoalsTableCreateCompanionBuilder =
       Value<int> progressPercent,
       Value<int> priority,
       Value<String?> milestones,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 typedef $$GoalsTableUpdateCompanionBuilder =
@@ -7593,6 +8369,7 @@ typedef $$GoalsTableUpdateCompanionBuilder =
       Value<int> progressPercent,
       Value<int> priority,
       Value<String?> milestones,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 
@@ -7646,6 +8423,11 @@ class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
 
   ColumnFilters<String> get milestones => $composableBuilder(
     column: $table.milestones,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get courseId => $composableBuilder(
+    column: $table.courseId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7703,6 +8485,11 @@ class $$GoalsTableOrderingComposer
     column: $table.milestones,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GoalsTableAnnotationComposer
@@ -7744,6 +8531,9 @@ class $$GoalsTableAnnotationComposer
     column: $table.milestones,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get courseId =>
+      $composableBuilder(column: $table.courseId, builder: (column) => column);
 }
 
 class $$GoalsTableTableManager
@@ -7783,6 +8573,7 @@ class $$GoalsTableTableManager
                 Value<int> progressPercent = const Value.absent(),
                 Value<int> priority = const Value.absent(),
                 Value<String?> milestones = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GoalsCompanion(
                 id: id,
@@ -7794,6 +8585,7 @@ class $$GoalsTableTableManager
                 progressPercent: progressPercent,
                 priority: priority,
                 milestones: milestones,
+                courseId: courseId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7807,6 +8599,7 @@ class $$GoalsTableTableManager
                 Value<int> progressPercent = const Value.absent(),
                 Value<int> priority = const Value.absent(),
                 Value<String?> milestones = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GoalsCompanion.insert(
                 id: id,
@@ -7818,6 +8611,7 @@ class $$GoalsTableTableManager
                 progressPercent: progressPercent,
                 priority: priority,
                 milestones: milestones,
+                courseId: courseId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8051,6 +8845,7 @@ typedef $$CalendarEventsTableCreateCompanionBuilder =
       Value<String?> recurrenceRule,
       Value<int?> reminderOffset,
       Value<String?> linkedGoalId,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 typedef $$CalendarEventsTableUpdateCompanionBuilder =
@@ -8066,6 +8861,7 @@ typedef $$CalendarEventsTableUpdateCompanionBuilder =
       Value<String?> recurrenceRule,
       Value<int?> reminderOffset,
       Value<String?> linkedGoalId,
+      Value<String?> courseId,
       Value<int> rowid,
     });
 
@@ -8130,6 +8926,11 @@ class $$CalendarEventsTableFilterComposer
 
   ColumnFilters<String> get linkedGoalId => $composableBuilder(
     column: $table.linkedGoalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get courseId => $composableBuilder(
+    column: $table.courseId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8197,6 +8998,11 @@ class $$CalendarEventsTableOrderingComposer
     column: $table.linkedGoalId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CalendarEventsTableAnnotationComposer
@@ -8248,6 +9054,9 @@ class $$CalendarEventsTableAnnotationComposer
     column: $table.linkedGoalId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get courseId =>
+      $composableBuilder(column: $table.courseId, builder: (column) => column);
 }
 
 class $$CalendarEventsTableTableManager
@@ -8294,6 +9103,7 @@ class $$CalendarEventsTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<int?> reminderOffset = const Value.absent(),
                 Value<String?> linkedGoalId = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CalendarEventsCompanion(
                 id: id,
@@ -8307,6 +9117,7 @@ class $$CalendarEventsTableTableManager
                 recurrenceRule: recurrenceRule,
                 reminderOffset: reminderOffset,
                 linkedGoalId: linkedGoalId,
+                courseId: courseId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8322,6 +9133,7 @@ class $$CalendarEventsTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<int?> reminderOffset = const Value.absent(),
                 Value<String?> linkedGoalId = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CalendarEventsCompanion.insert(
                 id: id,
@@ -8335,6 +9147,7 @@ class $$CalendarEventsTableTableManager
                 recurrenceRule: recurrenceRule,
                 reminderOffset: reminderOffset,
                 linkedGoalId: linkedGoalId,
+                courseId: courseId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8852,6 +9665,10 @@ typedef $$FocusSessionsTableCreateCompanionBuilder =
       Value<String> status,
       Value<int> cyclesCompleted,
       Value<String?> presetId,
+      Value<String?> courseId,
+      Value<String?> taskId,
+      Value<String?> habitId,
+      Value<String?> reflection,
       Value<int> rowid,
     });
 typedef $$FocusSessionsTableUpdateCompanionBuilder =
@@ -8864,6 +9681,10 @@ typedef $$FocusSessionsTableUpdateCompanionBuilder =
       Value<String> status,
       Value<int> cyclesCompleted,
       Value<String?> presetId,
+      Value<String?> courseId,
+      Value<String?> taskId,
+      Value<String?> habitId,
+      Value<String?> reflection,
       Value<int> rowid,
     });
 
@@ -8913,6 +9734,26 @@ class $$FocusSessionsTableFilterComposer
 
   ColumnFilters<String> get presetId => $composableBuilder(
     column: $table.presetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get habitId => $composableBuilder(
+    column: $table.habitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reflection => $composableBuilder(
+    column: $table.reflection,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8965,6 +9806,26 @@ class $$FocusSessionsTableOrderingComposer
     column: $table.presetId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get habitId => $composableBuilder(
+    column: $table.habitId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reflection => $composableBuilder(
+    column: $table.reflection,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FocusSessionsTableAnnotationComposer
@@ -9003,6 +9864,20 @@ class $$FocusSessionsTableAnnotationComposer
 
   GeneratedColumn<String> get presetId =>
       $composableBuilder(column: $table.presetId, builder: (column) => column);
+
+  GeneratedColumn<String> get courseId =>
+      $composableBuilder(column: $table.courseId, builder: (column) => column);
+
+  GeneratedColumn<String> get taskId =>
+      $composableBuilder(column: $table.taskId, builder: (column) => column);
+
+  GeneratedColumn<String> get habitId =>
+      $composableBuilder(column: $table.habitId, builder: (column) => column);
+
+  GeneratedColumn<String> get reflection => $composableBuilder(
+    column: $table.reflection,
+    builder: (column) => column,
+  );
 }
 
 class $$FocusSessionsTableTableManager
@@ -9044,6 +9919,10 @@ class $$FocusSessionsTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<int> cyclesCompleted = const Value.absent(),
                 Value<String?> presetId = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
+                Value<String?> taskId = const Value.absent(),
+                Value<String?> habitId = const Value.absent(),
+                Value<String?> reflection = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion(
                 id: id,
@@ -9054,6 +9933,10 @@ class $$FocusSessionsTableTableManager
                 status: status,
                 cyclesCompleted: cyclesCompleted,
                 presetId: presetId,
+                courseId: courseId,
+                taskId: taskId,
+                habitId: habitId,
+                reflection: reflection,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9066,6 +9949,10 @@ class $$FocusSessionsTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<int> cyclesCompleted = const Value.absent(),
                 Value<String?> presetId = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
+                Value<String?> taskId = const Value.absent(),
+                Value<String?> habitId = const Value.absent(),
+                Value<String?> reflection = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion.insert(
                 id: id,
@@ -9076,6 +9963,10 @@ class $$FocusSessionsTableTableManager
                 status: status,
                 cyclesCompleted: cyclesCompleted,
                 presetId: presetId,
+                courseId: courseId,
+                taskId: taskId,
+                habitId: habitId,
+                reflection: reflection,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9103,6 +9994,537 @@ typedef $$FocusSessionsTableProcessedTableManager =
       FocusSession,
       PrefetchHooks Function()
     >;
+typedef $$CoursesTableCreateCompanionBuilder =
+    CoursesCompanion Function({
+      required String id,
+      required String name,
+      Value<double?> targetGrade,
+      Value<String?> code,
+      Value<String?> instructor,
+      Value<String?> room,
+      Value<int?> color,
+      Value<String?> schedule,
+      Value<String?> term,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+typedef $$CoursesTableUpdateCompanionBuilder =
+    CoursesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<double?> targetGrade,
+      Value<String?> code,
+      Value<String?> instructor,
+      Value<String?> room,
+      Value<int?> color,
+      Value<String?> schedule,
+      Value<String?> term,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+
+class $$CoursesTableFilterComposer
+    extends Composer<_$AppDatabase, $CoursesTable> {
+  $$CoursesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get targetGrade => $composableBuilder(
+    column: $table.targetGrade,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get instructor => $composableBuilder(
+    column: $table.instructor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get room => $composableBuilder(
+    column: $table.room,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get schedule => $composableBuilder(
+    column: $table.schedule,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get term => $composableBuilder(
+    column: $table.term,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CoursesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CoursesTable> {
+  $$CoursesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get targetGrade => $composableBuilder(
+    column: $table.targetGrade,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get instructor => $composableBuilder(
+    column: $table.instructor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get room => $composableBuilder(
+    column: $table.room,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get schedule => $composableBuilder(
+    column: $table.schedule,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get term => $composableBuilder(
+    column: $table.term,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CoursesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CoursesTable> {
+  $$CoursesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get targetGrade => $composableBuilder(
+    column: $table.targetGrade,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
+
+  GeneratedColumn<String> get instructor => $composableBuilder(
+    column: $table.instructor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get room =>
+      $composableBuilder(column: $table.room, builder: (column) => column);
+
+  GeneratedColumn<int> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<String> get schedule =>
+      $composableBuilder(column: $table.schedule, builder: (column) => column);
+
+  GeneratedColumn<String> get term =>
+      $composableBuilder(column: $table.term, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+}
+
+class $$CoursesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CoursesTable,
+          Course,
+          $$CoursesTableFilterComposer,
+          $$CoursesTableOrderingComposer,
+          $$CoursesTableAnnotationComposer,
+          $$CoursesTableCreateCompanionBuilder,
+          $$CoursesTableUpdateCompanionBuilder,
+          (Course, BaseReferences<_$AppDatabase, $CoursesTable, Course>),
+          Course,
+          PrefetchHooks Function()
+        > {
+  $$CoursesTableTableManager(_$AppDatabase db, $CoursesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CoursesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CoursesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CoursesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<double?> targetGrade = const Value.absent(),
+                Value<String?> code = const Value.absent(),
+                Value<String?> instructor = const Value.absent(),
+                Value<String?> room = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+                Value<String?> schedule = const Value.absent(),
+                Value<String?> term = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CoursesCompanion(
+                id: id,
+                name: name,
+                targetGrade: targetGrade,
+                code: code,
+                instructor: instructor,
+                room: room,
+                color: color,
+                schedule: schedule,
+                term: term,
+                notes: notes,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<double?> targetGrade = const Value.absent(),
+                Value<String?> code = const Value.absent(),
+                Value<String?> instructor = const Value.absent(),
+                Value<String?> room = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+                Value<String?> schedule = const Value.absent(),
+                Value<String?> term = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CoursesCompanion.insert(
+                id: id,
+                name: name,
+                targetGrade: targetGrade,
+                code: code,
+                instructor: instructor,
+                room: room,
+                color: color,
+                schedule: schedule,
+                term: term,
+                notes: notes,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CoursesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CoursesTable,
+      Course,
+      $$CoursesTableFilterComposer,
+      $$CoursesTableOrderingComposer,
+      $$CoursesTableAnnotationComposer,
+      $$CoursesTableCreateCompanionBuilder,
+      $$CoursesTableUpdateCompanionBuilder,
+      (Course, BaseReferences<_$AppDatabase, $CoursesTable, Course>),
+      Course,
+      PrefetchHooks Function()
+    >;
+typedef $$AssessmentsTableCreateCompanionBuilder =
+    AssessmentsCompanion Function({
+      required String id,
+      required String courseId,
+      required String name,
+      required double score,
+      required double maxScore,
+      Value<double> weight,
+      Value<DateTime> date,
+      Value<int> rowid,
+    });
+typedef $$AssessmentsTableUpdateCompanionBuilder =
+    AssessmentsCompanion Function({
+      Value<String> id,
+      Value<String> courseId,
+      Value<String> name,
+      Value<double> score,
+      Value<double> maxScore,
+      Value<double> weight,
+      Value<DateTime> date,
+      Value<int> rowid,
+    });
+
+class $$AssessmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $AssessmentsTable> {
+  $$AssessmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get maxScore => $composableBuilder(
+    column: $table.maxScore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weight => $composableBuilder(
+    column: $table.weight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AssessmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AssessmentsTable> {
+  $$AssessmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get maxScore => $composableBuilder(
+    column: $table.maxScore,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weight => $composableBuilder(
+    column: $table.weight,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AssessmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AssessmentsTable> {
+  $$AssessmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get courseId =>
+      $composableBuilder(column: $table.courseId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get score =>
+      $composableBuilder(column: $table.score, builder: (column) => column);
+
+  GeneratedColumn<double> get maxScore =>
+      $composableBuilder(column: $table.maxScore, builder: (column) => column);
+
+  GeneratedColumn<double> get weight =>
+      $composableBuilder(column: $table.weight, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+}
+
+class $$AssessmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AssessmentsTable,
+          Assessment,
+          $$AssessmentsTableFilterComposer,
+          $$AssessmentsTableOrderingComposer,
+          $$AssessmentsTableAnnotationComposer,
+          $$AssessmentsTableCreateCompanionBuilder,
+          $$AssessmentsTableUpdateCompanionBuilder,
+          (
+            Assessment,
+            BaseReferences<_$AppDatabase, $AssessmentsTable, Assessment>,
+          ),
+          Assessment,
+          PrefetchHooks Function()
+        > {
+  $$AssessmentsTableTableManager(_$AppDatabase db, $AssessmentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AssessmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AssessmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AssessmentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> courseId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<double> score = const Value.absent(),
+                Value<double> maxScore = const Value.absent(),
+                Value<double> weight = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AssessmentsCompanion(
+                id: id,
+                courseId: courseId,
+                name: name,
+                score: score,
+                maxScore: maxScore,
+                weight: weight,
+                date: date,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String courseId,
+                required String name,
+                required double score,
+                required double maxScore,
+                Value<double> weight = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AssessmentsCompanion.insert(
+                id: id,
+                courseId: courseId,
+                name: name,
+                score: score,
+                maxScore: maxScore,
+                weight: weight,
+                date: date,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AssessmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AssessmentsTable,
+      Assessment,
+      $$AssessmentsTableFilterComposer,
+      $$AssessmentsTableOrderingComposer,
+      $$AssessmentsTableAnnotationComposer,
+      $$AssessmentsTableCreateCompanionBuilder,
+      $$AssessmentsTableUpdateCompanionBuilder,
+      (
+        Assessment,
+        BaseReferences<_$AppDatabase, $AssessmentsTable, Assessment>,
+      ),
+      Assessment,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9127,4 +10549,8 @@ class $AppDatabaseManager {
       $$HabitEntriesTableTableManager(_db, _db.habitEntries);
   $$FocusSessionsTableTableManager get focusSessions =>
       $$FocusSessionsTableTableManager(_db, _db.focusSessions);
+  $$CoursesTableTableManager get courses =>
+      $$CoursesTableTableManager(_db, _db.courses);
+  $$AssessmentsTableTableManager get assessments =>
+      $$AssessmentsTableTableManager(_db, _db.assessments);
 }

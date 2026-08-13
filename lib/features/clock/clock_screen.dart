@@ -11,13 +11,16 @@ import 'package:quietnote/core/database/repositories/task_repository.dart';
 import 'package:quietnote/core/database/repositories/habit_repository.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
 import 'package:quietnote/core/database/repositories/routine_repository.dart';
+import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/database/repositories/focus_session_repository.dart';
+import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/notifications/notification_service.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
 import 'package:quietnote/features/clock/focus_preset.dart';
 import 'package:quietnote/features/routines/routines_screen.dart';
+import 'package:quietnote/core/audio/ambient_audio_service.dart';
 
 class ClockScreen extends ConsumerStatefulWidget {
   const ClockScreen({super.key});
@@ -32,14 +35,16 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   bool _scheduling = false;
   bool _finishingExpiredSession = false;
 
-  /// `null` until the student taps a chip this session — falls back to the
-  /// persisted `lastUsedPresetId` (see [_selectedPreset]) so the choice
-  /// survives an app restart mid-decision.
   FocusPreset? _preset;
-
-  /// Which half of a chained Pomodoro-style session is currently running.
-  /// Reset to 'work' whenever a fresh (non-chained) timer is started.
   String _phase = 'work';
+
+  // Linking targets
+  String? _selectedCourseId;
+  String? _selectedTaskId;
+  String? _selectedHabitId;
+
+  // Soundscape
+  String _activeAmbientSound = 'none';
 
   @override
   void initState() {
@@ -58,11 +63,15 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   @override
   void dispose() {
     _ticker?.cancel();
+    AmbientAudioService().stop();
     super.dispose();
   }
 
-  /// The chip the student picked this session, falling back to whatever was
-  /// persisted last time so the Clock screen re-opens with the same choice.
+  Future<void> _selectAmbientSound(String soundKey) async {
+    setState(() => _activeAmbientSound = soundKey);
+    await AmbientAudioService().setSound(soundKey);
+  }
+
   FocusPreset? _selectedPreset(AppSettings settings) =>
       _preset ?? focusPresetFromId(settings.lastUsedPresetId);
 
@@ -72,8 +81,6 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       final cfg = preset.config;
       if (cfg != null) _minutes = cfg.work;
     });
-    // Persisted immediately (not just on session start) so the choice
-    // survives an app restart mid-decision.
     await ref
         .read(settingsProvider.notifier)
         .update((s) => s.copyWith(lastUsedPresetId: preset.name));
@@ -86,12 +93,14 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final preset = _selectedPreset(settings);
     final minutes = preset?.config?.work ?? _minutes;
     final scheduled = DateTime.now().add(Duration(minutes: minutes));
-    // Persist and paint the timer first. Notification permission or platform
-    // scheduling must never make the primary Start action feel unresponsive.
+
     await ref.read(focusSessionRepositoryProvider).start(
           endsAt: scheduled,
           minutes: minutes,
           presetId: preset?.name,
+          courseId: _selectedCourseId,
+          taskId: _selectedTaskId,
+          habitId: _selectedHabitId,
         );
     await ref
         .read(settingsProvider.notifier)
@@ -101,14 +110,18 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       _scheduling = false;
       _phase = 'work';
     });
-    UiToast.show(context,
+    UiToast.show(
+      context,
       title: 'Focus session started',
-      message: 'Ends at ${DateFormat.jm().format(scheduled)}. It is saved to your focus history.',
-      intent: UiIntent.success, icon: Icons.timer_outlined);
-    // Scheduling is deliberately non-blocking: the running timer remains
-    // correct even if a device has notifications disabled.
-    unawaited(_scheduleAlert(scheduled, 'Focus timer complete',
-        'Your $minutes-minute focus session is complete.'));
+      message: 'Ends at ${DateFormat.jm().format(scheduled)}. Saved to focus history.',
+      intent: UiIntent.success,
+      icon: Icons.timer_outlined,
+    );
+    unawaited(_scheduleAlert(
+      scheduled,
+      'Focus timer complete',
+      'Your $minutes-minute focus session is complete.',
+    ));
     unawaited(NotificationService().showFocusTimerStatus(scheduled));
   }
 
@@ -120,10 +133,13 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       scheduled,
     );
     if (!mounted || ok) return;
-    UiToast.show(context,
-      title: 'Timer is still running',
-      message: 'Enable notifications in Settings to receive its completion alert.',
-      intent: UiIntent.warning, icon: Icons.notifications_off_outlined);
+    UiToast.show(
+      context,
+      title: 'Timer is running',
+      message: 'Enable notifications in Settings to receive completion alert.',
+      intent: UiIntent.warning,
+      icon: Icons.notifications_off_outlined,
+    );
   }
 
   Future<void> _cancelFocus() async {
@@ -135,21 +151,96 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     if (mounted) setState(() => _phase = 'work');
   }
 
-  /// Ends the active session outright — used when a chained phase (work or
-  /// break) expires and the student declines to continue.
   Future<void> _finishSession({bool cancelled = false}) async {
+    final active = ref.read(activeFocusSessionProvider).value;
     await ref.read(focusSessionRepositoryProvider).finishActive(cancelled: cancelled);
     await NotificationService().clearFocusTimerStatus();
     await ref
         .read(settingsProvider.notifier)
         .update((s) => s.copyWith(clearFocusSession: true));
     if (mounted) setState(() => _phase = 'work');
+
+    if (!cancelled && active != null && mounted) {
+      await _promptPostSessionReflection(active);
+    }
   }
 
-  /// Extends the active session row into its next phase (work -> break, or
-  /// break -> next work) instead of finishing it, so the chain stays one
-  /// history entry.
-  Future<void> _continuePhase(int minutes, String nextPhase, String alertTitle, String alertBody) async {
+  Future<void> _promptPostSessionReflection(FocusSession session) async {
+    final controller = TextEditingController();
+    final saveToJournal = ValueNotifier<bool>(false);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.stars, color: context.uiColors.primary),
+            const SizedBox(width: 8),
+            const Text('Focus Session Complete!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Great job staying focused for ${session.durationMinutes} minutes! Write a quick reflection on what you accomplished:',
+              style: context.uiText.body,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Completed Chapter 3 notes, solved 5 problem set questions.',
+              ),
+            ),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<bool>(
+              valueListenable: saveToJournal,
+              builder: (context, value, _) {
+                return CheckboxListTile(
+                  value: value,
+                  onChanged: (v) => saveToJournal.value = v ?? false,
+                  title: const Text('Save as Journal Entry'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save Reflection')),
+        ],
+      ),
+    );
+
+    if (ok == true && controller.text.trim().isNotEmpty) {
+      final reflectionText = controller.text.trim();
+      await ref.read(focusSessionRepositoryProvider).saveReflection(session.id, reflectionText);
+
+      if (saveToJournal.value) {
+        await ref.read(journalRepositoryProvider).addEntry(
+              reflectionText,
+              title: 'Focus Session Reflection',
+              tags: ['Focus', if (session.courseId != null) 'Course'],
+            );
+      }
+      if (mounted) {
+        UiToast.show(context, title: 'Reflection saved', intent: UiIntent.success);
+      }
+    }
+  }
+
+  Future<void> _continuePhase(
+    int minutes,
+    String nextPhase,
+    String alertTitle,
+    String alertBody,
+  ) async {
     final scheduled = DateTime.now().add(Duration(minutes: minutes));
     await ref.read(focusSessionRepositoryProvider).extendActive(endsAt: scheduled);
     await ref
@@ -160,9 +251,6 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     unawaited(NotificationService().showFocusTimerStatus(scheduled));
   }
 
-  /// Fires when the running timer (work or break phase) hits zero. For a
-  /// Pomodoro-style preset this offers to chain into the next phase instead
-  /// of just marking the session done.
   Future<void> _handleTimerExpiry() async {
     if (_finishingExpiredSession) return;
     _finishingExpiredSession = true;
@@ -206,8 +294,6 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   }
 
   Future<void> _promptStartNextWork(FocusPresetConfig cfg) async {
-    // A break finishing is what closes out a full work -> break -> work
-    // loop, regardless of whether the student continues into another one.
     await ref.read(focusSessionRepositoryProvider).incrementCycle();
     if (!mounted) return;
     final start = await UiDialog.confirm(
@@ -234,25 +320,25 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).value ?? const AppSettings();
     final events =
-        ref.watch(aggregatedCalendarEventsProvider).value ??
-        const <CalendarEvent>[];
+        ref.watch(aggregatedCalendarEventsProvider).value ?? const <CalendarEvent>[];
     final next = _nextEvent(events);
     final tasks = ref.watch(tasksStreamProvider).value ?? const <Task>[];
     final habits = ref.watch(habitsStreamProvider).value ?? const <Habit>[];
     final goals = ref.watch(goalsStreamProvider).value ?? const <Goal>[];
-    final routines =
-        ref.watch(routinesStreamProvider).value ?? const <Routine>[];
+    final courses = ref.watch(coursesStreamProvider).value ?? const <Course>[];
+    final routines = ref.watch(routinesStreamProvider).value ?? const <Routine>[];
     final today = DateTime(_now.year, _now.month, _now.day);
+
     final todayTasks = tasks
         .where(
           (t) =>
               t.dueDate == null ||
-              DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day) ==
-                  today,
+              DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day) == today,
         )
         .toList();
     final completedTasks = todayTasks.where((t) => t.isCompleted).length;
     final activeHabits = habits.where((h) => !h.archived).toList();
+
     final routineContents = {
       for (final r in routines.where((r) => r.isActive))
         r.id: RoutineContent.parse(r.description),
@@ -265,27 +351,29 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       0,
       (sum, content) => sum + content.doneCount,
     );
+
     final focusEnd = settings.focusSessionEndsAt;
     final activeSession = ref.watch(activeFocusSessionProvider).value;
-    final focusHistory = ref.watch(recentFocusSessionsProvider).value ??
-        const <FocusSession>[];
+    final focusHistory = ref.watch(recentFocusSessionsProvider).value ?? const <FocusSession>[];
+
     final selectedPreset = _selectedPreset(settings);
     final presetCfg = selectedPreset?.config;
     final effectiveMinutes = presetCfg?.work ?? _minutes;
+
     final totalCyclesInHistory = focusHistory.fold<int>(
       0,
       (sum, s) => sum + s.cyclesCompleted,
     );
+
     final midnight = settings.clockStyle == 'midnight';
     final minimal = settings.clockStyle == 'minimal';
-    // A fixed rich surface prevents dark-theme foreground colors being drawn
-    // on a light accent card (the blank clock panel shown in the report).
     final cardColor = midnight
         ? const Color(0xFF101827)
         : minimal
             ? context.uiColors.surface
             : const Color(0xFF4E46C7);
     final foreground = minimal ? context.uiColors.foreground : Colors.white;
+
     return UiPage(
       header: const UiHeader(
         title: 'Clock & Focus',
@@ -332,6 +420,70 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
             ),
           ],
           const SizedBox(height: 18),
+          UiCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.surround_sound_outlined, color: context.uiColors.primary),
+                    const SizedBox(width: 8),
+                    Text('Ambient Soundscape', style: context.uiText.bodyStrong),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _SoundChip(
+                        label: 'None',
+                        icon: Icons.volume_off_outlined,
+                        selected: _activeAmbientSound == 'none',
+                        onTap: () => _selectAmbientSound('none'),
+                      ),
+                      const SizedBox(width: 8),
+                      _SoundChip(
+                        label: 'Rain',
+                        icon: Icons.water_drop_outlined,
+                        selected: _activeAmbientSound == 'rain',
+                        onTap: () => _selectAmbientSound('rain'),
+                      ),
+                      const SizedBox(width: 8),
+                      _SoundChip(
+                        label: 'Waves',
+                        icon: Icons.waves,
+                        selected: _activeAmbientSound == 'waves',
+                        onTap: () => _selectAmbientSound('waves'),
+                      ),
+                      const SizedBox(width: 8),
+                      _SoundChip(
+                        label: 'White Noise',
+                        icon: Icons.graphic_eq,
+                        selected: _activeAmbientSound == 'whitenoise',
+                        onTap: () => _selectAmbientSound('whitenoise'),
+                      ),
+                      const SizedBox(width: 8),
+                      _SoundChip(
+                        label: 'Cafe',
+                        icon: Icons.local_cafe_outlined,
+                        selected: _activeAmbientSound == 'cafe',
+                        onTap: () => _selectAmbientSound('cafe'),
+                      ),
+                      const SizedBox(width: 8),
+                      _SoundChip(
+                        label: 'Synth Focus',
+                        icon: Icons.music_note_outlined,
+                        selected: _activeAmbientSound == 'synth',
+                        onTap: () => _selectAmbientSound('synth'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
           Text('Live progress', style: context.uiText.bodyStrong),
           const SizedBox(height: 8),
           Row(
@@ -341,9 +493,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                   icon: Icons.check_circle_outline,
                   label: 'Tasks',
                   value: '$completedTasks/${todayTasks.length}',
-                  progress: todayTasks.isEmpty
-                      ? 0
-                      : completedTasks / todayTasks.length,
+                  progress: todayTasks.isEmpty ? 0 : completedTasks / todayTasks.length,
                 ),
               ),
               const SizedBox(width: 10),
@@ -366,8 +516,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
           else
             ...activeHabits.take(3).map((habit) {
               final entries =
-                  ref.watch(habitEntriesStreamProvider(habit.id)).value ??
-                  const <HabitEntry>[];
+                  ref.watch(habitEntriesStreamProvider(habit.id)).value ?? const <HabitEntry>[];
               final matching = entries.where(
                 (e) =>
                     e.date.year == today.year &&
@@ -376,8 +525,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
               );
               final entry = matching.isEmpty ? null : matching.first;
               final target = habit.goalTarget;
-              final value =
-                  entry?.value ?? (entry?.isDone == true ? (target ?? 1) : 0);
+              final value = entry?.value ?? (entry?.isDone == true ? (target ?? 1) : 0);
               final progress = target != null && target > 0
                   ? (value / target).clamp(0.0, 1.0)
                   : (entry?.isDone == true ? 1.0 : 0.0);
@@ -388,9 +536,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: UiCard(
-                  onTap: () => ref
-                      .read(habitRepositoryProvider)
-                      .toggleEntry(habit.id, today),
+                  onTap: () =>
+                      ref.read(habitRepositoryProvider).toggleEntry(habit.id, today),
                   child: Row(
                     children: [
                       UiProgressCircle(
@@ -413,9 +560,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                         ),
                       ),
                       Icon(
-                        progress >= 1
-                            ? Icons.check_circle
-                            : Icons.play_circle_outline,
+                        progress >= 1 ? Icons.check_circle : Icons.play_circle_outline,
                         color: context.uiColors.primary,
                       ),
                     ],
@@ -492,6 +637,52 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                if (courses.isNotEmpty) ...[
+                  Text('Focus target (Course / Class)', style: context.uiText.caption),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _selectedCourseId,
+                    decoration: const InputDecoration(
+                      hintText: 'Select course to link focus session...',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('General Focus (No Course)'),
+                      ),
+                      ...courses.map((c) => DropdownMenuItem<String?>(
+                            value: c.id,
+                            child: Text(c.code != null ? '${c.code} - ${c.name}' : c.name),
+                          )),
+                    ],
+                    onChanged: (val) => setState(() => _selectedCourseId = val),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (tasks.isNotEmpty) ...[
+                  Text('Focus target (Task / Assignment)', style: context.uiText.caption),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _selectedTaskId,
+                    decoration: const InputDecoration(
+                      hintText: 'Select task to link focus session...',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('General Focus (No Task)'),
+                      ),
+                      ...tasks.where((t) => !t.isCompleted).map((t) => DropdownMenuItem<String?>(
+                            value: t.id,
+                            child: Text(t.title, overflow: TextOverflow.ellipsis),
+                          )),
+                    ],
+                    onChanged: (val) => setState(() => _selectedTaskId = val),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Text('Study preset', style: context.uiText.caption),
                 const SizedBox(height: 8),
                 UiToggleGroup<FocusPreset>(
@@ -539,7 +730,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                     onChanged: (value) => setState(() => _minutes = value),
                   ),
                 const SizedBox(height: 14),
-              SizedBox(
+                SizedBox(
                   width: double.infinity,
                   child: UiButton(
                     label: 'Start $effectiveMinutes-minute timer',
@@ -552,12 +743,71 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
             ),
           ),
           if (focusHistory.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              '${focusHistory.where((s) => s.status == 'completed').length} completed focus sessions saved'
-              '${totalCyclesInHistory > 0 ? ' · $totalCyclesInHistory study cycles completed' : ''}',
-              style: context.uiText.caption,
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Focus History', style: context.uiText.bodyStrong),
+                const Spacer(),
+                Text(
+                  '${focusHistory.where((s) => s.status == 'completed').length} completed ($totalCyclesInHistory cycles)',
+                  style: context.uiText.caption,
+                ),
+              ],
             ),
+            const SizedBox(height: 10),
+            ...focusHistory.take(5).map((s) {
+              final course = courses.where((c) => c.id == s.courseId).firstOrNull;
+              final task = tasks.where((t) => t.id == s.taskId).firstOrNull;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: UiCard(
+                  child: Row(
+                    children: [
+                      Icon(
+                        s.status == 'completed' ? Icons.check_circle : Icons.cancel,
+                        color: s.status == 'completed'
+                            ? context.uiColors.primary
+                            : context.uiColors.destructive,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text('${s.durationMinutes} min focus session', style: context.uiText.bodyStrong),
+                                if (course != null) ...[
+                                  const SizedBox(width: 8),
+                                  UiBadge(
+                                    label: course.code ?? course.name,
+                                    intent: UiIntent.primary,
+                                    size: UiSize.xs,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (task != null) ...[
+                              const SizedBox(height: 2),
+                              Text('Task: ${task.title}', style: context.uiText.caption),
+                            ],
+                            Text(
+                              DateFormat.yMMMd().add_jm().format(s.startedAt),
+                              style: context.uiText.caption.copyWith(color: context.uiColors.foregroundMuted),
+                            ),
+                            if (s.reflection != null && s.reflection!.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text('"${s.reflection}"', style: context.uiText.caption.copyWith(fontStyle: FontStyle.italic)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ],
           const SizedBox(height: 20),
           Text('Up next', style: context.uiText.bodyStrong),
@@ -596,11 +846,64 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
 
   CalendarEvent? _nextEvent(List<CalendarEvent> events) {
     final upcoming =
-        events
-            .where((event) => event.startTime.isAfter(DateTime.now()))
-            .toList()
+        events.where((event) => event.startTime.isAfter(DateTime.now())).toList()
           ..sort((a, b) => a.startTime.compareTo(b.startTime));
     return upcoming.isEmpty ? null : upcoming.first;
+  }
+}
+
+class _SoundChip extends StatelessWidget {
+  const _SoundChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.uiColors;
+    final activeBg = c.primary;
+    final activeFg = c.onPrimary;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? activeBg : c.surfaceMuted,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? activeBg : c.border,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? activeFg : c.foregroundMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: context.uiText.caption.copyWith(
+                color: selected ? activeFg : c.foreground,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

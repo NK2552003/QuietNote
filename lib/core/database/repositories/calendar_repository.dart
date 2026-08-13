@@ -56,6 +56,7 @@ final aggregatedCalendarEventsProvider = Provider<AsyncValue<List<CalendarEvent>
         recurrenceRule: null,
         reminderOffset: t.reminderOffset,
         linkedGoalId: t.linkedGoalId,
+        courseId: t.courseId,
       ));
     }
   }
@@ -75,6 +76,7 @@ final aggregatedCalendarEventsProvider = Provider<AsyncValue<List<CalendarEvent>
         recurrenceRule: null,
         reminderOffset: null,
         linkedGoalId: g.id,
+        courseId: g.courseId,
       ));
     }
   }
@@ -94,6 +96,7 @@ final aggregatedCalendarEventsProvider = Provider<AsyncValue<List<CalendarEvent>
         recurrenceRule: null,
         reminderOffset: null,
         linkedGoalId: null,
+        courseId: null,
       ));
     }
   }
@@ -124,6 +127,7 @@ class CalendarRepository {
     String? recurrenceRule,
     int? reminderOffset,
     String? linkedGoalId,
+    String? courseId,
   }) async {
     final id = const Uuid().v4();
     await _db.into(_db.calendarEvents).insert(CalendarEventsCompanion.insert(
@@ -138,6 +142,7 @@ class CalendarRepository {
           recurrenceRule: drift.Value(recurrenceRule),
           reminderOffset: drift.Value(reminderOffset),
           linkedGoalId: drift.Value(linkedGoalId),
+          courseId: drift.Value(courseId),
         ));
     return id;
   }
@@ -154,6 +159,7 @@ class CalendarRepository {
     String? recurrenceRule,
     int? reminderOffset,
     String? linkedGoalId,
+    String? courseId,
   }) async {
     await (_db.update(_db.calendarEvents)..where((e) => e.id.equals(id))).write(
       CalendarEventsCompanion(
@@ -167,6 +173,7 @@ class CalendarRepository {
         recurrenceRule: drift.Value(recurrenceRule),
         reminderOffset: drift.Value(reminderOffset),
         linkedGoalId: drift.Value(linkedGoalId),
+        courseId: drift.Value(courseId),
       ),
     );
   }

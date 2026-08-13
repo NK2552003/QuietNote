@@ -47,7 +47,7 @@ class CoursesScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Courses',
-        subtitle: 'Master new skills & expand your knowledge step by step.',
+        subtitle: 'Manage classes, grades, assignments & focus time.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'New course',
@@ -68,7 +68,7 @@ class CoursesScreen extends ConsumerWidget {
           if (courses.isEmpty) {
             return const UiEmptyState(
               title: 'No courses yet',
-              message: 'Add a course to start logging assessments and tracking your grade.',
+              message: 'Add a course to start tracking grades, assignments, lectures & focus hours.',
               icon: Icons.school_outlined,
             );
           }
@@ -116,9 +116,11 @@ class _CourseCard extends ConsumerWidget {
     final intent = assessments.isEmpty
         ? UiIntent.neutral
         : (meetsTarget ? UiIntent.success : UiIntent.danger);
+    final cardColor = course.color != null ? Color(course.color!) : c.primary;
 
     return UiCard(
       onTap: onTap,
+      accentColor: cardColor,
       padding: const EdgeInsets.all(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,8 +129,36 @@ class _CourseCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(course.name, style: context.uiText.bodyStrong),
-                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    if (course.code != null && course.code!.isNotEmpty) ...[
+                      UiBadge(
+                        label: course.code!,
+                        intent: UiIntent.primary,
+                        size: UiSize.xs,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: Text(
+                        course.name,
+                        style: context.uiText.bodyStrong,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                if (course.instructor != null || course.room != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      if (course.instructor != null) course.instructor,
+                      if (course.room != null) course.room,
+                    ].join(' \u00b7 '),
+                    style: context.uiText.caption.copyWith(color: c.foregroundMuted),
+                  ),
+                ],
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -142,6 +172,12 @@ class _CourseCard extends ConsumerWidget {
                       UiBadge(
                         label: 'Target ${_trimNum(course.targetGrade!)}',
                         intent: UiIntent.info,
+                        size: UiSize.sm,
+                      ),
+                    if (course.term != null)
+                      UiBadge(
+                        label: course.term!,
+                        intent: UiIntent.neutral,
                         size: UiSize.sm,
                       ),
                   ],

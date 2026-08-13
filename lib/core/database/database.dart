@@ -73,6 +73,7 @@ class Tasks extends Table {
   TextColumn get recurrenceRule => text().nullable()();
   TextColumn get linkedGoalId => text().nullable()();
   IntColumn get reminderOffset => integer().nullable()(); // minutes
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -88,6 +89,7 @@ class Notes extends Table {
   /// convention already used by `imagePaths` and `daysOfWeek` elsewhere in
   /// this schema.
   TextColumn get tags => text().nullable()();
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -124,6 +126,7 @@ class Goals extends Table {
   IntColumn get progressPercent => integer().withDefault(const Constant(0))();
   IntColumn get priority => integer().withDefault(const Constant(0))();
   TextColumn get milestones => text().nullable()(); // JSON string
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -154,6 +157,7 @@ class CalendarEvents extends Table {
   TextColumn get recurrenceRule => text().nullable()();
   IntColumn get reminderOffset => integer().nullable()();
   TextColumn get linkedGoalId => text().nullable()();
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -192,6 +196,11 @@ class FocusSessions extends Table {
   /// manually-entered custom duration.
   TextColumn get presetId => text().nullable()();
 
+  TextColumn get courseId => text().nullable()();
+  TextColumn get taskId => text().nullable()();
+  TextColumn get habitId => text().nullable()();
+  TextColumn get reflection => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -204,6 +213,13 @@ class Courses extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   RealColumn get targetGrade => real().nullable()();
+  TextColumn get code => text().nullable()(); // e.g. CS101
+  TextColumn get instructor => text().nullable()();
+  TextColumn get room => text().nullable()();
+  IntColumn get color => integer().nullable()();
+  TextColumn get schedule => text().nullable()();
+  TextColumn get term => text().nullable()();
+  TextColumn get notes => text().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -243,7 +259,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 10; // v10: grade tracker (courses & assessments)
+  int get schemaVersion => 11; // v11: rich courses & focus session linking
 
   @override
   MigrationStrategy get migration {
@@ -353,6 +369,25 @@ class AppDatabase extends _$AppDatabase {
           // this is just createTable, never addColumn.
           await m.createTable(courses);
           await m.createTable(assessments);
+        }
+        if (from < 11) {
+          await m.addColumn(courses, courses.code);
+          await m.addColumn(courses, courses.instructor);
+          await m.addColumn(courses, courses.room);
+          await m.addColumn(courses, courses.color);
+          await m.addColumn(courses, courses.schedule);
+          await m.addColumn(courses, courses.term);
+          await m.addColumn(courses, courses.notes);
+
+          await m.addColumn(focusSessions, focusSessions.courseId);
+          await m.addColumn(focusSessions, focusSessions.taskId);
+          await m.addColumn(focusSessions, focusSessions.habitId);
+          await m.addColumn(focusSessions, focusSessions.reflection);
+
+          await m.addColumn(tasks, tasks.courseId);
+          await m.addColumn(notes, notes.courseId);
+          await m.addColumn(calendarEvents, calendarEvents.courseId);
+          await m.addColumn(goals, goals.courseId);
         }
       },
       beforeOpen: (details) async {

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
+import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -42,6 +43,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   String _voiceBaseText = '';
 
   late String _currentNoteId;
+  String _courseId = '';
   bool get _isEditing => widget.noteId != null;
 
   @override
@@ -70,6 +72,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _contentController.text = note.content;
       _createdAt = note.createdAt;
       _tags = parseTagsCsv(note.tags);
+      _courseId = note.courseId ?? '';
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -100,6 +103,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Future<void> _saveNote() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
+    final courseIdVal = _courseId.isEmpty ? null : _courseId;
     if (title.isEmpty && content.isEmpty) {
       UiToast.show(
         context,
@@ -114,7 +118,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       if (_isEditing) {
         await ref
             .read(noteRepositoryProvider)
-            .updateNote(_currentNoteId, title, content, tags: _tags);
+            .updateNote(_currentNoteId, title, content, tags: _tags, courseId: courseIdVal);
       } else {
         await ref
             .read(databaseProvider)
@@ -125,6 +129,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 title: title.isEmpty ? 'Untitled' : title,
                 content: content,
                 tags: drift.Value(tagsToCsv(_tags)),
+                courseId: drift.Value(courseIdVal),
               ),
             );
       }
@@ -351,6 +356,31 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   tags: _tags,
                   onChanged: (v) => setState(() => _tags = v),
                   hintText: 'Add a subject tag',
+                ),
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final coursesAsync = ref.watch(coursesStreamProvider);
+                    final courses = coursesAsync.value ?? const <Course>[];
+                    if (courses.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: UiSelect<String>(
+                        label: 'Course',
+                        hintText: 'No course linked',
+                        value: _courseId,
+                        leadingIcon: Icons.school_outlined,
+                        options: [
+                          const UiOption(value: '', label: 'General / No course'),
+                          ...courses.map((c) => UiOption(
+                                value: c.id,
+                                label: c.code != null ? '${c.code} - ${c.name}' : c.name,
+                              )),
+                        ],
+                        onChanged: (v) => setState(() => _courseId = v),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 if (_isPreview)

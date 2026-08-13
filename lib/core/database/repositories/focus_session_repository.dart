@@ -34,6 +34,10 @@ class FocusSessionRepository {
     required DateTime endsAt,
     required int minutes,
     String? presetId,
+    String? courseId,
+    String? taskId,
+    String? habitId,
+    String? reflection,
   }) async {
     final id = const Uuid().v4();
     final now = DateTime.now();
@@ -47,6 +51,10 @@ class FocusSessionRepository {
         endsAt: endsAt,
         durationMinutes: minutes,
         presetId: drift.Value(presetId),
+        courseId: drift.Value(courseId),
+        taskId: drift.Value(taskId),
+        habitId: drift.Value(habitId),
+        reflection: drift.Value(reflection),
       ));
     });
     return id;
@@ -73,12 +81,19 @@ class FocusSessionRepository {
     );
   }
 
-  Future<void> finishActive({bool cancelled = false}) async {
+  Future<void> finishActive({bool cancelled = false, String? reflection}) async {
     await (_db.update(_db.focusSessions)..where((t) => t.status.equals('active'))).write(
       FocusSessionsCompanion(
         status: drift.Value(cancelled ? 'cancelled' : 'completed'),
         endedAt: drift.Value(DateTime.now()),
+        reflection: reflection != null ? drift.Value(reflection) : const drift.Value.absent(),
       ),
+    );
+  }
+
+  Future<void> saveReflection(String id, String reflection) async {
+    await (_db.update(_db.focusSessions)..where((t) => t.id.equals(id))).write(
+      FocusSessionsCompanion(reflection: drift.Value(reflection)),
     );
   }
 }
