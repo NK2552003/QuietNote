@@ -99,8 +99,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
     context.go('/');
     if (!skipped && _reminders) {
-      Future<void>.delayed(const Duration(milliseconds: 300), () async {
-        await NotificationService().requestPermissions();
+      // A fixed delay (previously 300ms) raced the OS permission dialog
+      // against the still-settling first-launch frame: on a slower device,
+      // or when the delay simply expired before the Home route's activity
+      // window had finished attaching, `request()` returned without ever
+      // showing UI — the prompt silently never appeared. Waiting for two
+      // post-frame callbacks instead ties the request to frames actually
+      // being rendered, so it fires once the new route has genuinely
+      // settled, on any device.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await NotificationService().requestPermissions();
+        });
       });
     }
   }

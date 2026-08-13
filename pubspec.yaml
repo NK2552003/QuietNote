@@ -32,6 +32,7 @@ dependencies:
   file_picker: ^8.1.2
   intl: ^0.19.0
   flutter_markdown: any
+  markdown: any
   flutter_mermaid: any
   image_picker: ^1.2.3
   fl_chart: ^1.2.0

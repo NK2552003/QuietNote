@@ -9,6 +9,7 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/widgets/markdown_mermaid.dart';
 
 /// Read-only route: opening an existing note never puts the cursor in a
 /// writable field. Editing is an explicit, deliberate action.
@@ -60,11 +61,45 @@ class NotePreviewScreen extends ConsumerWidget {
                 ? '*Nothing written yet.*'
                 : note.content,
             selectable: true,
+            builders: <String, MarkdownElementBuilder>{
+              'pre': MermaidCodeBuilder(
+                dark: context.ui.brightness == Brightness.dark,
+              ),
+            },
             sizedImageBuilder: (config) => _localImage(ref, config.uri),
             styleSheet: MarkdownStyleSheet(
               p: context.uiText.body,
-              h1: context.uiText.heading,
-              h2: context.uiText.subheading,
+              h1: context.uiText.heading.copyWith(fontSize: 26),
+              h2: context.uiText.subheading.copyWith(fontSize: 22),
+              h3: context.uiText.subheading,
+              blockquote: context.uiText.body.copyWith(
+                color: context.uiColors.foregroundMuted,
+                fontStyle: FontStyle.italic,
+              ),
+              blockquoteDecoration: BoxDecoration(
+                color: context.uiColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(8),
+                border: Border(
+                  left: BorderSide(color: context.uiColors.border, width: 3),
+                ),
+              ),
+              blockquotePadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              code: context.uiText.numeric,
+              codeblockDecoration: BoxDecoration(
+                color: context.uiColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              horizontalRuleDecoration: BoxDecoration(
+                border: Border(top: BorderSide(color: context.uiColors.border)),
+              ),
+              tableBorder: TableBorder.all(color: context.uiColors.border),
+              a: context.uiText.body.copyWith(
+                color: context.uiColors.primary,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ),
         );

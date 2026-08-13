@@ -65,9 +65,9 @@ extension UiTextSizeX on UiTextSize {
       case UiTextSize.standard:
         return 1.0;
       case UiTextSize.large:
-        return 1.1;
+        return 1.15;
       case UiTextSize.xlarge:
-        return 1.2;
+        return 1.3;
     }
   }
 }

@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:quietnote/core/widgets/markdown_mermaid.dart';
 
 const List<UiToggleOption<String>> _moodOptions = [
   UiToggleOption(value: 'Great', label: '😃 Great'),
@@ -39,6 +40,12 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
   DateTime _entryDate = DateTime.now();
   final SpeechToText _speech = SpeechToText();
   bool _listening = false;
+  // Text already in the field when dictation started. `recognizedWords`
+  // from the plugin is the *full* phrase spoken since `listen()` began, not
+  // a delta, so every callback must be applied on top of this fixed base —
+  // reusing the (already-updated) live text as the base caused each partial
+  // result to be appended again, duplicating words on every callback.
+  String _voiceBaseText = '';
 
   late String _currentEntryId;
   bool get _isEditing => widget.entryId != null;
@@ -71,6 +78,29 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
       _entryDate = entry.createdAt;
     }
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  void _leave() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/journal');
+    }
+  }
+
+  /// Used by the system back gesture. A genuinely empty, never-edited entry
+  /// has nothing worth keeping (or warning about) — just let the person
+  /// leave. Anything with content goes through `_saveEntry` so it, and any
+  /// picked photo, is actually persisted before the screen closes.
+  Future<void> _handleBack() async {
+    final bool hasContent =
+        _titleController.text.trim().isNotEmpty ||
+        _contentController.text.trim().isNotEmpty;
+    if (!hasContent) {
+      _leave();
+      return;
+    }
+    await _saveEntry();
   }
 
   Future<void> _saveEntry() async {
@@ -112,11 +142,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
       }
     }
     if (!mounted) return;
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/journal');
-    }
+    _leave();
   }
 
   Future<void> _deleteEntry() async {
@@ -239,14 +265,13 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
       }
       return;
     }
+    _voiceBaseText = _contentController.text.trimRight();
     setState(() => _listening = true);
     await _speech.listen(
       onResult: (result) {
         if (!mounted) return;
-        final before = _contentController.text.trimRight();
-        final text =
-            '${before.isEmpty ? '' : '$before '} ${result.recognizedWords}'
-                .trimLeft();
+        final base = _voiceBaseText;
+        final text = '${base.isEmpty ? '' : '$base '}${result.recognizedWords}';
         _contentController.value = TextEditingValue(
           text: text,
           selection: TextSelection.collapsed(offset: text.length),
@@ -262,6 +287,22 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
         ? 0
         : _contentController.text.trim().split(RegExp(r'\s+')).length;
 
+    return PopScope(
+      // A photo picked into a not-yet-saved entry is only linked to a real
+      // entry once `_saveEntry` runs. Without intercepting the pop, the
+      // Android back gesture (unlike the header's back button) skipped
+      // straight past `_saveEntry`, so the entry — and the attachment row
+      // pointing at it — never got created and the picked photo was orphaned.
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) return;
+        await _handleBack();
+      },
+      child: _buildScaffold(context, wordCount),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, int wordCount) {
     return UiPage(
       header: UiHeader(
         leading: UiIconButton(
@@ -330,6 +371,11 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                         ? '*Nothing written yet.*'
                         : _contentController.text,
                     selectable: true,
+                    builders: <String, MarkdownElementBuilder>{
+                      'pre': MermaidCodeBuilder(
+                        dark: context.ui.brightness == Brightness.dark,
+                      ),
+                    },
                     sizedImageBuilder: (config) {
                       if (config.uri.scheme == 'local-image') {
                         final attachmentId = config.uri.host;
@@ -371,10 +417,45 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                     },
                     styleSheet: MarkdownStyleSheet(
                       p: context.uiText.body,
-                      h1: context.uiText.heading.copyWith(fontSize: 24),
-                      h2: context.uiText.heading.copyWith(fontSize: 20),
+                      h1: context.uiText.heading.copyWith(fontSize: 26),
+                      h2: context.uiText.heading.copyWith(fontSize: 22),
                       h3: context.uiText.heading.copyWith(fontSize: 18),
+                      blockquote: context.uiText.body.copyWith(
+                        color: context.uiColors.foregroundMuted,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      blockquoteDecoration: BoxDecoration(
+                        color: context.uiColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border(
+                          left: BorderSide(
+                            color: context.uiColors.border,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                      blockquotePadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       code: context.uiText.numeric,
+                      codeblockDecoration: BoxDecoration(
+                        color: context.uiColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      horizontalRuleDecoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: context.uiColors.border),
+                        ),
+                      ),
+                      listBullet: context.uiText.body,
+                      tableBorder: TableBorder.all(
+                        color: context.uiColors.border,
+                      ),
+                      a: context.uiText.body.copyWith(
+                        color: context.uiColors.primary,
+                        decoration: TextDecoration.underline,
+                      ),
                     ),
                   )
                 else ...[
@@ -390,16 +471,29 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                       child: Row(
                         children: [
                           _ToolbarButton(
+                            icon: Icons.title,
+                            hint: 'Heading',
+                            onTap: () => _insertMarkdown('## ', ''),
+                          ),
+                          _ToolbarButton(
                             icon: Icons.format_bold,
+                            hint: 'Bold',
                             onTap: () => _insertMarkdown('**', '**'),
                           ),
                           _ToolbarButton(
                             icon: Icons.format_italic,
+                            hint: 'Italic',
                             onTap: () => _insertMarkdown('*', '*'),
                           ),
                           _ToolbarButton(
                             icon: Icons.format_strikethrough,
+                            hint: 'Strikethrough',
                             onTap: () => _insertMarkdown('~~', '~~'),
+                          ),
+                          _ToolbarButton(
+                            icon: Icons.format_quote,
+                            hint: 'Quote',
+                            onTap: () => _insertMarkdown('> ', ''),
                           ),
                           Container(
                             width: 1,
@@ -409,12 +503,21 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                           ),
                           _ToolbarButton(
                             icon: Icons.image_outlined,
+                            hint: 'Add photo',
                             onTap: _pickImage,
+                          ),
+                          _ToolbarButton(
+                            icon: Icons.link,
+                            hint: 'Link',
+                            onTap: () => _insertMarkdown('[', '](url)'),
                           ),
                           _ToolbarButton(
                             icon: _listening
                                 ? Icons.stop_circle_outlined
                                 : Icons.mic_none_rounded,
+                            hint: _listening
+                                ? 'Stop dictation'
+                                : 'Dictate with voice',
                             onTap: _toggleVoiceInput,
                           ),
                           Container(
@@ -424,15 +527,37 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                             margin: const EdgeInsets.symmetric(horizontal: 8),
                           ),
                           _ToolbarButton(
+                            icon: Icons.code,
+                            hint: 'Inline code',
+                            onTap: () => _insertMarkdown('`', '`'),
+                          ),
+                          _ToolbarButton(
+                            icon: Icons.data_object,
+                            hint: 'Mermaid diagram',
+                            onTap: () => _insertMarkdown(
+                              '\n```mermaid\ngraph TD;\n    A-->B;\n```\n',
+                              '',
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 20,
+                            color: context.uiColors.border,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          _ToolbarButton(
                             icon: Icons.format_list_bulleted,
+                            hint: 'Bulleted list',
                             onTap: () => _insertMarkdown('- ', ''),
                           ),
                           _ToolbarButton(
                             icon: Icons.format_list_numbered,
+                            hint: 'Numbered list',
                             onTap: () => _insertMarkdown('1. ', ''),
                           ),
                           _ToolbarButton(
                             icon: Icons.check_box_outlined,
+                            hint: 'Checklist item',
                             onTap: () => _insertMarkdown('- [ ] ', ''),
                           ),
                         ],
@@ -462,7 +587,8 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
 class _ToolbarButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _ToolbarButton({required this.icon, required this.onTap});
+  final String? hint;
+  const _ToolbarButton({required this.icon, required this.onTap, this.hint});
 
   @override
   Widget build(BuildContext context) {
@@ -470,6 +596,7 @@ class _ToolbarButton extends StatelessWidget {
       icon: Icon(icon, size: 20, color: context.uiColors.foregroundMuted),
       onPressed: onTap,
       splashRadius: 20,
+      tooltip: hint,
     );
   }
 }

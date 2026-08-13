@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  flutter_local_notifications is told about this icon only through a Dart
+  string ('@drawable/ic_stat_quietnote' in notification_service.dart), never
+  through any native XML or manifest reference. The release build has
+  isShrinkResources = true (build.gradle.kts), so Android's resource
+  shrinker has no static reference to see and strips the drawable — that is
+  exactly the "Could not send test" / PlatformException(invalid_icon, ...)
+  error. This file is a hard rule telling the shrinker to always keep it,
+  regardless of what it can trace statically.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_quietnote" />
