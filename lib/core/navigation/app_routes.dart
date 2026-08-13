@@ -34,6 +34,9 @@ import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/clock/clock_screen.dart';
 import '../../features/search/global_search_screen.dart';
+import '../../features/courses/courses_screen.dart';
+import '../../features/courses/course_editor_screen.dart';
+import '../../features/courses/course_detail_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -94,6 +97,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/clock',
           builder: (context, state) => const ClockScreen(),
+        ),
+        GoRoute(
+          path: '/courses',
+          builder: (context, state) => const CoursesScreen(),
         ),
       ],
     ),
@@ -213,6 +220,20 @@ final appRouter = GoRouter(
       path: '/search',
       builder: (context, state) => const GlobalSearchScreen(),
     ),
+    GoRoute(
+      path: '/courses/new',
+      builder: (context, state) => const CourseEditorScreen(),
+    ),
+    GoRoute(
+      path: '/courses/edit/:id',
+      builder: (context, state) =>
+          CourseEditorScreen(courseId: state.pathParameters['id']),
+    ),
+    GoRoute(
+      path: '/courses/:id',
+      builder: (context, state) =>
+          CourseDetailScreen(courseId: state.pathParameters['id']!),
+    ),
   ],
 );
 
@@ -234,10 +255,11 @@ class AppShell extends StatelessWidget {
         UiTabItem(icon: Icons.calendar_month_outlined, label: 'Calendar'),
         UiTabItem(icon: Icons.flag_outlined, label: 'Goals'),
         UiTabItem(icon: Icons.menu_book_outlined, label: 'Journal'),
+        UiTabItem(icon: Icons.school_outlined, label: 'Courses'),
         UiTabItem(icon: Icons.insights_outlined, label: 'Analytics'),
-        UiTabItem(icon: Icons.auto_awesome, label: 'AI Capture'),
         UiTabItem(icon: Icons.settings_outlined, label: 'Settings'),
         UiTabItem(icon: Icons.access_time_outlined, label: 'Clock'),
+        UiTabItem(icon: Icons.auto_awesome_outlined, label: 'AI Capture'),
       ],
       body: child,
     );
@@ -252,10 +274,11 @@ class AppShell extends StatelessWidget {
     if (location.startsWith('/calendar')) return 5;
     if (location.startsWith('/goals')) return 6;
     if (location.startsWith('/journal')) return 7;
-    if (location.startsWith('/analytics')) return 8;
-    if (location.startsWith('/ai')) return 9;
+    if (location.startsWith('/courses')) return 8;
+    if (location.startsWith('/analytics')) return 9;
     if (location.startsWith('/settings')) return 10;
     if (location.startsWith('/clock')) return 11;
+    if (location.startsWith('/ai')) return 12;
     return 0;
   }
 
@@ -286,16 +309,19 @@ class AppShell extends StatelessWidget {
         context.go('/journal');
         break;
       case 8:
-        context.go('/analytics');
+        context.go('/courses');
         break;
       case 9:
-        context.go('/ai');
+        context.go('/analytics');
         break;
       case 10:
         context.go('/settings');
         break;
       case 11:
         context.go('/clock');
+        break;
+      case 12:
+        context.go('/ai');
         break;
     }
   }

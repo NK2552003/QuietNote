@@ -134,16 +134,13 @@ class RoutinesScreen extends ConsumerWidget {
     final nowBlock = currentRoutineTimeBlock();
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Routines',
         subtitle: 'Sequenced habits for time blocks.',
-        actions: [
-          UiButton(
-            label: 'New Routine',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push('/routines/new'),
-          ),
-        ],
+      ),
+      floatingActionButton: UiFab(
+        tooltip: 'New routine',
+        onPressed: () => context.push('/routines/new'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -92,14 +92,13 @@ class CalendarScreen extends ConsumerWidget {
             onPressed: () => ref.read(_selectedDayProvider.notifier).state =
                 _dateOnly(DateTime.now()),
           ),
-          UiButton(
-            label: 'New Event',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push(
-              '/calendar/new?date=${selectedDay.toIso8601String()}',
-            ),
-          ),
         ],
+      ),
+      floatingActionButton: UiFab(
+        tooltip: 'New event',
+        onPressed: () => context.push(
+          '/calendar/new?date=${selectedDay.toIso8601String()}',
+        ),
       ),
       child: eventsAsync.when(
         loading: () => const _CalendarSkeleton(),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
+import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/database/repositories/habit_repository.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
@@ -88,6 +89,8 @@ class AnalyticsScreen extends ConsumerWidget {
     final tasks = ref.watch(tasksStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <Task>[]);
     final habits = ref.watch(habitsStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <Habit>[]);
     final goals = ref.watch(goalsStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <Goal>[]);
+    final courses = ref.watch(coursesStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <Course>[]);
+    final allAssessments = ref.watch(allAssessmentsStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <Assessment>[]);
     final journal = ref.watch(journalStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <JournalData>[]);
     final notes = ref.watch(notesStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <Note>[]);
     final routines = ref.watch(routinesStreamProvider).maybeWhen(data: (d) => d, orElse: () => const <Routine>[]);
@@ -104,7 +107,7 @@ class AnalyticsScreen extends ConsumerWidget {
     };
 
     final hasAnyData =
-        tasks.isNotEmpty || habits.isNotEmpty || goals.isNotEmpty || journal.isNotEmpty || notes.isNotEmpty || routines.isNotEmpty;
+        tasks.isNotEmpty || habits.isNotEmpty || goals.isNotEmpty || journal.isNotEmpty || notes.isNotEmpty || routines.isNotEmpty || courses.isNotEmpty;
 
     // Build the page content inside a try/catch so a synchronous build error
     // doesn't leave the whole page blank — show a friendly error instead.
@@ -166,6 +169,10 @@ class AnalyticsScreen extends ConsumerWidget {
                 ],
                 if (goals.isNotEmpty) ...[
                   _GoalsSection(goals: goals),
+                  const SizedBox(height: 28),
+                ],
+                if (courses.isNotEmpty) ...[
+                  _AcademicsSection(courses: courses, allAssessments: allAssessments),
                   const SizedBox(height: 28),
                 ],
                 if (tasks.isNotEmpty) ...[
@@ -771,6 +778,118 @@ class _GoalsSection extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Overall academic standing: a simple mean of each course's weighted
+/// average (documented choice — not weighted by assessment count, so a
+/// course with few assessments doesn't get drowned out by one with many),
+/// plus a per-course breakdown against each course's target grade.
+class _AcademicsSection extends StatelessWidget {
+  const _AcademicsSection({required this.courses, required this.allAssessments});
+  final List<Course> courses;
+  final List<Assessment> allAssessments;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.uiColors;
+    final byCourse = <String, List<Assessment>>{
+      for (final course in courses)
+        course.id: allAssessments.where((a) => a.courseId == course.id).toList(),
+    };
+    final coursesWithData = courses.where((crs) => (byCourse[crs.id] ?? const []).isNotEmpty).toList();
+    final perCourseAverage = <String, double>{
+      for (final course in coursesWithData) course.id: weightedAverage(byCourse[course.id]!),
+    };
+    final overallAverage = perCourseAverage.isEmpty
+        ? 0.0
+        : perCourseAverage.values.reduce((a, b) => a + b) / perCourseAverage.length;
+    final onTarget = coursesWithData.where((crs) {
+      final target = crs.targetGrade;
+      if (target == null) return false;
+      return (perCourseAverage[crs.id] ?? 0) >= target;
+    }).length;
+    final withTarget = coursesWithData.where((crs) => crs.targetGrade != null).length;
+
+    final sorted = [...coursesWithData]..sort((a, b) => (perCourseAverage[a.id] ?? 0).compareTo(perCourseAverage[b.id] ?? 0));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionHeader(
+          title: 'Academics',
+          subtitle: '${courses.length} course${courses.length == 1 ? '' : 's'}',
+          action: UiButton(label: 'View all', variant: UiVariant.link, size: UiSize.sm, onPressed: () => context.push('/courses')),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _StatChip(
+                label: 'Overall average',
+                value: coursesWithData.isEmpty ? '\u2014' : '${overallAverage.toStringAsFixed(1)}%',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatChip(
+                label: 'On target',
+                value: withTarget == 0 ? '\u2014' : '$onTarget/$withTarget',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...sorted.take(5).map((course) {
+          final average = perCourseAverage[course.id] ?? 0;
+          final hasTarget = course.targetGrade != null;
+          final meetsTarget = !hasTarget || average >= course.targetGrade!;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: UiCard(
+              onTap: () => context.push('/courses/${course.id}'),
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(course.name, style: context.uiText.bodyStrong, overflow: TextOverflow.ellipsis)),
+                      Text('${average.toStringAsFixed(1)}%', style: context.uiText.bodyStrong),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  UiProgressBar(
+                    value: (average / 100).clamp(0.0, 1.0),
+                    showValue: false,
+                    intent: meetsTarget ? UiIntent.success : UiIntent.danger,
+                  ),
+                  if (hasTarget) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Target ${_trimNum(course.targetGrade!)}',
+                      style: context.uiText.caption.copyWith(color: meetsTarget ? c.foregroundMuted : c.destructive),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+        if (coursesWithData.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: UiCallout(
+              title: 'No grades logged yet',
+              message: 'Add assessments to your courses to see your academic standing here.',
+              intent: UiIntent.info,
+              icon: Icons.school_outlined,
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _trimNum(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 }
 
 class _TasksSection extends StatelessWidget {

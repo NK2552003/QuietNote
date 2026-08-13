@@ -313,8 +313,8 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveEntry,
-          tooltip: 'Save & close',
+          onPressed: _handleBack,
+          tooltip: 'Back',
         ),
         title: DateFormat.yMMMd().format(_entryDate),
         subtitle: _isEditing ? '$wordCount words' : null,

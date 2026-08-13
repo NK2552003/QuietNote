@@ -314,6 +314,12 @@ class _CalendarEventEditorScreenState
     context.canPop() ? context.pop() : context.go('/calendar');
   }
 
+  /// Leaves the editor without saving. Used by the back arrow so it always
+  /// returns to the calendar, even when the form is empty/invalid.
+  void _goBack() {
+    context.canPop() ? context.pop() : context.go('/calendar');
+  }
+
   DateTimeComponents? _repeatComponent(String? rule) => switch (rule) {
     'daily' => DateTimeComponents.time,
     'weekly' => DateTimeComponents.dayOfWeekAndTime,
@@ -365,8 +371,8 @@ class _CalendarEventEditorScreenState
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveEvent,
-          tooltip: 'Save & close',
+          onPressed: _goBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Event' : 'New Event',
         subtitle: _headerSubtitle,

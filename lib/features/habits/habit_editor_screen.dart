@@ -287,6 +287,12 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
     context.canPop() ? context.pop() : context.go('/habits');
   }
 
+  /// Leaves the editor without saving. Used by the back arrow so it always
+  /// returns to the list, even when the form is empty/invalid.
+  void _goBack() {
+    context.canPop() ? context.pop() : context.go('/habits');
+  }
+
   Future<void> _deleteHabit() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -327,8 +333,8 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveHabit,
-          tooltip: 'Save & close',
+          onPressed: _goBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Habit' : 'New Habit',
         subtitle: _isEditing

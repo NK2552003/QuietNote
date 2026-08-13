@@ -295,8 +295,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveNote,
-          tooltip: 'Save & close',
+          onPressed: _handleBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Note' : 'New Note',
         subtitle: _isEditing

@@ -149,16 +149,13 @@ class NotesScreen extends ConsumerWidget {
     final columns = ref.watch(_noteColumnsProvider);
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Notes',
         subtitle: 'Capture your thoughts.',
-        actions: [
-          UiButton(
-            label: 'New Note',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push('/notes/new'),
-          ),
-        ],
+      ),
+      floatingActionButton: UiFab(
+        tooltip: 'New note',
+        onPressed: () => context.push('/notes/new'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

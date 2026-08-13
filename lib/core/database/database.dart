@@ -196,6 +196,33 @@ class FocusSessions extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// A course/class the student is tracking grades for (Feature 5, grade
+/// tracker). `targetGrade` is stored on whatever scale the student enters it
+/// on (percentage or GPA) — we never rescale it, just compare like-for-like
+/// against the weighted average computed from that course's [Assessments].
+class Courses extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  RealColumn get targetGrade => real().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A single graded item (quiz, exam, assignment) within a [Courses] row.
+/// `weight` defaults to 1.0 so ungraded/unweighted assessments still average
+/// sensibly alongside weighted ones.
+class Assessments extends Table {
+  TextColumn get id => text()();
+  TextColumn get courseId => text()();
+  TextColumn get name => text()();
+  RealColumn get score => real()();
+  RealColumn get maxScore => real()();
+  RealColumn get weight => real().withDefault(const Constant(1.0))();
+  DateTimeColumn get date => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Habits,
@@ -208,13 +235,15 @@ class FocusSessions extends Table {
     Attachments,
     HabitEntries,
     FocusSessions,
+    Courses,
+    Assessments,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9; // v9: focus session presets & cycle counts
+  int get schemaVersion => 10; // v10: grade tracker (courses & assessments)
 
   @override
   MigrationStrategy get migration {
@@ -317,6 +346,13 @@ class AppDatabase extends _$AppDatabase {
         if (from < 9) {
           await m.addColumn(focusSessions, focusSessions.cyclesCompleted);
           await m.addColumn(focusSessions, focusSessions.presetId);
+        }
+        if (from < 10) {
+          // Courses/Assessments are brand-new tables, so — same as
+          // routines/attachments/habitEntries/focusSessions before them —
+          // this is just createTable, never addColumn.
+          await m.createTable(courses);
+          await m.createTable(assessments);
         }
       },
       beforeOpen: (details) async {

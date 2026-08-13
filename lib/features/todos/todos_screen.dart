@@ -75,16 +75,13 @@ class TodosScreen extends ConsumerWidget {
     };
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Todos',
         subtitle: 'Focus on what matters today.',
-        actions: [
-          UiButton(
-            label: 'Add Task',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push('/todos/new'),
-          ),
-        ],
+      ),
+      floatingActionButton: UiFab(
+        tooltip: 'Add task',
+        onPressed: () => context.push('/todos/new'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -10,12 +10,17 @@ class UiPage extends StatelessWidget {
     this.header,
     this.scrollable = true,
     this.maxWidth,
+    this.floatingActionButton,
   });
 
   final Widget child;
   final Widget? header;
   final bool scrollable;
   final double? maxWidth;
+
+  /// Optional floating action button, anchored bottom-right. Positioned
+  /// above the floating mobile tab bar so it never overlaps it.
+  final Widget? floatingActionButton;
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +93,7 @@ class UiPage extends StatelessWidget {
     // navigation shell already wraps the bottom navbar with SafeArea).
     final Widget safe = SafeArea(top: true, bottom: false, child: body);
 
-    return Material(
+    final Widget page = Material(
       color: theme.colors.background,
       child: scrollable
           ? SingleChildScrollView(
@@ -101,6 +106,26 @@ class UiPage extends StatelessWidget {
               padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
               child: safe,
             ),
+    );
+
+    if (floatingActionButton == null) return page;
+
+    // Reserve the same clearance UiPage already gives scrollable content
+    // for the floating mobile tab bar, so the FAB always floats just above
+    // it instead of overlapping.
+    final double fabBottomInset = viewPadding.bottom +
+        mq.viewInsets.bottom +
+        context.sp(r.isMobile ? 96 : theme.spacing.lg);
+
+    return Stack(
+      children: <Widget>[
+        page,
+        Positioned(
+          right: context.sp(theme.spacing.md),
+          bottom: fabBottomInset,
+          child: floatingActionButton!,
+        ),
+      ],
     );
   }
 }

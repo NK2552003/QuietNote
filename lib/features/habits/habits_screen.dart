@@ -22,16 +22,13 @@ class HabitsScreen extends ConsumerWidget {
     final c = context.uiColors;
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Habits',
         subtitle: 'Small disciplines compounded over time.',
-        actions: [
-          UiButton(
-            label: 'New Habit',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push('/habits/new'),
-          ),
-        ],
+      ),
+      floatingActionButton: UiFab(
+        tooltip: 'New habit',
+        onPressed: () => context.push('/habits/new'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

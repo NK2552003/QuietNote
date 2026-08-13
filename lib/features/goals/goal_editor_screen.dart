@@ -209,6 +209,12 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
     context.canPop() ? context.pop() : context.go('/goals');
   }
 
+  /// Leaves the editor without saving. Used by the back arrow so it always
+  /// returns to the list, even when the form is empty/invalid.
+  void _goBack() {
+    context.canPop() ? context.pop() : context.go('/goals');
+  }
+
   Future<void> _deleteGoal() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -248,8 +254,8 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveGoal,
-          tooltip: 'Save & close',
+          onPressed: _goBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Goal' : 'New Goal',
         subtitle: _isEditing && _deadline != null

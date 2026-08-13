@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../theme/ui_theme.dart';
@@ -564,4 +566,86 @@ class _ButtonStyle {
   final Color? borderColor;
   final bool elevated;
   final Gradient? gradient;
+}
+
+/// Circular floating action button used to trigger the primary "create"
+/// action on list screens. Meant to be passed as `UiPage.floatingActionButton`
+/// so it stays anchored above the floating mobile tab bar. Styled to match
+/// the frosted-glass pill nav dock: blurred translucent surface, hairline
+/// border, same drop shadow.
+class UiFab extends StatelessWidget {
+  const UiFab({
+    super.key,
+    required this.onPressed,
+    this.icon = Icons.add_rounded,
+    this.tooltip = 'Add new',
+    this.size = 56,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String tooltip;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.ui;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Tooltip(
+      message: tooltip,
+      child: UiInteractive(
+        onTap: onPressed,
+        semanticLabel: tooltip,
+        builder: (BuildContext ctx, UiInteractiveState s) {
+          return Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: AnimatedContainer(
+                  duration: theme.motion.fast,
+                  curve: theme.motion.curve,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDark
+                        ? (s.active
+                              ? const Color(0xFE252321)
+                              : const Color(0xDC1A1817))
+                        : (s.active
+                              ? theme.colors.surface
+                              : theme.colors.surface.withValues(alpha: 0.85)),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : Colors.black.withValues(alpha: 0.08),
+                      width: 1.2,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    icon,
+                    color: isDark ? Colors.white : theme.colors.primary,
+                    size: size * 0.42,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }

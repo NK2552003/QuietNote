@@ -56,9 +56,12 @@ class _UiNavShellState extends State<UiNavShell> {
     }
     if (icon == Icons.flag_outlined) return Icons.flag_rounded;
     if (icon == Icons.menu_book_outlined) return Icons.menu_book_rounded;
+    if (icon == Icons.school_outlined) return Icons.school_rounded;
     if (icon == Icons.insights_outlined) return Icons.insights_rounded;
+    if (icon == Icons.auto_awesome_outlined) return Icons.auto_awesome;
     if (icon == Icons.auto_awesome) return Icons.auto_awesome;
     if (icon == Icons.settings_outlined) return Icons.settings_rounded;
+    if (icon == Icons.access_time_outlined) return Icons.access_time_rounded;
     return icon ?? Icons.circle;
   }
 
@@ -114,27 +117,32 @@ class _UiNavShellState extends State<UiNavShell> {
       );
     }
 
-    // Mobile layout: Home (0), Journal (7), + (Middle), Notes (3), Settings (10)
+    // Mobile layout (fixed 5-slot dock): Home (0), Todos (2), + (Middle
+    // quick-grid trigger), Notes (3), Settings (10). Every other
+    // destination lives behind the '+' as a 3x3 grid of tiles.
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Calculate active slot index (0 to 4)
-    int activeNavIndex =
-        2; // Default to middle '+' if non-dock tab or bubble menu active
+    // Calculate active dock slot (0 to 4). Slot 2 is the '+' trigger; it
+    // also lights up whenever the currently selected screen is one of the
+    // 9 tiles behind it (i.e. anything not in the fixed 4 dock items).
+    int activeNavIndex = 2;
     if (!_isMenuOpen) {
       if (widget.selectedIndex == 0) {
         activeNavIndex = 0; // Home
-      } else if (widget.selectedIndex == 7) {
-        activeNavIndex = 1; // Journal
+      } else if (widget.selectedIndex == 2) {
+        activeNavIndex = 1; // Todos
       } else if (widget.selectedIndex == 3) {
         activeNavIndex = 3; // Notes
       } else if (widget.selectedIndex == 10) {
         activeNavIndex = 4; // Settings
       }
+      // else: selectedIndex is one of the grid destinations -> keep '+' (2) lit
     }
 
+    // The 9 remaining destinations, indices matched exactly to the
+    // `items` list built in AppShell (app_routes.dart).
     const gridOptions = [
       _QuickGridItem(icon: Icons.repeat_rounded, label: 'Habits', index: 1),
-      _QuickGridItem(icon: Icons.task_alt_rounded, label: 'Todos', index: 2),
       _QuickGridItem(
         icon: Icons.alt_route_rounded,
         label: 'Routines',
@@ -147,17 +155,28 @@ class _UiNavShellState extends State<UiNavShell> {
       ),
       _QuickGridItem(icon: Icons.flag_rounded, label: 'Goals', index: 6),
       _QuickGridItem(
+        icon: Icons.menu_book_rounded,
+        label: 'Journal',
+        index: 7,
+      ),
+      _QuickGridItem(icon: Icons.school_rounded, label: 'Courses', index: 8),
+      _QuickGridItem(
         icon: Icons.insights_rounded,
         label: 'Analytics',
-        index: 8,
+        index: 9,
       ),
-      _QuickGridItem(icon: Icons.auto_awesome, label: 'AI Capture', index: 9),
       _QuickGridItem(
         icon: Icons.access_time_rounded,
         label: 'Clock',
         index: 11,
       ),
+      _QuickGridItem(
+        icon: Icons.auto_awesome,
+        label: 'AI Capture',
+        index: 12,
+      ),
     ];
+    assert(gridOptions.length == 9, 'Quick-grid must hold exactly 9 tiles');
 
     return Scaffold(
       extendBody:
@@ -195,77 +214,23 @@ class _UiNavShellState extends State<UiNavShell> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[0],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[1],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[2],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[3],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[4],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[5],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[6],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[7],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                            ],
-                          ),
+                          for (int row = 0; row < 3; row++) ...[
+                            if (row != 0) const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                for (int col = 0; col < 3; col++) ...[
+                                  if (col != 0) const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildBubbleCard(
+                                      gridOptions[row * 3 + col],
+                                      isDark,
+                                      theme,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -343,7 +308,7 @@ class _UiNavShellState extends State<UiNavShell> {
                         ),
                       ),
                     ),
-                    // Foreground Interactive Tabs: Home (0), Journal (7), + (Middle), Notes (3), Settings (10)
+                    // Foreground Interactive Tabs: Home (0), Todos (2), + (Middle), Notes (3), Settings (10)
                     Row(
                       children: <Widget>[
                         // Home (0)
@@ -361,22 +326,22 @@ class _UiNavShellState extends State<UiNavShell> {
                             },
                           ),
                         ),
-                        // Journal (7)
+                        // Todos (2)
                         Expanded(
                           child: _UiNavEntry(
-                            item: widget.items[7],
-                            activeIcon: _getActiveIcon(widget.items[7].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 7,
+                            item: widget.items[2],
+                            activeIcon: _getActiveIcon(widget.items[2].icon),
+                            selected: !_isMenuOpen && widget.selectedIndex == 2,
                             showLabel: false,
                             vertical: true,
                             isBubbleTab: true,
                             onTap: () {
                               _closeQuickMenu();
-                              widget.onChanged(7);
+                              widget.onChanged(2);
                             },
                           ),
                         ),
-                        // Middle '+' Quick Options Grid Trigger with Morphing Rotation
+                        // Middle Quick Options Drawer Trigger
                         Expanded(
                           child: UiInteractive(
                             onTap: _toggleQuickMenu,
@@ -390,13 +355,24 @@ class _UiNavShellState extends State<UiNavShell> {
                                   : theme.colors.foregroundMuted;
 
                               return Center(
-                                child: AnimatedRotation(
-                                  turns: _isMenuOpen ? 0.125 : 0.0,
-                                  duration: const Duration(milliseconds: 260),
-                                  curve: Curves.easeOutBack,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  switchInCurve: Curves.easeOutBack,
+                                  switchOutCurve: Curves.easeIn,
+                                  transitionBuilder: (child, animation) =>
+                                      ScaleTransition(
+                                        scale: animation,
+                                        child: FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        ),
+                                      ),
                                   child: Icon(
-                                    Icons.add_rounded,
-                                    size: 24,
+                                    _isMenuOpen
+                                        ? Icons.close_rounded
+                                        : Icons.grid_view_rounded,
+                                    key: ValueKey<bool>(_isMenuOpen),
+                                    size: 22,
                                     color: activeNavIndex == 2 || _isMenuOpen
                                         ? activeFg
                                         : inactiveFg,

@@ -182,6 +182,16 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
     );
   }
 
+  /// Leaves the editor without saving. Used by the back arrow so it always
+  /// returns to the list, even when the form is empty/invalid.
+  void _goBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/todos');
+    }
+  }
+
   Future<void> _saveTask() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -326,8 +336,8 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveTask,
-          tooltip: 'Save & close',
+          onPressed: _goBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Task' : 'New Task',
         subtitle: _headerSubtitle,

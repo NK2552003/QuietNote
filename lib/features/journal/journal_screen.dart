@@ -155,16 +155,13 @@ class JournalScreen extends ConsumerWidget {
     final columns = ref.watch(_journalColumnsProvider);
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Journal',
         subtitle: 'Reflect, review, and reset.',
-        actions: [
-          UiButton(
-            label: 'Write',
-            leadingIcon: Icons.edit_outlined,
-            onPressed: () => context.push('/journal/new'),
-          ),
-        ],
+      ),
+      floatingActionButton: UiFab(
+        tooltip: 'Write entry',
+        onPressed: () => context.push('/journal/new'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

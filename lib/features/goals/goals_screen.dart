@@ -61,12 +61,13 @@ class GoalsScreen extends ConsumerWidget {
     final goalsAsync = ref.watch(goalsStreamProvider);
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Goals',
         subtitle: 'Vision translated into milestones.',
-        actions: [
-          UiButton(label: 'New Goal', leadingIcon: Icons.add, onPressed: () => context.push('/goals/new')),
-        ],
+      ),
+      floatingActionButton: UiFab(
+        tooltip: 'New goal',
+        onPressed: () => context.push('/goals/new'),
       ),
       child: goalsAsync.when(
         loading: () => const _GoalsSkeleton(),
