@@ -13,6 +13,8 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:quietnote/core/widgets/markdown_mermaid.dart';
+import 'package:quietnote/core/utils/tag_utils.dart';
+import 'package:drift/drift.dart' as drift;
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
   final String? noteId;
@@ -29,6 +31,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _isLoading = false;
   bool _isSaving = false;
   DateTime? _createdAt;
+  List<String> _tags = [];
   final SpeechToText _speech = SpeechToText();
   bool _listening = false;
   // Text already in the field when dictation started. `recognizedWords`
@@ -66,6 +69,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _titleController.text = note.title;
       _contentController.text = note.content;
       _createdAt = note.createdAt;
+      _tags = parseTagsCsv(note.tags);
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -110,7 +114,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       if (_isEditing) {
         await ref
             .read(noteRepositoryProvider)
-            .updateNote(_currentNoteId, title, content);
+            .updateNote(_currentNoteId, title, content, tags: _tags);
       } else {
         await ref
             .read(databaseProvider)
@@ -120,6 +124,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 id: _currentNoteId,
                 title: title.isEmpty ? 'Untitled' : title,
                 content: content,
+                tags: drift.Value(tagsToCsv(_tags)),
               ),
             );
       }
@@ -340,6 +345,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                       color: context.uiColors.foregroundMuted,
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                UiTagInput(
+                  tags: _tags,
+                  onChanged: (v) => setState(() => _tags = v),
+                  hintText: 'Add a subject tag',
                 ),
                 const SizedBox(height: 16),
                 if (_isPreview)

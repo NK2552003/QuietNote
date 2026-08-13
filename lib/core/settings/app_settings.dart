@@ -100,6 +100,7 @@ class AppSettings {
     this.profileEmail = '',
     this.profileImagePath = '',
     this.focusSessionEndsAt,
+    this.lastUsedPresetId,
   });
 
   final ThemeMode themeMode;
@@ -133,6 +134,11 @@ class AppSettings {
   final String profileEmail;
   final String profileImagePath;
   final DateTime? focusSessionEndsAt;
+
+  /// The [FocusPreset] name the student last selected on the Focus Clock,
+  /// pre-selected on the next visit so it survives an app restart
+  /// mid-decision. `null` means no preset has been chosen yet.
+  final String? lastUsedPresetId;
 
   int get activeReminderCount => <bool>[
     habitReminders,
@@ -177,6 +183,7 @@ class AppSettings {
     String? profileImagePath,
     DateTime? focusSessionEndsAt,
     bool clearFocusSession = false,
+    String? lastUsedPresetId,
   }) => AppSettings(
     themeMode: themeMode ?? this.themeMode,
     accent: accent ?? this.accent,
@@ -202,6 +209,7 @@ class AppSettings {
     focusSessionEndsAt: clearFocusSession
         ? null
         : (focusSessionEndsAt ?? this.focusSessionEndsAt),
+    lastUsedPresetId: lastUsedPresetId ?? this.lastUsedPresetId,
   );
 
   Map<String, String> toMap() => <String, String>{
@@ -227,6 +235,7 @@ class AppSettings {
     'profileEmail': profileEmail,
     'profileImagePath': profileImagePath,
     'focusSessionEndsAt': focusSessionEndsAt?.toIso8601String() ?? '',
+    'lastUsedPresetId': lastUsedPresetId ?? '',
   };
 
   static AppSettings fromMap(Map<String, String> map) {
@@ -285,6 +294,9 @@ class AppSettings {
       focusSessionEndsAt: (map['focusSessionEndsAt'] ?? '').isEmpty
           ? null
           : DateTime.tryParse(map['focusSessionEndsAt']!),
+      lastUsedPresetId: (map['lastUsedPresetId'] ?? '').isEmpty
+          ? null
+          : map['lastUsedPresetId'],
     );
   }
 }

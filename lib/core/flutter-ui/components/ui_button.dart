@@ -142,18 +142,27 @@ class UiButton extends StatelessWidget {
   /// Collapses to icon-only on phones to save horizontal space.
   final bool hideLabelOnMobile;
 
-  bool get _enabled => (onPressed != null || onLongPress != null) && !loading;
+  bool get _enabled =>
+      (onPressed != null || onLongPress != null) && !loading;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.ui;
     final bool compactLabel =
-        iconOnly || (hideLabelOnMobile && context.uiRes.isMobile);
+        iconOnly ||
+        (hideLabelOnMobile && context.uiRes.isMobile);
+
     final BorderRadius radius = context.radius(
-      style?.radius ?? (rounded ? theme.radii.pill : size.radius(context)),
+      style?.radius ??
+          (rounded
+              ? theme.radii.pill
+              : size.radius(context)),
     );
+
     final bool fullWidth = !compactLabel &&
-        (expand || (expandOnMobile && context.uiRes.isMobile));
+        (expand ||
+            (expandOnMobile &&
+                context.uiRes.isMobile));
 
     Widget core = UiInteractive(
       enabled: _enabled,
@@ -163,22 +172,49 @@ class UiButton extends StatelessWidget {
       autofocus: autofocus,
       focusNode: focusNode,
       semanticLabel: semanticLabel ?? label,
-      builder: (BuildContext ctx, UiInteractiveState s) {
+      builder: (
+        BuildContext ctx,
+        UiInteractiveState s,
+      ) {
         final _ButtonStyle st = _resolve(ctx, s);
-        final double h = style?.height ?? size.height(ctx);
+        final double h =
+            style?.height ?? size.height(ctx);
+
         return AnimatedContainer(
           duration: theme.motion.fast,
           curve: theme.motion.curve,
+
+          // FIX:
+          // When expand/expandOnMobile is active, the actual button surface
+          // now receives the full available width instead of relying only
+          // on the outer wrapper.
+          width: compactLabel
+              ? h
+              : fullWidth
+                  ? double.infinity
+                  : null,
+
           height: h,
-          width: compactLabel ? h : null,
+
           padding: compactLabel
               ? EdgeInsets.zero
-              : (style?.padding ?? size.padding(ctx, density: density)),
+              : (style?.padding ??
+                  size.padding(
+                    ctx,
+                    density: density,
+                  )),
+
           constraints: compactLabel
               ? null
-              : BoxConstraints(minWidth: ctx.sz(theme.sizes.minTapTarget)),
+              : BoxConstraints(
+                  minWidth:
+                      ctx.sz(theme.sizes.minTapTarget),
+                ),
+
           decoration: BoxDecoration(
-            color: st.gradient == null ? st.background : null,
+            color: st.gradient == null
+                ? st.background
+                : null,
             gradient: st.gradient,
             borderRadius: radius,
             border: st.borderColor == null
@@ -190,31 +226,67 @@ class UiButton extends StatelessWidget {
                         : theme.borders.hairline,
                   ),
             boxShadow: style?.shadow ??
-                (st.elevated && (s.hovered || selected)
+                (st.elevated &&
+                        (s.hovered || selected)
                     ? theme.shadows.md
-                    : (st.elevated ? theme.shadows.sm : null)),
+                    : (st.elevated
+                        ? theme.shadows.sm
+                        : null)),
           ),
-          foregroundDecoration: s.focused ? uiFocusRing(ctx, radius) : null,
-          child: _content(ctx, st, compactLabel, fullWidth),
+
+          foregroundDecoration: s.focused
+              ? uiFocusRing(ctx, radius)
+              : null,
+
+          child: _content(
+            ctx,
+            st,
+            compactLabel,
+            fullWidth,
+          ),
         );
       },
     );
 
     if (splitAction != null && !compactLabel) {
-      core = _wrapSplit(context, core, radius);
+      core = _wrapSplit(
+        context,
+        core,
+        radius,
+      );
     }
-    if (fullWidth) core = SizedBox(width: double.infinity, child: core);
-    if (tooltip != null) core = Tooltip(message: tooltip!, child: core);
+
+    if (fullWidth) {
+      core = SizedBox(
+        width: double.infinity,
+        child: core,
+      );
+    }
+
+    if (tooltip != null) {
+      core = Tooltip(
+        message: tooltip!,
+        child: core,
+      );
+    }
+
     return core;
   }
 
-  Widget _wrapSplit(BuildContext context, Widget main, BorderRadius radius) {
+  Widget _wrapSplit(
+    BuildContext context,
+    Widget main,
+    BorderRadius radius,
+  ) {
     final theme = context.ui;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         main,
-        SizedBox(width: context.sp(theme.spacing.xxs)),
+        SizedBox(
+          width: context.sp(theme.spacing.xxs),
+        ),
         UiButton.icon(
           icon: splitIcon,
           label: '$label options',
@@ -235,10 +307,16 @@ class UiButton extends StatelessWidget {
     bool fullWidth,
   ) {
     final theme = ctx.ui;
-    final double gap = size.gap(ctx, density: density);
-    final TextStyle text = (style?.textStyle ?? size.textStyle(ctx)).copyWith(
+    final double gap =
+        size.gap(ctx, density: density);
+
+    final TextStyle text =
+        (style?.textStyle ?? size.textStyle(ctx))
+            .copyWith(
       color: st.foreground,
-      decoration: variant == UiVariant.link ? TextDecoration.underline : null,
+      decoration: variant == UiVariant.link
+          ? TextDecoration.underline
+          : null,
       decorationColor: st.foreground,
     );
 
@@ -248,7 +326,10 @@ class UiButton extends StatelessWidget {
             height: size.icon(ctx),
             child: CircularProgressIndicator(
               strokeWidth: theme.borders.thick,
-              valueColor: AlwaysStoppedAnimation<Color>(st.foreground),
+              valueColor:
+                  AlwaysStoppedAnimation<Color>(
+                st.foreground,
+              ),
             ),
           )
         : null;
@@ -257,26 +338,40 @@ class UiButton extends StatelessWidget {
         leading ??
         (leadingIcon == null
             ? null
-            : Icon(leadingIcon, size: size.icon(ctx), color: st.foreground));
+            : Icon(
+                leadingIcon,
+                size: size.icon(ctx),
+                color: st.foreground,
+              ));
 
     if (compactLabel) {
       return Center(
         child: lead ??
             Text(
-              label.isEmpty ? '' : label.substring(0, 1).toUpperCase(),
+              label.isEmpty
+                  ? ''
+                  : label
+                      .substring(0, 1)
+                      .toUpperCase(),
               style: text,
             ),
       );
     }
 
     return Row(
-      mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisSize:
+          fullWidth ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: <Widget>[
-        if (lead != null) ...<Widget>[lead, SizedBox(width: gap)],
+        if (lead != null) ...<Widget>[
+          lead,
+          SizedBox(width: gap),
+        ],
         Flexible(
           child: Text(
-            loading ? (loadingLabel ?? label) : label,
+            loading
+                ? (loadingLabel ?? label)
+                : label,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: text,
@@ -286,12 +381,17 @@ class UiButton extends StatelessWidget {
           SizedBox(width: gap),
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: ctx.sp(theme.spacing.xs),
-              vertical: ctx.sp(theme.spacing.none),
+              horizontal:
+                  ctx.sp(theme.spacing.xs),
+              vertical:
+                  ctx.sp(theme.spacing.none),
             ),
             decoration: BoxDecoration(
-              color: st.foreground.withValues(alpha: 0.16),
-              borderRadius: ctx.radius(theme.radii.pill),
+              color: st.foreground.withValues(
+                alpha: 0.16,
+              ),
+              borderRadius:
+                  ctx.radius(theme.radii.pill),
             ),
             child: Text(
               '$badgeCount',
@@ -302,87 +402,147 @@ class UiButton extends StatelessWidget {
             ),
           ),
         ],
-        if (trailing != null) ...<Widget>[SizedBox(width: gap), trailing!],
+        if (trailing != null) ...<Widget>[
+          SizedBox(width: gap),
+          trailing!,
+        ],
         if (trailingIcon != null) ...<Widget>[
           SizedBox(width: gap),
-          Icon(trailingIcon, size: size.icon(ctx), color: st.foreground),
+          Icon(
+            trailingIcon,
+            size: size.icon(ctx),
+            color: st.foreground,
+          ),
         ],
       ],
     );
   }
 
-  _ButtonStyle _resolve(BuildContext context, UiInteractiveState s) {
+  _ButtonStyle _resolve(
+    BuildContext context,
+    UiInteractiveState s,
+  ) {
     final c = context.uiColors;
-    final Color tint = (intent ?? UiIntent.primary).color(context);
-    Color hoverMix(Color base, Color hover) => s.active ? hover : base;
+    final Color tint =
+        (intent ?? UiIntent.primary).color(context);
 
-    if (style?.background != null || style?.foreground != null) {
+    Color hoverMix(
+      Color base,
+      Color hover,
+    ) =>
+        s.active ? hover : base;
+
+    if (style?.background != null ||
+        style?.foreground != null) {
       return _ButtonStyle(
-        background: style?.background ?? Colors.transparent,
-        foreground: style?.foreground ?? c.foreground,
+        background:
+            style?.background ?? Colors.transparent,
+        foreground:
+            style?.foreground ?? c.foreground,
         borderColor: style?.borderColor,
         gradient: style?.gradient,
       );
     }
 
     if (!s.enabled) {
-      final bool transparent = variant == UiVariant.ghost ||
+      final bool transparent =
+          variant == UiVariant.ghost ||
           variant == UiVariant.link ||
           variant == UiVariant.outline;
+
       return _ButtonStyle(
-        background: transparent ? Colors.transparent : c.disabledBackground,
+        background: transparent
+            ? Colors.transparent
+            : c.disabledBackground,
         foreground: c.disabledForeground,
-        borderColor: variant == UiVariant.outline ? c.border : null,
+        borderColor:
+            variant == UiVariant.outline
+                ? c.border
+                : null,
       );
     }
 
     final bool on = selected;
+
     switch (variant) {
       case UiVariant.primary:
         return _ButtonStyle(
-          background: hoverMix(c.primary, c.primaryHover),
+          background: hoverMix(
+            c.primary,
+            c.primaryHover,
+          ),
           foreground: c.onPrimary,
           elevated: elevate ?? true,
         );
+
       case UiVariant.secondary:
         return _ButtonStyle(
-          background: hoverMix(on ? c.surfaceHover : c.secondary, c.surfaceHover),
+          background: hoverMix(
+            on ? c.surfaceHover : c.secondary,
+            c.surfaceHover,
+          ),
           foreground: c.onSecondary,
           borderColor: c.border,
           elevated: elevate ?? false,
         );
+
       case UiVariant.ghost:
         return _ButtonStyle(
-          background: s.active || on ? c.surfaceHover : Colors.transparent,
-          foreground: intent == null ? c.foreground : tint,
+          background:
+              s.active || on
+                  ? c.surfaceHover
+                  : Colors.transparent,
+          foreground:
+              intent == null ? c.foreground : tint,
         );
+
       case UiVariant.outline:
         return _ButtonStyle(
-          background: s.active || on ? c.surfaceHover : Colors.transparent,
-          foreground: intent == null ? c.foreground : tint,
-          borderColor: intent == null ? c.borderStrong : tint.withValues(alpha: 0.5),
+          background:
+              s.active || on
+                  ? c.surfaceHover
+                  : Colors.transparent,
+          foreground:
+              intent == null ? c.foreground : tint,
+          borderColor:
+              intent == null
+                  ? c.borderStrong
+                  : tint.withValues(alpha: 0.5),
         );
+
       case UiVariant.soft:
         return _ButtonStyle(
-          background: tint.withValues(alpha: s.active || on ? 0.22 : 0.12),
+          background: tint.withValues(
+            alpha: s.active || on ? 0.22 : 0.12,
+          ),
           foreground: tint,
-          borderColor: tint.withValues(alpha: 0.24),
+          borderColor:
+              tint.withValues(alpha: 0.24),
         );
+
       case UiVariant.link:
         return _ButtonStyle(
           background: Colors.transparent,
-          foreground: intent == null ? c.foreground : tint,
+          foreground:
+              intent == null ? c.foreground : tint,
         );
+
       case UiVariant.destructive:
         return _ButtonStyle(
-          background:
-              hoverMix(c.destructive, c.destructive.withValues(alpha: 0.85)),
+          background: hoverMix(
+            c.destructive,
+            c.destructive.withValues(alpha: 0.85),
+          ),
           foreground: c.onDestructive,
           elevated: elevate ?? true,
         );
+
       case UiVariant.success:
         return _ButtonStyle(
-          background: hoverMix(c.bullish, c.bullish.withValues(alpha: 0.85)),
+          background: hoverMix(
+            c.bullish,
+            c.bullish.withValues(alpha: 0.85),
+          ),
           foreground: c.onPrimary,
           elevated: elevate ?? true,
         );

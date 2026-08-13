@@ -84,6 +84,11 @@ class Notes extends Table {
   TextColumn get content => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
+  /// Comma-separated subject/topic tags (e.g. "Biology,Exam prep"), same CSV
+  /// convention already used by `imagePaths` and `daysOfWeek` elsewhere in
+  /// this schema.
+  TextColumn get tags => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -98,6 +103,9 @@ class Journal extends Table {
   TextColumn get entry => text()();
   TextColumn get mood => text().nullable()();
   TextColumn get imagePaths => text().nullable()(); // Comma separated paths
+
+  /// Comma-separated subject/topic tags, same CSV convention as [imagePaths].
+  TextColumn get tags => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
@@ -175,6 +183,15 @@ class FocusSessions extends Table {
   IntColumn get durationMinutes => integer()();
   TextColumn get status => text().withDefault(const Constant('active'))();
 
+  /// Number of completed work→break→work loops for a Pomodoro-style preset
+  /// session (see Feature 3, study-session presets).
+  IntColumn get cyclesCompleted =>
+      integer().withDefault(const Constant(0))();
+
+  /// The [FocusPreset] name this session was started from, or `null` for a
+  /// manually-entered custom duration.
+  TextColumn get presetId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -197,7 +214,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7; // v7: durable focus timer history
+  int get schemaVersion => 9; // v9: focus session presets & cycle counts
 
   @override
   MigrationStrategy get migration {
@@ -292,6 +309,14 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 7) {
           await m.createTable(focusSessions);
+        }
+        if (from < 8) {
+          await m.addColumn(notes, notes.tags);
+          await m.addColumn(journal, journal.tags);
+        }
+        if (from < 9) {
+          await m.addColumn(focusSessions, focusSessions.cyclesCompleted);
+          await m.addColumn(focusSessions, focusSessions.presetId);
         }
       },
       beforeOpen: (details) async {

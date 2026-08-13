@@ -1798,8 +1798,17 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
   @override
-  List<GeneratedColumn> get $columns => [id, title, content, createdAt];
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, title, content, createdAt, tags];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1839,6 +1848,12 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
     return context;
   }
 
@@ -1864,6 +1879,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      ),
     );
   }
 
@@ -1878,11 +1897,17 @@ class Note extends DataClass implements Insertable<Note> {
   final String title;
   final String content;
   final DateTime createdAt;
+
+  /// Comma-separated subject/topic tags (e.g. "Biology,Exam prep"), same CSV
+  /// convention already used by `imagePaths` and `daysOfWeek` elsewhere in
+  /// this schema.
+  final String? tags;
   const Note({
     required this.id,
     required this.title,
     required this.content,
     required this.createdAt,
+    this.tags,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1891,6 +1916,9 @@ class Note extends DataClass implements Insertable<Note> {
     map['title'] = Variable<String>(title);
     map['content'] = Variable<String>(content);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(tags);
+    }
     return map;
   }
 
@@ -1900,6 +1928,7 @@ class Note extends DataClass implements Insertable<Note> {
       title: Value(title),
       content: Value(content),
       createdAt: Value(createdAt),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
     );
   }
 
@@ -1913,6 +1942,7 @@ class Note extends DataClass implements Insertable<Note> {
       title: serializer.fromJson<String>(json['title']),
       content: serializer.fromJson<String>(json['content']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      tags: serializer.fromJson<String?>(json['tags']),
     );
   }
   @override
@@ -1923,6 +1953,7 @@ class Note extends DataClass implements Insertable<Note> {
       'title': serializer.toJson<String>(title),
       'content': serializer.toJson<String>(content),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'tags': serializer.toJson<String?>(tags),
     };
   }
 
@@ -1931,11 +1962,13 @@ class Note extends DataClass implements Insertable<Note> {
     String? title,
     String? content,
     DateTime? createdAt,
+    Value<String?> tags = const Value.absent(),
   }) => Note(
     id: id ?? this.id,
     title: title ?? this.title,
     content: content ?? this.content,
     createdAt: createdAt ?? this.createdAt,
+    tags: tags.present ? tags.value : this.tags,
   );
   Note copyWithCompanion(NotesCompanion data) {
     return Note(
@@ -1943,6 +1976,7 @@ class Note extends DataClass implements Insertable<Note> {
       title: data.title.present ? data.title.value : this.title,
       content: data.content.present ? data.content.value : this.content,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      tags: data.tags.present ? data.tags.value : this.tags,
     );
   }
 
@@ -1952,13 +1986,14 @@ class Note extends DataClass implements Insertable<Note> {
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('content: $content, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('tags: $tags')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, content, createdAt);
+  int get hashCode => Object.hash(id, title, content, createdAt, tags);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1966,7 +2001,8 @@ class Note extends DataClass implements Insertable<Note> {
           other.id == this.id &&
           other.title == this.title &&
           other.content == this.content &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.tags == this.tags);
 }
 
 class NotesCompanion extends UpdateCompanion<Note> {
@@ -1974,12 +2010,14 @@ class NotesCompanion extends UpdateCompanion<Note> {
   final Value<String> title;
   final Value<String> content;
   final Value<DateTime> createdAt;
+  final Value<String?> tags;
   final Value<int> rowid;
   const NotesCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
     this.content = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.tags = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotesCompanion.insert({
@@ -1987,6 +2025,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     required String title,
     required String content,
     this.createdAt = const Value.absent(),
+    this.tags = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -1996,6 +2035,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Expression<String>? title,
     Expression<String>? content,
     Expression<DateTime>? createdAt,
+    Expression<String>? tags,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2003,6 +2043,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
       if (title != null) 'title': title,
       if (content != null) 'content': content,
       if (createdAt != null) 'created_at': createdAt,
+      if (tags != null) 'tags': tags,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2012,6 +2053,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Value<String>? title,
     Value<String>? content,
     Value<DateTime>? createdAt,
+    Value<String?>? tags,
     Value<int>? rowid,
   }) {
     return NotesCompanion(
@@ -2019,6 +2061,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
       title: title ?? this.title,
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
+      tags: tags ?? this.tags,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2038,6 +2081,9 @@ class NotesCompanion extends UpdateCompanion<Note> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2051,6 +2097,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
           ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('createdAt: $createdAt, ')
+          ..write('tags: $tags, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2110,6 +2157,15 @@ class $JournalTable extends Journal with TableInfo<$JournalTable, JournalData> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -2129,6 +2185,7 @@ class $JournalTable extends Journal with TableInfo<$JournalTable, JournalData> {
     entry,
     mood,
     imagePaths,
+    tags,
     createdAt,
   ];
   @override
@@ -2174,6 +2231,12 @@ class $JournalTable extends Journal with TableInfo<$JournalTable, JournalData> {
         imagePaths.isAcceptableOrUnknown(data['image_paths']!, _imagePathsMeta),
       );
     }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2209,6 +2272,10 @@ class $JournalTable extends Journal with TableInfo<$JournalTable, JournalData> {
         DriftSqlType.string,
         data['${effectivePrefix}image_paths'],
       ),
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2231,6 +2298,9 @@ class JournalData extends DataClass implements Insertable<JournalData> {
   final String entry;
   final String? mood;
   final String? imagePaths;
+
+  /// Comma-separated subject/topic tags, same CSV convention as [imagePaths].
+  final String? tags;
   final DateTime createdAt;
   const JournalData({
     required this.id,
@@ -2238,6 +2308,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
     required this.entry,
     this.mood,
     this.imagePaths,
+    this.tags,
     required this.createdAt,
   });
   @override
@@ -2252,6 +2323,9 @@ class JournalData extends DataClass implements Insertable<JournalData> {
     if (!nullToAbsent || imagePaths != null) {
       map['image_paths'] = Variable<String>(imagePaths);
     }
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(tags);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -2265,6 +2339,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
       imagePaths: imagePaths == null && nullToAbsent
           ? const Value.absent()
           : Value(imagePaths),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
       createdAt: Value(createdAt),
     );
   }
@@ -2280,6 +2355,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
       entry: serializer.fromJson<String>(json['entry']),
       mood: serializer.fromJson<String?>(json['mood']),
       imagePaths: serializer.fromJson<String?>(json['imagePaths']),
+      tags: serializer.fromJson<String?>(json['tags']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -2292,6 +2368,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
       'entry': serializer.toJson<String>(entry),
       'mood': serializer.toJson<String?>(mood),
       'imagePaths': serializer.toJson<String?>(imagePaths),
+      'tags': serializer.toJson<String?>(tags),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -2302,6 +2379,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
     String? entry,
     Value<String?> mood = const Value.absent(),
     Value<String?> imagePaths = const Value.absent(),
+    Value<String?> tags = const Value.absent(),
     DateTime? createdAt,
   }) => JournalData(
     id: id ?? this.id,
@@ -2309,6 +2387,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
     entry: entry ?? this.entry,
     mood: mood.present ? mood.value : this.mood,
     imagePaths: imagePaths.present ? imagePaths.value : this.imagePaths,
+    tags: tags.present ? tags.value : this.tags,
     createdAt: createdAt ?? this.createdAt,
   );
   JournalData copyWithCompanion(JournalCompanion data) {
@@ -2320,6 +2399,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
       imagePaths: data.imagePaths.present
           ? data.imagePaths.value
           : this.imagePaths,
+      tags: data.tags.present ? data.tags.value : this.tags,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -2332,6 +2412,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
           ..write('entry: $entry, ')
           ..write('mood: $mood, ')
           ..write('imagePaths: $imagePaths, ')
+          ..write('tags: $tags, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2339,7 +2420,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
 
   @override
   int get hashCode =>
-      Object.hash(id, title, entry, mood, imagePaths, createdAt);
+      Object.hash(id, title, entry, mood, imagePaths, tags, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2349,6 +2430,7 @@ class JournalData extends DataClass implements Insertable<JournalData> {
           other.entry == this.entry &&
           other.mood == this.mood &&
           other.imagePaths == this.imagePaths &&
+          other.tags == this.tags &&
           other.createdAt == this.createdAt);
 }
 
@@ -2358,6 +2440,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
   final Value<String> entry;
   final Value<String?> mood;
   final Value<String?> imagePaths;
+  final Value<String?> tags;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const JournalCompanion({
@@ -2366,6 +2449,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
     this.entry = const Value.absent(),
     this.mood = const Value.absent(),
     this.imagePaths = const Value.absent(),
+    this.tags = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2375,6 +2459,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
     required String entry,
     this.mood = const Value.absent(),
     this.imagePaths = const Value.absent(),
+    this.tags = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -2385,6 +2470,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
     Expression<String>? entry,
     Expression<String>? mood,
     Expression<String>? imagePaths,
+    Expression<String>? tags,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -2394,6 +2480,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
       if (entry != null) 'entry': entry,
       if (mood != null) 'mood': mood,
       if (imagePaths != null) 'image_paths': imagePaths,
+      if (tags != null) 'tags': tags,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2405,6 +2492,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
     Value<String>? entry,
     Value<String?>? mood,
     Value<String?>? imagePaths,
+    Value<String?>? tags,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -2414,6 +2502,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
       entry: entry ?? this.entry,
       mood: mood ?? this.mood,
       imagePaths: imagePaths ?? this.imagePaths,
+      tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -2437,6 +2526,9 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
     if (imagePaths.present) {
       map['image_paths'] = Variable<String>(imagePaths.value);
     }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2454,6 +2546,7 @@ class JournalCompanion extends UpdateCompanion<JournalData> {
           ..write('entry: $entry, ')
           ..write('mood: $mood, ')
           ..write('imagePaths: $imagePaths, ')
+          ..write('tags: $tags, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -5057,6 +5150,29 @@ class $FocusSessionsTable extends FocusSessions
     requiredDuringInsert: false,
     defaultValue: const Constant('active'),
   );
+  static const VerificationMeta _cyclesCompletedMeta = const VerificationMeta(
+    'cyclesCompleted',
+  );
+  @override
+  late final GeneratedColumn<int> cyclesCompleted = GeneratedColumn<int>(
+    'cycles_completed',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _presetIdMeta = const VerificationMeta(
+    'presetId',
+  );
+  @override
+  late final GeneratedColumn<String> presetId = GeneratedColumn<String>(
+    'preset_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5065,6 +5181,8 @@ class $FocusSessionsTable extends FocusSessions
     endedAt,
     durationMinutes,
     status,
+    cyclesCompleted,
+    presetId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5122,6 +5240,21 @@ class $FocusSessionsTable extends FocusSessions
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
       );
     }
+    if (data.containsKey('cycles_completed')) {
+      context.handle(
+        _cyclesCompletedMeta,
+        cyclesCompleted.isAcceptableOrUnknown(
+          data['cycles_completed']!,
+          _cyclesCompletedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('preset_id')) {
+      context.handle(
+        _presetIdMeta,
+        presetId.isAcceptableOrUnknown(data['preset_id']!, _presetIdMeta),
+      );
+    }
     return context;
   }
 
@@ -5155,6 +5288,14 @@ class $FocusSessionsTable extends FocusSessions
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      cyclesCompleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycles_completed'],
+      )!,
+      presetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preset_id'],
+      ),
     );
   }
 
@@ -5171,6 +5312,14 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
   final DateTime? endedAt;
   final int durationMinutes;
   final String status;
+
+  /// Number of completed work→break→work loops for a Pomodoro-style preset
+  /// session (see Feature 3, study-session presets).
+  final int cyclesCompleted;
+
+  /// The [FocusPreset] name this session was started from, or `null` for a
+  /// manually-entered custom duration.
+  final String? presetId;
   const FocusSession({
     required this.id,
     required this.startedAt,
@@ -5178,6 +5327,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     this.endedAt,
     required this.durationMinutes,
     required this.status,
+    required this.cyclesCompleted,
+    this.presetId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5190,6 +5341,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     }
     map['duration_minutes'] = Variable<int>(durationMinutes);
     map['status'] = Variable<String>(status);
+    map['cycles_completed'] = Variable<int>(cyclesCompleted);
+    if (!nullToAbsent || presetId != null) {
+      map['preset_id'] = Variable<String>(presetId);
+    }
     return map;
   }
 
@@ -5203,6 +5358,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           : Value(endedAt),
       durationMinutes: Value(durationMinutes),
       status: Value(status),
+      cyclesCompleted: Value(cyclesCompleted),
+      presetId: presetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(presetId),
     );
   }
 
@@ -5218,6 +5377,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
       durationMinutes: serializer.fromJson<int>(json['durationMinutes']),
       status: serializer.fromJson<String>(json['status']),
+      cyclesCompleted: serializer.fromJson<int>(json['cyclesCompleted']),
+      presetId: serializer.fromJson<String?>(json['presetId']),
     );
   }
   @override
@@ -5230,6 +5391,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       'endedAt': serializer.toJson<DateTime?>(endedAt),
       'durationMinutes': serializer.toJson<int>(durationMinutes),
       'status': serializer.toJson<String>(status),
+      'cyclesCompleted': serializer.toJson<int>(cyclesCompleted),
+      'presetId': serializer.toJson<String?>(presetId),
     };
   }
 
@@ -5240,6 +5403,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     Value<DateTime?> endedAt = const Value.absent(),
     int? durationMinutes,
     String? status,
+    int? cyclesCompleted,
+    Value<String?> presetId = const Value.absent(),
   }) => FocusSession(
     id: id ?? this.id,
     startedAt: startedAt ?? this.startedAt,
@@ -5247,6 +5412,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     endedAt: endedAt.present ? endedAt.value : this.endedAt,
     durationMinutes: durationMinutes ?? this.durationMinutes,
     status: status ?? this.status,
+    cyclesCompleted: cyclesCompleted ?? this.cyclesCompleted,
+    presetId: presetId.present ? presetId.value : this.presetId,
   );
   FocusSession copyWithCompanion(FocusSessionsCompanion data) {
     return FocusSession(
@@ -5258,6 +5425,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           ? data.durationMinutes.value
           : this.durationMinutes,
       status: data.status.present ? data.status.value : this.status,
+      cyclesCompleted: data.cyclesCompleted.present
+          ? data.cyclesCompleted.value
+          : this.cyclesCompleted,
+      presetId: data.presetId.present ? data.presetId.value : this.presetId,
     );
   }
 
@@ -5269,14 +5440,24 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           ..write('endsAt: $endsAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('durationMinutes: $durationMinutes, ')
-          ..write('status: $status')
+          ..write('status: $status, ')
+          ..write('cyclesCompleted: $cyclesCompleted, ')
+          ..write('presetId: $presetId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, startedAt, endsAt, endedAt, durationMinutes, status);
+  int get hashCode => Object.hash(
+    id,
+    startedAt,
+    endsAt,
+    endedAt,
+    durationMinutes,
+    status,
+    cyclesCompleted,
+    presetId,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5286,7 +5467,9 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           other.endsAt == this.endsAt &&
           other.endedAt == this.endedAt &&
           other.durationMinutes == this.durationMinutes &&
-          other.status == this.status);
+          other.status == this.status &&
+          other.cyclesCompleted == this.cyclesCompleted &&
+          other.presetId == this.presetId);
 }
 
 class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
@@ -5296,6 +5479,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
   final Value<DateTime?> endedAt;
   final Value<int> durationMinutes;
   final Value<String> status;
+  final Value<int> cyclesCompleted;
+  final Value<String?> presetId;
   final Value<int> rowid;
   const FocusSessionsCompanion({
     this.id = const Value.absent(),
@@ -5304,6 +5489,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     this.endedAt = const Value.absent(),
     this.durationMinutes = const Value.absent(),
     this.status = const Value.absent(),
+    this.cyclesCompleted = const Value.absent(),
+    this.presetId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FocusSessionsCompanion.insert({
@@ -5313,6 +5500,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     this.endedAt = const Value.absent(),
     required int durationMinutes,
     this.status = const Value.absent(),
+    this.cyclesCompleted = const Value.absent(),
+    this.presetId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        startedAt = Value(startedAt),
@@ -5325,6 +5514,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     Expression<DateTime>? endedAt,
     Expression<int>? durationMinutes,
     Expression<String>? status,
+    Expression<int>? cyclesCompleted,
+    Expression<String>? presetId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5334,6 +5525,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
       if (endedAt != null) 'ended_at': endedAt,
       if (durationMinutes != null) 'duration_minutes': durationMinutes,
       if (status != null) 'status': status,
+      if (cyclesCompleted != null) 'cycles_completed': cyclesCompleted,
+      if (presetId != null) 'preset_id': presetId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5345,6 +5538,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     Value<DateTime?>? endedAt,
     Value<int>? durationMinutes,
     Value<String>? status,
+    Value<int>? cyclesCompleted,
+    Value<String?>? presetId,
     Value<int>? rowid,
   }) {
     return FocusSessionsCompanion(
@@ -5354,6 +5549,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
       endedAt: endedAt ?? this.endedAt,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       status: status ?? this.status,
+      cyclesCompleted: cyclesCompleted ?? this.cyclesCompleted,
+      presetId: presetId ?? this.presetId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5379,6 +5576,12 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (cyclesCompleted.present) {
+      map['cycles_completed'] = Variable<int>(cyclesCompleted.value);
+    }
+    if (presetId.present) {
+      map['preset_id'] = Variable<String>(presetId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5394,6 +5597,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
           ..write('endedAt: $endedAt, ')
           ..write('durationMinutes: $durationMinutes, ')
           ..write('status: $status, ')
+          ..write('cyclesCompleted: $cyclesCompleted, ')
+          ..write('presetId: $presetId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6226,6 +6431,7 @@ typedef $$NotesTableCreateCompanionBuilder =
       required String title,
       required String content,
       Value<DateTime> createdAt,
+      Value<String?> tags,
       Value<int> rowid,
     });
 typedef $$NotesTableUpdateCompanionBuilder =
@@ -6234,6 +6440,7 @@ typedef $$NotesTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String> content,
       Value<DateTime> createdAt,
+      Value<String?> tags,
       Value<int> rowid,
     });
 
@@ -6262,6 +6469,11 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6294,6 +6506,11 @@ class $$NotesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NotesTableAnnotationComposer
@@ -6316,6 +6533,9 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
 }
 
 class $$NotesTableTableManager
@@ -6350,12 +6570,14 @@ class $$NotesTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesCompanion(
                 id: id,
                 title: title,
                 content: content,
                 createdAt: createdAt,
+                tags: tags,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6364,12 +6586,14 @@ class $$NotesTableTableManager
                 required String title,
                 required String content,
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesCompanion.insert(
                 id: id,
                 title: title,
                 content: content,
                 createdAt: createdAt,
+                tags: tags,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6401,6 +6625,7 @@ typedef $$JournalTableCreateCompanionBuilder =
       required String entry,
       Value<String?> mood,
       Value<String?> imagePaths,
+      Value<String?> tags,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -6411,6 +6636,7 @@ typedef $$JournalTableUpdateCompanionBuilder =
       Value<String> entry,
       Value<String?> mood,
       Value<String?> imagePaths,
+      Value<String?> tags,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -6446,6 +6672,11 @@ class $$JournalTableFilterComposer
 
   ColumnFilters<String> get imagePaths => $composableBuilder(
     column: $table.imagePaths,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6489,6 +6720,11 @@ class $$JournalTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -6520,6 +6756,9 @@ class $$JournalTableAnnotationComposer
     column: $table.imagePaths,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -6561,6 +6800,7 @@ class $$JournalTableTableManager
                 Value<String> entry = const Value.absent(),
                 Value<String?> mood = const Value.absent(),
                 Value<String?> imagePaths = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => JournalCompanion(
@@ -6569,6 +6809,7 @@ class $$JournalTableTableManager
                 entry: entry,
                 mood: mood,
                 imagePaths: imagePaths,
+                tags: tags,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -6579,6 +6820,7 @@ class $$JournalTableTableManager
                 required String entry,
                 Value<String?> mood = const Value.absent(),
                 Value<String?> imagePaths = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => JournalCompanion.insert(
@@ -6587,6 +6829,7 @@ class $$JournalTableTableManager
                 entry: entry,
                 mood: mood,
                 imagePaths: imagePaths,
+                tags: tags,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -7893,6 +8136,8 @@ typedef $$FocusSessionsTableCreateCompanionBuilder =
       Value<DateTime?> endedAt,
       required int durationMinutes,
       Value<String> status,
+      Value<int> cyclesCompleted,
+      Value<String?> presetId,
       Value<int> rowid,
     });
 typedef $$FocusSessionsTableUpdateCompanionBuilder =
@@ -7903,6 +8148,8 @@ typedef $$FocusSessionsTableUpdateCompanionBuilder =
       Value<DateTime?> endedAt,
       Value<int> durationMinutes,
       Value<String> status,
+      Value<int> cyclesCompleted,
+      Value<String?> presetId,
       Value<int> rowid,
     });
 
@@ -7942,6 +8189,16 @@ class $$FocusSessionsTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cyclesCompleted => $composableBuilder(
+    column: $table.cyclesCompleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get presetId => $composableBuilder(
+    column: $table.presetId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7984,6 +8241,16 @@ class $$FocusSessionsTableOrderingComposer
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get cyclesCompleted => $composableBuilder(
+    column: $table.cyclesCompleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get presetId => $composableBuilder(
+    column: $table.presetId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FocusSessionsTableAnnotationComposer
@@ -8014,6 +8281,14 @@ class $$FocusSessionsTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get cyclesCompleted => $composableBuilder(
+    column: $table.cyclesCompleted,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get presetId =>
+      $composableBuilder(column: $table.presetId, builder: (column) => column);
 }
 
 class $$FocusSessionsTableTableManager
@@ -8053,6 +8328,8 @@ class $$FocusSessionsTableTableManager
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<int> durationMinutes = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<int> cyclesCompleted = const Value.absent(),
+                Value<String?> presetId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion(
                 id: id,
@@ -8061,6 +8338,8 @@ class $$FocusSessionsTableTableManager
                 endedAt: endedAt,
                 durationMinutes: durationMinutes,
                 status: status,
+                cyclesCompleted: cyclesCompleted,
+                presetId: presetId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8071,6 +8350,8 @@ class $$FocusSessionsTableTableManager
                 Value<DateTime?> endedAt = const Value.absent(),
                 required int durationMinutes,
                 Value<String> status = const Value.absent(),
+                Value<int> cyclesCompleted = const Value.absent(),
+                Value<String?> presetId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion.insert(
                 id: id,
@@ -8079,6 +8360,8 @@ class $$FocusSessionsTableTableManager
                 endedAt: endedAt,
                 durationMinutes: durationMinutes,
                 status: status,
+                cyclesCompleted: cyclesCompleted,
+                presetId: presetId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

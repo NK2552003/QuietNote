@@ -96,6 +96,11 @@ class HomeScreen extends ConsumerWidget {
         subtitle: DateFormat('EEEE, MMMM d').format(selectedDay),
         actions: [
           UiIconButton(
+            icon: Icons.search_rounded,
+            tooltip: 'Search everything',
+            onPressed: () => context.push('/search'),
+          ),
+          UiIconButton(
             icon: Icons.auto_awesome,
             tooltip: 'Ask AI',
             onPressed: () => context.go('/ai'),

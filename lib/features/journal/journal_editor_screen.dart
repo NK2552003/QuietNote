@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:quietnote/core/widgets/markdown_mermaid.dart';
+import 'package:quietnote/core/utils/tag_utils.dart';
 
 const List<UiToggleOption<String>> _moodOptions = [
   UiToggleOption(value: 'Great', label: '😃 Great'),
@@ -38,6 +39,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
   bool _isSaving = false;
   String _mood = 'Neutral';
   DateTime _entryDate = DateTime.now();
+  List<String> _tags = [];
   final SpeechToText _speech = SpeechToText();
   bool _listening = false;
   // Text already in the field when dictation started. `recognizedWords`
@@ -76,6 +78,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
       _contentController.text = entry.entry;
       _mood = entry.mood ?? 'Neutral';
       _entryDate = entry.createdAt;
+      _tags = parseTagsCsv(entry.tags);
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -126,6 +129,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
             title: drift.Value(title.isEmpty ? 'Untitled entry' : title),
             entry: drift.Value(content),
             mood: drift.Value(_mood),
+            tags: drift.Value(tagsToCsv(_tags)),
           ),
         );
       } else {
@@ -137,6 +141,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                 title: drift.Value(title.isEmpty ? 'Untitled entry' : title),
                 entry: content,
                 mood: drift.Value(_mood),
+                tags: drift.Value(tagsToCsv(_tags)),
               ),
             );
       }
@@ -363,6 +368,12 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                   value: _mood,
                   onChanged: (v) => setState(() => _mood = v),
                   options: _moodOptions,
+                ),
+                const SizedBox(height: 12),
+                UiTagInput(
+                  tags: _tags,
+                  onChanged: (v) => setState(() => _tags = v),
+                  hintText: 'Add a subject tag',
                 ),
                 const SizedBox(height: 16),
                 if (_isPreview)

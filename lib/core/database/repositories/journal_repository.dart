@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/database_provider.dart';
+import 'package:quietnote/core/utils/tag_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
 
@@ -24,7 +25,12 @@ class JournalRepository {
     )..orderBy([(j) => drift.OrderingTerm.desc(j.createdAt)])).watch();
   }
 
-  Future<void> addEntry(String entry, {String? mood, String? title}) async {
+  Future<void> addEntry(
+    String entry, {
+    String? mood,
+    String? title,
+    List<String> tags = const [],
+  }) async {
     await _db
         .into(_db.journal)
         .insert(
@@ -35,6 +41,7 @@ class JournalRepository {
             ),
             entry: entry,
             mood: drift.Value(mood),
+            tags: drift.Value(tagsToCsv(tags)),
           ),
         );
   }
@@ -43,6 +50,14 @@ class JournalRepository {
     return (_db.select(
       _db.journal,
     )..where((j) => j.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Distinct tags currently in use across all journal entries, for building
+  /// a filter bar on the list screen.
+  Stream<List<String>> watchTagsInUse() {
+    return watchAllEntries().map(
+      (entries) => distinctTagsInUse(entries.map((e) => e.tags)),
+    );
   }
 
   Future<void> deleteEntry(String id) async {

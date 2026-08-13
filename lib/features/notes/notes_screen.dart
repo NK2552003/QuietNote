@@ -5,11 +5,45 @@ import 'package:intl/intl.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
+import 'package:quietnote/core/utils/tag_utils.dart';
 
 enum _NoteSort { recent, title }
 
+/// Controls how much of each note is shown on the grid tile.
+enum _CardViewMode { titleOnly, titleAndPreview, full }
+
+extension on _CardViewMode {
+  String get label => switch (this) {
+    _CardViewMode.titleOnly => 'T',
+    _CardViewMode.titleAndPreview => 'T + D',
+    _CardViewMode.full => 'Def',
+  };
+
+  IconData get icon => switch (this) {
+    _CardViewMode.titleOnly => Icons.short_text_rounded,
+    _CardViewMode.titleAndPreview => Icons.notes_rounded,
+    _CardViewMode.full => Icons.view_agenda_outlined,
+  };
+
+  /// Fixed tile height for this mode. GridView lays every tile in a row out
+  /// at the same height, so this has to be a constant per mode rather than
+  /// something each card measures itself — chosen generously enough that
+  /// the tallest possible content (2-line title, 3-line preview, a row of
+  /// tags, and the footer) always fits with room to spare.
+  double get tileHeight => switch (this) {
+    _CardViewMode.titleOnly => 120,
+    _CardViewMode.titleAndPreview => 206,
+    _CardViewMode.full => 240,
+  };
+}
+
 final _noteQueryProvider = StateProvider<String>((ref) => '');
 final _noteSortProvider = StateProvider<_NoteSort>((ref) => _NoteSort.recent);
+final _noteTagFilterProvider = StateProvider<String?>((ref) => null);
+final _noteViewModeProvider = StateProvider<_CardViewMode>(
+  (ref) => _CardViewMode.full,
+);
+final _noteColumnsProvider = StateProvider<int>((ref) => 2);
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -110,6 +144,9 @@ class NotesScreen extends ConsumerWidget {
     final notesAsync = ref.watch(notesStreamProvider);
     final query = ref.watch(_noteQueryProvider);
     final sort = ref.watch(_noteSortProvider);
+    final tagFilter = ref.watch(_noteTagFilterProvider);
+    final viewMode = ref.watch(_noteViewModeProvider);
+    final columns = ref.watch(_noteColumnsProvider);
 
     return UiPage(
       header: UiHeader(
@@ -143,7 +180,7 @@ class NotesScreen extends ConsumerWidget {
                   .length;
 
               final q = query.trim().toLowerCase();
-              final filtered =
+              final byQuery =
                   (q.isEmpty
                           ? notes
                           : notes
@@ -154,6 +191,15 @@ class NotesScreen extends ConsumerWidget {
                                 )
                                 .toList())
                       .toList();
+
+              final allTags = distinctTagsInUse(notes.map((n) => n.tags));
+              final filtered = tagFilter == null
+                  ? byQuery
+                  : byQuery
+                        .where(
+                          (n) => parseTagsCsv(n.tags).contains(tagFilter),
+                        )
+                        .toList();
 
               if (sort == _NoteSort.title) {
                 filtered.sort(
@@ -244,6 +290,80 @@ class NotesScreen extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 16),
+                  if (allTags.isNotEmpty) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final tag in allTags)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: UiBadge(
+                                label: tag,
+                                icon: Icons.sell_outlined,
+                                variant: tagFilter == tag
+                                    ? UiBadgeVariant.solid
+                                    : UiBadgeVariant.soft,
+                                intent: tagFilter == tag
+                                    ? UiIntent.primary
+                                    : UiIntent.neutral,
+                                onTap: () => ref
+                                        .read(_noteTagFilterProvider.notifier)
+                                        .state =
+                                    tagFilter == tag ? null : tag,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: UiToggleGroup<_CardViewMode>(
+                          variant: UiToggleGroupVariant.segmented,
+                          size: UiSize.sm,
+                          expand: true,
+                          value: viewMode,
+                          onChanged: (v) =>
+                              ref.read(_noteViewModeProvider.notifier).state =
+                                  v,
+                          options: [
+                            for (final mode in _CardViewMode.values)
+                              UiToggleOption(
+                                value: mode,
+                                label: mode.label,
+                                icon: mode.icon,
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      UiToggleGroup<int>(
+                        variant: UiToggleGroupVariant.segmented,
+                        size: UiSize.sm,
+                        value: columns,
+                        onChanged: (v) =>
+                            ref.read(_noteColumnsProvider.notifier).state = v,
+                        options: const [
+                          UiToggleOption(
+                            value: 1,
+                            label: '1',
+                            icon: Icons.view_agenda_outlined,
+                            tooltip: '1 column',
+                          ),
+                          UiToggleOption(
+                            value: 2,
+                            label: '2',
+                            icon: Icons.grid_view_rounded,
+                            tooltip: '2 columns',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   if (filtered.isEmpty)
                     UiEmptyState(
                       title: 'No matches',
@@ -252,14 +372,22 @@ class NotesScreen extends ConsumerWidget {
                     )
                   else
                     UiCardGrid(
-                      // Preview cards keep a stable rhythm while the grid
-                      // adds columns only when there is room to read them.
-                      mainAxisExtent: 196,
-                      maxCrossAxisExtent: 380,
+                      // A fixed tile height per view mode keeps every card
+                      // in a row the same size (GridView can't vary height
+                      // per item); the column count comes straight from the
+                      // toggle above rather than the available width, so
+                      // the user's choice always wins.
+                      key: ValueKey('$viewMode-$columns'),
+                      mainAxisExtent: viewMode.tileHeight,
+                      mobileColumns: columns,
+                      tabletColumns: columns,
+                      desktopColumns: columns,
+                      largeColumns: columns,
                       children: filtered
                           .map(
                             (note) => _NoteCard(
                               note: note,
+                              viewMode: viewMode,
                               onDelete: () =>
                                   _confirmDelete(context, ref, note),
                             ),
@@ -299,9 +427,14 @@ class NotesScreen extends ConsumerWidget {
 }
 
 class _NoteCard extends StatelessWidget {
-  const _NoteCard({required this.note, required this.onDelete});
+  const _NoteCard({
+    required this.note,
+    required this.viewMode,
+    required this.onDelete,
+  });
 
   final Note note;
+  final _CardViewMode viewMode;
   final VoidCallback onDelete;
 
   @override
@@ -310,6 +443,10 @@ class _NoteCard extends StatelessWidget {
     final checklist = _checklistStats(note.content);
     final preview = _plainPreview(note.content);
     final words = _wordCount(note.content);
+    final tags = parseTagsCsv(note.tags);
+    final showPreview = viewMode != _CardViewMode.titleOnly;
+    final showTags = viewMode == _CardViewMode.full && tags.isNotEmpty;
+    final showWordCount = viewMode != _CardViewMode.titleOnly;
 
     return UiCard(
       semanticLabel:
@@ -317,11 +454,21 @@ class _NoteCard extends StatelessWidget {
       onTap: () => context.push('/notes/${note.id}'),
       onLongPress: onDelete,
       padding: EdgeInsets.all(context.sp(context.uiSpace.lg)),
+      // Every element below has a capped height (maxLines on text, a fixed
+      // height on the tag row) chosen so the worst-case total always fits
+      // inside the grid's mainAxisExtent for the active view mode. We
+      // deliberately avoid Expanded/Flexible here: UiCard measures this
+      // child inside an AnimatedCrossFade (for the collapsible feature),
+      // which lays it out with an unbounded height to get its natural size
+      // — a flex child would throw ("incoming height constraints are
+      // unbounded") under that measurement pass and the tile would fail to
+      // render.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 32,
@@ -338,11 +485,14 @@ class _NoteCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  note.title.isEmpty ? 'Untitled' : note.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.uiText.bodyStrong,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    note.title.isEmpty ? 'Untitled' : note.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.uiText.bodyStrong,
+                  ),
                 ),
               ),
               IconButton(
@@ -356,40 +506,78 @@ class _NoteCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            preview.isEmpty ? 'No content' : preview,
-            maxLines: 5,
-            overflow: TextOverflow.ellipsis,
-            style: context.uiText.body.copyWith(color: c.foregroundMuted),
-          ),
+          if (showPreview) ...[
+            const SizedBox(height: 8),
+            Text(
+              preview.isEmpty ? 'No content' : preview,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: context.uiText.body.copyWith(color: c.foregroundMuted),
+            ),
+          ],
+          if (showTags) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 26,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                itemCount: tags.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (_, i) => UiBadge(
+                  label: tags[i],
+                  size: UiSize.sm,
+                  variant: UiBadgeVariant.soft,
+                  intent: UiIntent.neutral,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
-              Icon(Icons.schedule_rounded, size: 12, color: c.foregroundMuted),
-              const SizedBox(width: 4),
-              Text(
-                _relativeDate(note.createdAt),
-                style: context.uiText.caption,
-              ),
-              if (checklist.total > 0) ...[
-                const SizedBox(width: 10),
-                Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 12,
-                  color: c.foregroundMuted,
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 12,
+                      color: c.foregroundMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _relativeDate(note.createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.uiText.caption,
+                      ),
+                    ),
+                    if (checklist.total > 0) ...[
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 12,
+                        color: c.foregroundMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${checklist.done}/${checklist.total}',
+                        style: context.uiText.caption,
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 4),
+              ),
+              if (showWordCount) ...[
+                const SizedBox(width: 8),
                 Text(
-                  '${checklist.done}/${checklist.total}',
+                  words == 1 ? '1 word' : '$words words',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: context.uiText.caption,
                 ),
               ],
-              const Spacer(),
-              Text(
-                words == 1 ? '1 word' : '$words words',
-                style: context.uiText.caption,
-              ),
             ],
           ),
         ],
