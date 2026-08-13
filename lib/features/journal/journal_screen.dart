@@ -13,8 +13,40 @@ const Map<String, String> _moodEmoji = {
   'Bad': '😔',
 };
 
+/// Controls how much of each entry is shown on the grid tile.
+enum _CardViewMode { titleOnly, titleAndPreview, full }
+
+extension on _CardViewMode {
+  String get label => switch (this) {
+    _CardViewMode.titleOnly => 'T',
+    _CardViewMode.titleAndPreview => 'T + D',
+    _CardViewMode.full => 'Def',
+  };
+
+  IconData get icon => switch (this) {
+    _CardViewMode.titleOnly => Icons.short_text_rounded,
+    _CardViewMode.titleAndPreview => Icons.notes_rounded,
+    _CardViewMode.full => Icons.view_agenda_outlined,
+  };
+
+  /// Fixed tile height for this mode. GridView lays every tile in a row out
+  /// at the same height, so this has to be a constant per mode rather than
+  /// something each card measures itself — chosen generously enough that
+  /// the tallest possible content (2-line title, 3-line preview, a row of
+  /// tags, and the footer) always fits with room to spare.
+  double get tileHeight => switch (this) {
+    _CardViewMode.titleOnly => 120,
+    _CardViewMode.titleAndPreview => 206,
+    _CardViewMode.full => 240,
+  };
+}
+
 final _moodFilterProvider = StateProvider<String?>((ref) => null);
 final _journalTagFilterProvider = StateProvider<String?>((ref) => null);
+final _journalViewModeProvider = StateProvider<_CardViewMode>(
+  (ref) => _CardViewMode.full,
+);
+final _journalColumnsProvider = StateProvider<int>((ref) => 2);
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -32,6 +64,19 @@ int _wordCount(String text) {
   final trimmed = text.trim();
   if (trimmed.isEmpty) return 0;
   return trimmed.split(RegExp(r'\s+')).length;
+}
+
+/// Strips the most common Markdown punctuation so grid cards show a clean
+/// text preview instead of raw `#`, `**`, backticks, image tags, etc.
+String _plainPreview(String content) {
+  final text = content
+      .replaceAll(RegExp(r'```[\s\S]*?```'), '')
+      .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '')
+      .replaceAll(RegExp(r'^#{1,6}\s*', multiLine: true), '')
+      .replaceAll(RegExp(r'\*\*|__|~~|`'), '')
+      .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
+      .replaceAll(RegExp(r'^>\s?', multiLine: true), '');
+  return text.trim();
 }
 
 UiIntent _moodIntent(String mood) {
@@ -104,6 +149,8 @@ class JournalScreen extends ConsumerWidget {
     final journalAsync = ref.watch(journalStreamProvider);
     final moodFilter = ref.watch(_moodFilterProvider);
     final tagFilter = ref.watch(_journalTagFilterProvider);
+    final viewMode = ref.watch(_journalViewModeProvider);
+    final columns = ref.watch(_journalColumnsProvider);
 
     return UiPage(
       header: UiHeader(
@@ -262,6 +309,55 @@ class JournalScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: UiToggleGroup<_CardViewMode>(
+                          variant: UiToggleGroupVariant.segmented,
+                          size: UiSize.sm,
+                          expand: true,
+                          value: viewMode,
+                          onChanged: (v) =>
+                              ref
+                                      .read(_journalViewModeProvider.notifier)
+                                      .state =
+                                  v,
+                          options: [
+                            for (final mode in _CardViewMode.values)
+                              UiToggleOption(
+                                value: mode,
+                                label: mode.label,
+                                icon: mode.icon,
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      UiToggleGroup<int>(
+                        variant: UiToggleGroupVariant.segmented,
+                        size: UiSize.sm,
+                        value: columns,
+                        onChanged: (v) =>
+                            ref.read(_journalColumnsProvider.notifier).state =
+                                v,
+                        options: const [
+                          UiToggleOption(
+                            value: 1,
+                            label: '1',
+                            icon: Icons.view_agenda_outlined,
+                            tooltip: '1 column',
+                          ),
+                          UiToggleOption(
+                            value: 2,
+                            label: '2',
+                            icon: Icons.grid_view_rounded,
+                            tooltip: '2 columns',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   if (filtered.isEmpty)
                     UiEmptyState(
                       title: 'No entries here',
@@ -270,16 +366,22 @@ class JournalScreen extends ConsumerWidget {
                     )
                   else
                     UiCardGrid(
-                      // Keep every entry preview the same height and let the
-                      // grid choose a readable width at every screen size.
-                      // Tall enough for title + preview + tags + footer so
-                      // the tile never clips or overflows.
-                      mainAxisExtent: 256,
-                      maxCrossAxisExtent: 340,
+                      // A fixed tile height per view mode keeps every card
+                      // in a row the same size (GridView can't vary height
+                      // per item); the column count comes straight from the
+                      // toggle above rather than the available width, so
+                      // the user's choice always wins.
+                      key: ValueKey('$viewMode-$columns'),
+                      mainAxisExtent: viewMode.tileHeight,
+                      mobileColumns: columns,
+                      tabletColumns: columns,
+                      desktopColumns: columns,
+                      largeColumns: columns,
                       children: filtered
                           .map(
                             (entry) => _JournalCard(
                               entry: entry,
+                              viewMode: viewMode,
                               onDelete: () =>
                                   _confirmDelete(context, ref, entry),
                             ),
@@ -319,9 +421,14 @@ class JournalScreen extends ConsumerWidget {
 }
 
 class _JournalCard extends StatelessWidget {
-  const _JournalCard({required this.entry, required this.onDelete});
+  const _JournalCard({
+    required this.entry,
+    required this.viewMode,
+    required this.onDelete,
+  });
 
   final JournalData entry;
+  final _CardViewMode viewMode;
   final VoidCallback onDelete;
 
   @override
@@ -332,9 +439,10 @@ class _JournalCard extends StatelessWidget {
     final hasPhotos = entry.entry.contains('local-image://');
     final tags = parseTagsCsv(entry.tags);
     final words = _wordCount(entry.entry);
-    final preview = entry.entry
-        .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '')
-        .trim();
+    final preview = _plainPreview(entry.entry);
+    final showPreview = viewMode != _CardViewMode.titleOnly;
+    final showTags = viewMode == _CardViewMode.full && tags.isNotEmpty;
+    final showWordCount = viewMode != _CardViewMode.titleOnly;
 
     return UiCard(
       semanticLabel: 'Preview journal entry: ${entry.title}',
@@ -343,12 +451,13 @@ class _JournalCard extends StatelessWidget {
       padding: EdgeInsets.all(context.sp(context.uiSpace.lg)),
       // Every element below has a capped height (maxLines on text, a fixed
       // height on the tag row) chosen so the worst-case total always fits
-      // inside the grid's mainAxisExtent. We deliberately avoid Expanded/
-      // Flexible here: UiCard measures this child inside an
-      // AnimatedCrossFade (for the collapsible feature), which lays it out
-      // with an unbounded height to get its natural size — a flex child
-      // would throw ("incoming height constraints are unbounded") under
-      // that measurement pass and the tile would fail to render.
+      // inside the grid's mainAxisExtent for the active view mode. We
+      // deliberately avoid Expanded/Flexible here: UiCard measures this
+      // child inside an AnimatedCrossFade (for the collapsible feature),
+      // which lays it out with an unbounded height to get its natural size
+      // — a flex child would throw ("incoming height constraints are
+      // unbounded") under that measurement pass and the tile would fail to
+      // render.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -383,14 +492,16 @@ class _JournalCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            preview.isEmpty ? 'No content' : preview,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: context.uiText.body.copyWith(color: c.foregroundMuted),
-          ),
-          if (tags.isNotEmpty) ...[
+          if (showPreview) ...[
+            const SizedBox(height: 8),
+            Text(
+              preview.isEmpty ? 'No content' : preview,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: context.uiText.body.copyWith(color: c.foregroundMuted),
+            ),
+          ],
+          if (showTags) ...[
             const SizedBox(height: 8),
             SizedBox(
               height: 26,
@@ -446,13 +557,15 @@ class _JournalCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                words == 1 ? '1 word' : '$words words',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.uiText.caption,
-              ),
+              if (showWordCount) ...[
+                const SizedBox(width: 8),
+                Text(
+                  words == 1 ? '1 word' : '$words words',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.uiText.caption,
+                ),
+              ],
             ],
           ),
         ],
