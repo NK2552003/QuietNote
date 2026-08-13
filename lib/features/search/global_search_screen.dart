@@ -89,7 +89,7 @@ class GlobalSearchScreen extends ConsumerWidget {
     final hasQuery = query.trim().isNotEmpty;
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Search',
         subtitle: 'Find anything across Notes, Journal, and Tasks.',
       ),
@@ -121,7 +121,7 @@ class GlobalSearchScreen extends ConsumerWidget {
             UiAccordion(
               variant: UiAccordionVariant.separated,
               allowMultiple: true,
-              initiallyOpen: {0, 1, 2},
+              initiallyOpen: const {0, 1, 2},
               items: [
                 UiAccordionItem(
                   title: 'Notes',
