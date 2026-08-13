@@ -540,14 +540,14 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                   ),
                 const SizedBox(height: 14),
               SizedBox(
-  width: double.infinity,
-  child: UiButton(
-    label: 'Start $effectiveMinutes-minute timer',
-    leadingIcon: Icons.play_arrow_rounded,
-    loading: _scheduling,
-    onPressed: _scheduling ? null : _startTimer,
-  ),
-),
+                  width: double.infinity,
+                  child: UiButton(
+                    label: 'Start $effectiveMinutes-minute timer',
+                    leadingIcon: Icons.play_arrow_rounded,
+                    loading: _scheduling,
+                    onPressed: _scheduling ? null : _startTimer,
+                  ),
+                ),
               ],
             ),
           ),
