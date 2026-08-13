@@ -176,35 +176,28 @@ class TodosScreen extends ConsumerWidget {
                     onChanged: (v) => ref.read(_todoQueryProvider.notifier).state = v,
                   ),
                   const SizedBox(height: 12),
-                  // Make the filter toggle scroll horizontally when there are
-                  // more than 4 options so it doesn't wrap to multiple rows.
-                  Builder(builder: (ctx) {
-                    final todoOptions = <UiToggleOption<_TodoFilter>>[
-                      const UiToggleOption(value: _TodoFilter.all, label: 'All'),
-                      const UiToggleOption(value: _TodoFilter.today, label: 'Today'),
-                      const UiToggleOption(value: _TodoFilter.overdue, label: 'Overdue', intent: UiIntent.danger),
-                      const UiToggleOption(value: _TodoFilter.upcoming, label: 'Upcoming'),
-                      const UiToggleOption(value: _TodoFilter.completed, label: 'Done'),
-                    ];
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                            child: UiToggleGroup<_TodoFilter>(
-                              variant: UiToggleGroupVariant.segmented,
-                              size: UiSize.sm,
-                              expand: true,
-                              value: filter,
-                              onChanged: (v) => ref.read(_todoFilterProvider.notifier).state = v,
-                              options: todoOptions,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }),
+                  // UiToggleGroup(expand: true) already fits every option
+                  // into a single row (each shrinks to share the available
+                  // width) instead of wrapping, so no extra scroll wrapper
+                  // is needed here. Wrapping it in a horizontally-scrolling
+                  // SingleChildScrollView (as this used to) hands the
+                  // Expanded() options inside it unbounded width and
+                  // crashes the layout — which was blanking this whole
+                  // screen.
+                  UiToggleGroup<_TodoFilter>(
+                    variant: UiToggleGroupVariant.segmented,
+                    size: UiSize.sm,
+                    expand: true,
+                    value: filter,
+                    onChanged: (v) => ref.read(_todoFilterProvider.notifier).state = v,
+                    options: const <UiToggleOption<_TodoFilter>>[
+                      UiToggleOption(value: _TodoFilter.all, label: 'All'),
+                      UiToggleOption(value: _TodoFilter.today, label: 'Today'),
+                      UiToggleOption(value: _TodoFilter.overdue, label: 'Overdue', intent: UiIntent.danger),
+                      UiToggleOption(value: _TodoFilter.upcoming, label: 'Upcoming'),
+                      UiToggleOption(value: _TodoFilter.completed, label: 'Done'),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   if (filtered.isEmpty)
                     UiEmptyState(

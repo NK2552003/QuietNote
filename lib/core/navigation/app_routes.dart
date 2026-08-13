@@ -279,37 +279,45 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  late final PageController _pageController;
+  // The PageView that drives Home/Todos/Notes/Settings is unmounted
+  // whenever a quick-grid screen (Habits, Journal, Courses, ...) is shown
+  // in its place — the drawer's grid tiles push those routes directly,
+  // bypassing this shell's index tracking entirely. That unmount destroys
+  // the PageView's scroll position, so a `PageController` that survives
+  // the unmount has nothing left to reattach to.
+  //
+  // The previous approach kept a single long-lived controller around and,
+  // after the PageView remounted, waited for a post-frame callback to call
+  // `jumpToPage`. That's a race: the fresh scroll position always attaches
+  // at the controller's original `initialPage` (0 / Home) first, and
+  // reading `PageController.page` (or calling `jumpToPage`) before that
+  // position has been laid out can throw — leaving `_pendingPageJump`
+  // stuck `true` and the tab bar reporting the correct tab while the body
+  // stayed blank/on Home. Instead, we never try to resurrect the old
+  // controller: whenever the PageView is about to remount we throw it away
+  // and build a brand new one seeded with `initialPage: _currentIndex`, so
+  // it opens on the right tab on its very first frame — no jump needed.
+  PageController? _pageController;
+  bool _pageControllerNeedsRefresh = true;
   int _currentIndex = 0;
   final Set<int> _visitedIndices = <int>{0};
 
-  // The PageView that drives Home/Todos/Notes/Settings is unmounted
-  // whenever a quick-grid screen (Habits, Journal, Courses, ...) is shown
-  // in its place, which detaches `_pageController` from its scroll
-  // position. When the PageView remounts it has no memory of the page it
-  // was on and falls back to page 0 (Home) — even though `_currentIndex`
-  // and the URL are already correct. This flag says "the last tab change
-  // couldn't reach the controller because it wasn't attached yet; force it
-  // into sync the moment it reattaches" so tapping a dock icon from a
-  // quick-grid screen lands on the right tab instead of silently
-  // resetting to Home.
-  bool _pendingPageJump = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: 0);
+  void _markVisited(int index) {
+    _visitedIndices.add(index);
   }
 
-  void _markVisited(int index) {
-    if (!_visitedIndices.contains(index)) {
-      _visitedIndices.add(index);
+  PageController _ensurePageController() {
+    if (_pageController == null || _pageControllerNeedsRefresh) {
+      _pageController?.dispose();
+      _pageController = PageController(initialPage: _currentIndex);
+      _pageControllerNeedsRefresh = false;
     }
+    return _pageController!;
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _pageController?.dispose();
     super.dispose();
   }
 
@@ -354,40 +362,33 @@ class _AppShellState extends State<AppShell> {
     _markVisited(index);
     final String targetRoute = _routeForIndex(index);
     final String currentRoute = GoRouterState.of(context).uri.path;
+    final int prevIndex = _currentIndex;
+
+    if (_currentIndex != index) {
+      setState(() {
+        _currentIndex = index;
+      });
+    }
+
+    // Only move the PageView ourselves if it's actually mounted right now.
+    // If we're tapping a dock icon from a quick-grid screen (Habits,
+    // Journal, ...), the PageView isn't in the tree — `_ensurePageController`
+    // will hand it a fresh controller seeded on `_currentIndex` the moment
+    // it remounts below, so there's nothing to jump here.
+    if (_pageController != null && _pageController!.hasClients) {
+      if ((index - prevIndex).abs() > 1) {
+        _pageController!.jumpToPage(index);
+      } else {
+        _pageController!.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.fastOutSlowIn,
+        );
+      }
+    }
 
     if (currentRoute != targetRoute) {
-      final int prevIndex = _currentIndex;
-      setState(() {
-        _currentIndex = index;
-      });
-      if (_pageController.hasClients) {
-        if ((index - prevIndex).abs() > 1) {
-          _pageController.jumpToPage(index);
-        } else {
-          _pageController.animateToPage(
-            index,
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.fastOutSlowIn,
-          );
-        }
-      } else {
-        // We're navigating away from a quick-grid screen where the
-        // PageView isn't mounted right now, so there's no controller to
-        // move yet. Once it remounts on the target route, the
-        // post-frame sync below (guarded by `_pendingPageJump`) will
-        // force it onto `_currentIndex` instead of defaulting to page 0.
-        _pendingPageJump = true;
-      }
       context.go(targetRoute);
-    } else if (_currentIndex != index) {
-      setState(() {
-        _currentIndex = index;
-      });
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(index);
-      } else {
-        _pendingPageJump = true;
-      }
     }
   }
 
@@ -420,24 +421,16 @@ class _AppShellState extends State<AppShell> {
     if (isMainTabRoute && _currentIndex != calculatedIndex) {
       _currentIndex = calculatedIndex;
       _markVisited(calculatedIndex);
-      _pendingPageJump = true;
     }
 
-    if (isMainTabRoute) {
-      // Runs after every build of a main-tab route. Most of the time the
-      // controller is already showing the right page and this is a
-      // no-op; it only actually moves anything right after the PageView
-      // has just (re)attached following a trip to a quick-grid screen,
-      // which is exactly the case `_pendingPageJump` marks.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_pendingPageJump) return;
-        if (_pageController.hasClients) {
-          if (_pageController.page?.round() != _currentIndex) {
-            _pageController.jumpToPage(_currentIndex);
-          }
-          _pendingPageJump = false;
-        }
-      });
+    if (!isMainTabRoute) {
+      // We're about to show a quick-grid screen (from the drawer/grid, or
+      // an "All Options" tile) as `widget.child` instead of the PageView,
+      // which unmounts the PageView and destroys its scroll position. Mark
+      // the controller as stale so the next time a main-tab route builds,
+      // `_ensurePageController` swaps in a fresh one seeded on the right
+      // page instead of trying to reuse this now-detached one.
+      _pageControllerNeedsRefresh = true;
     }
 
     final selectedIndex =
@@ -455,7 +448,7 @@ class _AppShellState extends State<AppShell> {
       ],
       body: isMainTabRoute
           ? PageView.builder(
-              controller: _pageController,
+              controller: _ensurePageController(),
               physics: const ClampingScrollPhysics(),
               allowImplicitScrolling: false,
               itemCount: 5,

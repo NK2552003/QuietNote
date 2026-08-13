@@ -120,7 +120,7 @@ class AmbientAudioService {
     }
 
     const dataSize = totalSamples * 2;
-    const fileSize = 36 + dataSize;
+    final fileSize = 36 + dataSize;
 
     final header = ByteData(44);
     header.setUint32(0, 0x52494646, Endian.big);
