@@ -294,8 +294,10 @@ class NotesScreen extends ConsumerWidget {
                     UiCardGrid(
                       // Preview cards keep a stable rhythm while the grid
                       // adds columns only when there is room to read them.
-                      mainAxisExtent: 196,
-                      maxCrossAxisExtent: 380,
+                      // Tall enough to fit title + preview + tags + footer
+                      // at once, so nothing clips or overflows the tile.
+                      mainAxisExtent: 256,
+                      maxCrossAxisExtent: 340,
                       children: filtered
                           .map(
                             (note) => _NoteCard(
@@ -358,11 +360,20 @@ class _NoteCard extends StatelessWidget {
       onTap: () => context.push('/notes/${note.id}'),
       onLongPress: onDelete,
       padding: EdgeInsets.all(context.sp(context.uiSpace.lg)),
+      // Every element below has a capped height (maxLines on text, a fixed
+      // height on the tag row) chosen so the worst-case total always fits
+      // inside the grid's mainAxisExtent. We deliberately avoid Expanded/
+      // Flexible here: UiCard measures this child inside an
+      // AnimatedCrossFade (for the collapsible feature), which lays it out
+      // with an unbounded height to get its natural size — a flex child
+      // would throw ("incoming height constraints are unbounded") under
+      // that measurement pass and the tile would fail to render.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 32,
@@ -379,11 +390,14 @@ class _NoteCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  note.title.isEmpty ? 'Untitled' : note.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.uiText.bodyStrong,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    note.title.isEmpty ? 'Untitled' : note.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.uiText.bodyStrong,
+                  ),
                 ),
               ),
               IconButton(
@@ -400,51 +414,69 @@ class _NoteCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             preview.isEmpty ? 'No content' : preview,
-            maxLines: 5,
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: context.uiText.body.copyWith(color: c.foregroundMuted),
           ),
           if (tags.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final tag in tags)
-                  UiBadge(
-                    label: tag,
-                    size: UiSize.sm,
-                    variant: UiBadgeVariant.soft,
-                    intent: UiIntent.neutral,
-                  ),
-              ],
+            SizedBox(
+              height: 26,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                itemCount: tags.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (_, i) => UiBadge(
+                  label: tags[i],
+                  size: UiSize.sm,
+                  variant: UiBadgeVariant.soft,
+                  intent: UiIntent.neutral,
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 10),
           Row(
             children: [
-              Icon(Icons.schedule_rounded, size: 12, color: c.foregroundMuted),
-              const SizedBox(width: 4),
-              Text(
-                _relativeDate(note.createdAt),
-                style: context.uiText.caption,
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 12,
+                      color: c.foregroundMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _relativeDate(note.createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.uiText.caption,
+                      ),
+                    ),
+                    if (checklist.total > 0) ...[
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 12,
+                        color: c.foregroundMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${checklist.done}/${checklist.total}',
+                        style: context.uiText.caption,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (checklist.total > 0) ...[
-                const SizedBox(width: 10),
-                Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 12,
-                  color: c.foregroundMuted,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${checklist.done}/${checklist.total}',
-                  style: context.uiText.caption,
-                ),
-              ],
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 words == 1 ? '1 word' : '$words words',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: context.uiText.caption,
               ),
             ],

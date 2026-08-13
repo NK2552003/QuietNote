@@ -18,6 +18,33 @@ final _journalTagFilterProvider = StateProvider<String?>((ref) => null);
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+String _relativeDate(DateTime date) {
+  final today = _dateOnly(DateTime.now());
+  final day = _dateOnly(date);
+  final diff = today.difference(day).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+  if (diff > 1 && diff < 7) return DateFormat.EEEE().format(date);
+  return DateFormat.yMMMd().format(date);
+}
+
+int _wordCount(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return 0;
+  return trimmed.split(RegExp(r'\s+')).length;
+}
+
+UiIntent _moodIntent(String mood) {
+  switch (mood) {
+    case 'Great':
+      return UiIntent.success;
+    case 'Bad':
+      return UiIntent.danger;
+    default:
+      return UiIntent.neutral;
+  }
+}
+
 /// Longest run of consecutive days (ending today or yesterday) that have
 /// at least one journal entry — mirrors the "streak" language used
 /// elsewhere in the app (habits, routines) for a consistent feel.
@@ -245,8 +272,10 @@ class JournalScreen extends ConsumerWidget {
                     UiCardGrid(
                       // Keep every entry preview the same height and let the
                       // grid choose a readable width at every screen size.
-                      mainAxisExtent: 196,
-                      maxCrossAxisExtent: 380,
+                      // Tall enough for title + preview + tags + footer so
+                      // the tile never clips or overflows.
+                      mainAxisExtent: 256,
+                      maxCrossAxisExtent: 340,
                       children: filtered
                           .map(
                             (entry) => _JournalCard(
@@ -297,10 +326,12 @@ class _JournalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.uiColors;
     final mood = entry.mood ?? 'Neutral';
     final emoji = _moodEmoji[mood] ?? '📝';
     final hasPhotos = entry.entry.contains('local-image://');
     final tags = parseTagsCsv(entry.tags);
+    final words = _wordCount(entry.entry);
     final preview = entry.entry
         .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '')
         .trim();
@@ -310,42 +341,40 @@ class _JournalCard extends StatelessWidget {
       onTap: () => context.push('/journal/${entry.id}'),
       onLongPress: onDelete,
       padding: EdgeInsets.all(context.sp(context.uiSpace.lg)),
+      // Every element below has a capped height (maxLines on text, a fixed
+      // height on the tag row) chosen so the worst-case total always fits
+      // inside the grid's mainAxisExtent. We deliberately avoid Expanded/
+      // Flexible here: UiCard measures this child inside an
+      // AnimatedCrossFade (for the collapsible feature), which lays it out
+      // with an unbounded height to get its natural size — a flex child
+      // would throw ("incoming height constraints are unbounded") under
+      // that measurement pass and the tile would fail to render.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 20)),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(emoji, style: const TextStyle(fontSize: 20)),
+              ),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.uiText.bodyStrong,
-                    ),
-                    Text(
-                      DateFormat.yMMMd().format(entry.createdAt),
-                      style: context.uiText.caption,
-                    ),
-                  ],
-                ),
-              ),
-              if (hasPhotos)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Icon(
-                    Icons.image_outlined,
-                    size: 16,
-                    color: context.uiColors.foregroundMuted,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    entry.title.isEmpty ? 'Untitled entry' : entry.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.uiText.bodyStrong,
                   ),
                 ),
+              ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 18),
-                color: context.uiColors.foregroundMuted,
+                color: c.foregroundMuted,
                 onPressed: onDelete,
                 tooltip: 'Delete entry',
                 visualDensity: VisualDensity.compact,
@@ -357,28 +386,75 @@ class _JournalCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             preview.isEmpty ? 'No content' : preview,
-            maxLines: 5,
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: context.uiText.body.copyWith(
-              color: context.uiColors.foregroundMuted,
-            ),
+            style: context.uiText.body.copyWith(color: c.foregroundMuted),
           ),
           if (tags.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final tag in tags)
-                  UiBadge(
-                    label: tag,
-                    size: UiSize.sm,
-                    variant: UiBadgeVariant.soft,
-                    intent: UiIntent.neutral,
-                  ),
-              ],
+            SizedBox(
+              height: 26,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                itemCount: tags.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (_, i) => UiBadge(
+                  label: tags[i],
+                  size: UiSize.sm,
+                  variant: UiBadgeVariant.soft,
+                  intent: UiIntent.neutral,
+                ),
+              ),
             ),
           ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    UiBadge(
+                      label: mood,
+                      size: UiSize.sm,
+                      variant: UiBadgeVariant.soft,
+                      intent: _moodIntent(mood),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 12,
+                      color: c.foregroundMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _relativeDate(entry.createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.uiText.caption,
+                      ),
+                    ),
+                    if (hasPhotos) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.image_outlined,
+                        size: 12,
+                        color: c.foregroundMuted,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                words == 1 ? '1 word' : '$words words',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.uiText.caption,
+              ),
+            ],
+          ),
         ],
       ),
     );
