@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
+import 'package:quietnote/core/utils/tag_utils.dart';
 
 const Map<String, String> _moodEmoji = {
   'Great': '😃',
@@ -13,6 +14,7 @@ const Map<String, String> _moodEmoji = {
 };
 
 final _moodFilterProvider = StateProvider<String?>((ref) => null);
+final _journalTagFilterProvider = StateProvider<String?>((ref) => null);
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -74,6 +76,7 @@ class JournalScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final journalAsync = ref.watch(journalStreamProvider);
     final moodFilter = ref.watch(_moodFilterProvider);
+    final tagFilter = ref.watch(_journalTagFilterProvider);
 
     return UiPage(
       header: UiHeader(
@@ -101,10 +104,18 @@ class JournalScreen extends ConsumerWidget {
               }
 
               final streak = _currentStreak(entries);
-              final filtered = moodFilter == null
+              final byMood = moodFilter == null
                   ? entries
                   : entries
                         .where((e) => (e.mood ?? 'Neutral') == moodFilter)
+                        .toList();
+              final allTags = distinctTagsInUse(entries.map((e) => e.tags));
+              final filtered = tagFilter == null
+                  ? byMood
+                  : byMood
+                        .where(
+                          (e) => parseTagsCsv(e.tags).contains(tagFilter),
+                        )
                         .toList();
 
               return Column(
@@ -194,6 +205,36 @@ class JournalScreen extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 16),
+                  if (allTags.isNotEmpty) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final tag in allTags)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: UiBadge(
+                                label: tag,
+                                icon: Icons.sell_outlined,
+                                variant: tagFilter == tag
+                                    ? UiBadgeVariant.solid
+                                    : UiBadgeVariant.soft,
+                                intent: tagFilter == tag
+                                    ? UiIntent.primary
+                                    : UiIntent.neutral,
+                                onTap: () => ref
+                                        .read(
+                                          _journalTagFilterProvider.notifier,
+                                        )
+                                        .state =
+                                    tagFilter == tag ? null : tag,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   if (filtered.isEmpty)
                     UiEmptyState(
                       title: 'No entries here',
@@ -259,6 +300,7 @@ class _JournalCard extends StatelessWidget {
     final mood = entry.mood ?? 'Neutral';
     final emoji = _moodEmoji[mood] ?? '📝';
     final hasPhotos = entry.entry.contains('local-image://');
+    final tags = parseTagsCsv(entry.tags);
     final preview = entry.entry
         .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '')
         .trim();
@@ -321,6 +363,22 @@ class _JournalCard extends StatelessWidget {
               color: context.uiColors.foregroundMuted,
             ),
           ),
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final tag in tags)
+                  UiBadge(
+                    label: tag,
+                    size: UiSize.sm,
+                    variant: UiBadgeVariant.soft,
+                    intent: UiIntent.neutral,
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );

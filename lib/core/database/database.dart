@@ -84,6 +84,11 @@ class Notes extends Table {
   TextColumn get content => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
+  /// Comma-separated subject/topic tags (e.g. "Biology,Exam prep"), same CSV
+  /// convention already used by `imagePaths` and `daysOfWeek` elsewhere in
+  /// this schema.
+  TextColumn get tags => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -98,6 +103,9 @@ class Journal extends Table {
   TextColumn get entry => text()();
   TextColumn get mood => text().nullable()();
   TextColumn get imagePaths => text().nullable()(); // Comma separated paths
+
+  /// Comma-separated subject/topic tags, same CSV convention as [imagePaths].
+  TextColumn get tags => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
@@ -197,7 +205,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7; // v7: durable focus timer history
+  int get schemaVersion => 8; // v8: subject/topic tags on notes & journal
 
   @override
   MigrationStrategy get migration {
@@ -292,6 +300,10 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 7) {
           await m.createTable(focusSessions);
+        }
+        if (from < 8) {
+          await m.addColumn(notes, notes.tags);
+          await m.addColumn(journal, journal.tags);
         }
       },
       beforeOpen: (details) async {

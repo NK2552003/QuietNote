@@ -5,11 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
+import 'package:quietnote/core/utils/tag_utils.dart';
 
 enum _NoteSort { recent, title }
 
 final _noteQueryProvider = StateProvider<String>((ref) => '');
 final _noteSortProvider = StateProvider<_NoteSort>((ref) => _NoteSort.recent);
+final _noteTagFilterProvider = StateProvider<String?>((ref) => null);
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -110,6 +112,7 @@ class NotesScreen extends ConsumerWidget {
     final notesAsync = ref.watch(notesStreamProvider);
     final query = ref.watch(_noteQueryProvider);
     final sort = ref.watch(_noteSortProvider);
+    final tagFilter = ref.watch(_noteTagFilterProvider);
 
     return UiPage(
       header: UiHeader(
@@ -143,7 +146,7 @@ class NotesScreen extends ConsumerWidget {
                   .length;
 
               final q = query.trim().toLowerCase();
-              final filtered =
+              final byQuery =
                   (q.isEmpty
                           ? notes
                           : notes
@@ -154,6 +157,15 @@ class NotesScreen extends ConsumerWidget {
                                 )
                                 .toList())
                       .toList();
+
+              final allTags = distinctTagsInUse(notes.map((n) => n.tags));
+              final filtered = tagFilter == null
+                  ? byQuery
+                  : byQuery
+                        .where(
+                          (n) => parseTagsCsv(n.tags).contains(tagFilter),
+                        )
+                        .toList();
 
               if (sort == _NoteSort.title) {
                 filtered.sort(
@@ -244,6 +256,34 @@ class NotesScreen extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 16),
+                  if (allTags.isNotEmpty) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final tag in allTags)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: UiBadge(
+                                label: tag,
+                                icon: Icons.sell_outlined,
+                                variant: tagFilter == tag
+                                    ? UiBadgeVariant.solid
+                                    : UiBadgeVariant.soft,
+                                intent: tagFilter == tag
+                                    ? UiIntent.primary
+                                    : UiIntent.neutral,
+                                onTap: () => ref
+                                        .read(_noteTagFilterProvider.notifier)
+                                        .state =
+                                    tagFilter == tag ? null : tag,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   if (filtered.isEmpty)
                     UiEmptyState(
                       title: 'No matches',
@@ -310,6 +350,7 @@ class _NoteCard extends StatelessWidget {
     final checklist = _checklistStats(note.content);
     final preview = _plainPreview(note.content);
     final words = _wordCount(note.content);
+    final tags = parseTagsCsv(note.tags);
 
     return UiCard(
       semanticLabel:
@@ -363,6 +404,22 @@ class _NoteCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: context.uiText.body.copyWith(color: c.foregroundMuted),
           ),
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final tag in tags)
+                  UiBadge(
+                    label: tag,
+                    size: UiSize.sm,
+                    variant: UiBadgeVariant.soft,
+                    intent: UiIntent.neutral,
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
