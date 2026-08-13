@@ -6,6 +6,7 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/database/repositories/task_repository.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 final globalSearchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -91,6 +92,7 @@ class GlobalSearchScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Search',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Find anything across Notes, Journal, and Tasks.',
       ),
       child: Column(

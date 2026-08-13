@@ -6,6 +6,7 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _NoteSort { recent, title }
 
@@ -151,6 +152,7 @@ class NotesScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Notes',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Capture ideas, organize thoughts & build your personal knowledge base.',
       ),
       floatingActionButton: UiFab(

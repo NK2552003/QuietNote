@@ -14,6 +14,7 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/features/goals/goal_editor_screen.dart' show goalCategoryColor;
 import 'package:quietnote/features/habits/habit_editor_screen.dart' show habitCategoryColor, habitCategoryIcon;
 import 'package:quietnote/features/routines/routines_screen.dart' show RoutineContent;
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 /// Selected lookback window (days) driving every rate/consistency figure
 /// on the screen. Persisted only for the lifetime of this screen instance.
@@ -202,6 +203,7 @@ class AnalyticsScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Analytics',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Track your habits, measure consistency & celebrate growth.',
       ),
       child: pageChild,

@@ -11,6 +11,7 @@ import 'capture_actions.dart';
 import 'capture_review_sheet.dart';
 import 'local_ai_engine.dart';
 import 'ai_voice_service.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 const List<String> _examplePrompts = [
   'Call mom tomorrow at 6pm',
@@ -301,6 +302,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
     return UiPage(
       header: UiHeader(
         title: 'AI Capture',
+        leading: const QuietNoteMark(size: 38),
         subtitle: 'Intelligent AI assistant to organize your life effortlessly.',
         actions: [
           UiIconButton(

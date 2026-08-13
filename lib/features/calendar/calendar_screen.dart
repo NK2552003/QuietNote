@@ -7,6 +7,7 @@ import 'package:quietnote/core/database/repositories/calendar_repository.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
 import 'package:quietnote/features/calendar/calendar_event_editor_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _CalendarView { month, agenda }
 
@@ -84,6 +85,7 @@ class CalendarScreen extends ConsumerWidget {
     return UiPage(
       header: UiHeader(
         title: 'Calendar',
+        leading: const QuietNoteMark(size: 38),
         subtitle: 'Plan your schedule and stay ahead of every commitment.',
         actions: [
           UiIconButton(

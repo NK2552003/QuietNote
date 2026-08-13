@@ -7,6 +7,7 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/task_repository.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _TodoFilter { all, today, overdue, upcoming, completed }
 
@@ -77,6 +78,7 @@ class TodosScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Todos',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Clear your mind, capture your tasks & conquer your day.',
       ),
       floatingActionButton: UiFab(

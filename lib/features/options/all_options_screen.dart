@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 class AllOptionsScreen extends StatelessWidget {
   const AllOptionsScreen({super.key});
@@ -71,6 +72,7 @@ class AllOptionsScreen extends StatelessWidget {
     return UiPage(
       header: const UiHeader(
         title: 'All Options',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Minimal drawer grid of all QuietNote modules.',
       ),
       child: Column(

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/routine_repository.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 /// Time blocks a routine can be scheduled into, in day order.
 const List<String> routineTimeBlocks = ['Morning', 'Afternoon', 'Evening', 'Night'];
@@ -136,6 +137,7 @@ class RoutinesScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Routines',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Build consistent daily rhythms that guide seamless productivity.',
       ),
       floatingActionButton: UiFab(

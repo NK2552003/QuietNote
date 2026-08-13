@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 class CoursesScreen extends ConsumerWidget {
   const CoursesScreen({super.key});
@@ -47,6 +48,7 @@ class CoursesScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Courses',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Manage classes, grades, assignments & focus time.',
       ),
       floatingActionButton: UiFab(

@@ -8,6 +8,7 @@ import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
 import 'package:quietnote/features/ai/local_ai_engine.dart';
 import 'package:quietnote/features/settings/widgets/settings_widgets.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 /// Settings hub: a student-account style header plus grouped section cards
 /// that each open a focused sub-page.
@@ -35,6 +36,7 @@ class SettingsScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Settings',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Tailor QuietNote theme, storage & AI to your lifestyle.',
       ),
       child: Column(

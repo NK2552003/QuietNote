@@ -6,6 +6,7 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 const Map<String, String> _moodEmoji = {
   'Great': '😃',
@@ -157,6 +158,7 @@ class JournalScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Journal',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Reflect on your journey, express your mood and ideas.',
       ),
       floatingActionButton: UiFab(

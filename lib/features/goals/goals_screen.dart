@@ -7,6 +7,7 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/features/goals/goal_editor_screen.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _GoalFilter { all, active, completed, overdue }
 
@@ -63,6 +64,7 @@ class GoalsScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Goals',
+        leading: QuietNoteMark(size: 38),
         subtitle: 'Turn ambitious vision into clear, achievable milestones.',
       ),
       floatingActionButton: UiFab(
