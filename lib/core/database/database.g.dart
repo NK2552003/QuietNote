@@ -5150,6 +5150,29 @@ class $FocusSessionsTable extends FocusSessions
     requiredDuringInsert: false,
     defaultValue: const Constant('active'),
   );
+  static const VerificationMeta _cyclesCompletedMeta = const VerificationMeta(
+    'cyclesCompleted',
+  );
+  @override
+  late final GeneratedColumn<int> cyclesCompleted = GeneratedColumn<int>(
+    'cycles_completed',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _presetIdMeta = const VerificationMeta(
+    'presetId',
+  );
+  @override
+  late final GeneratedColumn<String> presetId = GeneratedColumn<String>(
+    'preset_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5158,6 +5181,8 @@ class $FocusSessionsTable extends FocusSessions
     endedAt,
     durationMinutes,
     status,
+    cyclesCompleted,
+    presetId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5215,6 +5240,21 @@ class $FocusSessionsTable extends FocusSessions
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
       );
     }
+    if (data.containsKey('cycles_completed')) {
+      context.handle(
+        _cyclesCompletedMeta,
+        cyclesCompleted.isAcceptableOrUnknown(
+          data['cycles_completed']!,
+          _cyclesCompletedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('preset_id')) {
+      context.handle(
+        _presetIdMeta,
+        presetId.isAcceptableOrUnknown(data['preset_id']!, _presetIdMeta),
+      );
+    }
     return context;
   }
 
@@ -5248,6 +5288,14 @@ class $FocusSessionsTable extends FocusSessions
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      cyclesCompleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycles_completed'],
+      )!,
+      presetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preset_id'],
+      ),
     );
   }
 
@@ -5264,6 +5312,14 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
   final DateTime? endedAt;
   final int durationMinutes;
   final String status;
+
+  /// Number of completed work→break→work loops for a Pomodoro-style preset
+  /// session (see Feature 3, study-session presets).
+  final int cyclesCompleted;
+
+  /// The [FocusPreset] name this session was started from, or `null` for a
+  /// manually-entered custom duration.
+  final String? presetId;
   const FocusSession({
     required this.id,
     required this.startedAt,
@@ -5271,6 +5327,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     this.endedAt,
     required this.durationMinutes,
     required this.status,
+    required this.cyclesCompleted,
+    this.presetId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5283,6 +5341,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     }
     map['duration_minutes'] = Variable<int>(durationMinutes);
     map['status'] = Variable<String>(status);
+    map['cycles_completed'] = Variable<int>(cyclesCompleted);
+    if (!nullToAbsent || presetId != null) {
+      map['preset_id'] = Variable<String>(presetId);
+    }
     return map;
   }
 
@@ -5296,6 +5358,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           : Value(endedAt),
       durationMinutes: Value(durationMinutes),
       status: Value(status),
+      cyclesCompleted: Value(cyclesCompleted),
+      presetId: presetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(presetId),
     );
   }
 
@@ -5311,6 +5377,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
       durationMinutes: serializer.fromJson<int>(json['durationMinutes']),
       status: serializer.fromJson<String>(json['status']),
+      cyclesCompleted: serializer.fromJson<int>(json['cyclesCompleted']),
+      presetId: serializer.fromJson<String?>(json['presetId']),
     );
   }
   @override
@@ -5323,6 +5391,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       'endedAt': serializer.toJson<DateTime?>(endedAt),
       'durationMinutes': serializer.toJson<int>(durationMinutes),
       'status': serializer.toJson<String>(status),
+      'cyclesCompleted': serializer.toJson<int>(cyclesCompleted),
+      'presetId': serializer.toJson<String?>(presetId),
     };
   }
 
@@ -5333,6 +5403,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     Value<DateTime?> endedAt = const Value.absent(),
     int? durationMinutes,
     String? status,
+    int? cyclesCompleted,
+    Value<String?> presetId = const Value.absent(),
   }) => FocusSession(
     id: id ?? this.id,
     startedAt: startedAt ?? this.startedAt,
@@ -5340,6 +5412,8 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
     endedAt: endedAt.present ? endedAt.value : this.endedAt,
     durationMinutes: durationMinutes ?? this.durationMinutes,
     status: status ?? this.status,
+    cyclesCompleted: cyclesCompleted ?? this.cyclesCompleted,
+    presetId: presetId.present ? presetId.value : this.presetId,
   );
   FocusSession copyWithCompanion(FocusSessionsCompanion data) {
     return FocusSession(
@@ -5351,6 +5425,10 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           ? data.durationMinutes.value
           : this.durationMinutes,
       status: data.status.present ? data.status.value : this.status,
+      cyclesCompleted: data.cyclesCompleted.present
+          ? data.cyclesCompleted.value
+          : this.cyclesCompleted,
+      presetId: data.presetId.present ? data.presetId.value : this.presetId,
     );
   }
 
@@ -5362,14 +5440,24 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           ..write('endsAt: $endsAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('durationMinutes: $durationMinutes, ')
-          ..write('status: $status')
+          ..write('status: $status, ')
+          ..write('cyclesCompleted: $cyclesCompleted, ')
+          ..write('presetId: $presetId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, startedAt, endsAt, endedAt, durationMinutes, status);
+  int get hashCode => Object.hash(
+    id,
+    startedAt,
+    endsAt,
+    endedAt,
+    durationMinutes,
+    status,
+    cyclesCompleted,
+    presetId,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5379,7 +5467,9 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           other.endsAt == this.endsAt &&
           other.endedAt == this.endedAt &&
           other.durationMinutes == this.durationMinutes &&
-          other.status == this.status);
+          other.status == this.status &&
+          other.cyclesCompleted == this.cyclesCompleted &&
+          other.presetId == this.presetId);
 }
 
 class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
@@ -5389,6 +5479,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
   final Value<DateTime?> endedAt;
   final Value<int> durationMinutes;
   final Value<String> status;
+  final Value<int> cyclesCompleted;
+  final Value<String?> presetId;
   final Value<int> rowid;
   const FocusSessionsCompanion({
     this.id = const Value.absent(),
@@ -5397,6 +5489,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     this.endedAt = const Value.absent(),
     this.durationMinutes = const Value.absent(),
     this.status = const Value.absent(),
+    this.cyclesCompleted = const Value.absent(),
+    this.presetId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FocusSessionsCompanion.insert({
@@ -5406,6 +5500,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     this.endedAt = const Value.absent(),
     required int durationMinutes,
     this.status = const Value.absent(),
+    this.cyclesCompleted = const Value.absent(),
+    this.presetId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        startedAt = Value(startedAt),
@@ -5418,6 +5514,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     Expression<DateTime>? endedAt,
     Expression<int>? durationMinutes,
     Expression<String>? status,
+    Expression<int>? cyclesCompleted,
+    Expression<String>? presetId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5427,6 +5525,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
       if (endedAt != null) 'ended_at': endedAt,
       if (durationMinutes != null) 'duration_minutes': durationMinutes,
       if (status != null) 'status': status,
+      if (cyclesCompleted != null) 'cycles_completed': cyclesCompleted,
+      if (presetId != null) 'preset_id': presetId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5438,6 +5538,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     Value<DateTime?>? endedAt,
     Value<int>? durationMinutes,
     Value<String>? status,
+    Value<int>? cyclesCompleted,
+    Value<String?>? presetId,
     Value<int>? rowid,
   }) {
     return FocusSessionsCompanion(
@@ -5447,6 +5549,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
       endedAt: endedAt ?? this.endedAt,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       status: status ?? this.status,
+      cyclesCompleted: cyclesCompleted ?? this.cyclesCompleted,
+      presetId: presetId ?? this.presetId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5472,6 +5576,12 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (cyclesCompleted.present) {
+      map['cycles_completed'] = Variable<int>(cyclesCompleted.value);
+    }
+    if (presetId.present) {
+      map['preset_id'] = Variable<String>(presetId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5487,6 +5597,8 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
           ..write('endedAt: $endedAt, ')
           ..write('durationMinutes: $durationMinutes, ')
           ..write('status: $status, ')
+          ..write('cyclesCompleted: $cyclesCompleted, ')
+          ..write('presetId: $presetId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8024,6 +8136,8 @@ typedef $$FocusSessionsTableCreateCompanionBuilder =
       Value<DateTime?> endedAt,
       required int durationMinutes,
       Value<String> status,
+      Value<int> cyclesCompleted,
+      Value<String?> presetId,
       Value<int> rowid,
     });
 typedef $$FocusSessionsTableUpdateCompanionBuilder =
@@ -8034,6 +8148,8 @@ typedef $$FocusSessionsTableUpdateCompanionBuilder =
       Value<DateTime?> endedAt,
       Value<int> durationMinutes,
       Value<String> status,
+      Value<int> cyclesCompleted,
+      Value<String?> presetId,
       Value<int> rowid,
     });
 
@@ -8073,6 +8189,16 @@ class $$FocusSessionsTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cyclesCompleted => $composableBuilder(
+    column: $table.cyclesCompleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get presetId => $composableBuilder(
+    column: $table.presetId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8115,6 +8241,16 @@ class $$FocusSessionsTableOrderingComposer
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get cyclesCompleted => $composableBuilder(
+    column: $table.cyclesCompleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get presetId => $composableBuilder(
+    column: $table.presetId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FocusSessionsTableAnnotationComposer
@@ -8145,6 +8281,14 @@ class $$FocusSessionsTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get cyclesCompleted => $composableBuilder(
+    column: $table.cyclesCompleted,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get presetId =>
+      $composableBuilder(column: $table.presetId, builder: (column) => column);
 }
 
 class $$FocusSessionsTableTableManager
@@ -8184,6 +8328,8 @@ class $$FocusSessionsTableTableManager
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<int> durationMinutes = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<int> cyclesCompleted = const Value.absent(),
+                Value<String?> presetId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion(
                 id: id,
@@ -8192,6 +8338,8 @@ class $$FocusSessionsTableTableManager
                 endedAt: endedAt,
                 durationMinutes: durationMinutes,
                 status: status,
+                cyclesCompleted: cyclesCompleted,
+                presetId: presetId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8202,6 +8350,8 @@ class $$FocusSessionsTableTableManager
                 Value<DateTime?> endedAt = const Value.absent(),
                 required int durationMinutes,
                 Value<String> status = const Value.absent(),
+                Value<int> cyclesCompleted = const Value.absent(),
+                Value<String?> presetId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion.insert(
                 id: id,
@@ -8210,6 +8360,8 @@ class $$FocusSessionsTableTableManager
                 endedAt: endedAt,
                 durationMinutes: durationMinutes,
                 status: status,
+                cyclesCompleted: cyclesCompleted,
+                presetId: presetId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

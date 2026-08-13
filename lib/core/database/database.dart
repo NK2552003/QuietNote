@@ -183,6 +183,15 @@ class FocusSessions extends Table {
   IntColumn get durationMinutes => integer()();
   TextColumn get status => text().withDefault(const Constant('active'))();
 
+  /// Number of completed work→break→work loops for a Pomodoro-style preset
+  /// session (see Feature 3, study-session presets).
+  IntColumn get cyclesCompleted =>
+      integer().withDefault(const Constant(0))();
+
+  /// The [FocusPreset] name this session was started from, or `null` for a
+  /// manually-entered custom duration.
+  TextColumn get presetId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -205,7 +214,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 8; // v8: subject/topic tags on notes & journal
+  int get schemaVersion => 9; // v9: focus session presets & cycle counts
 
   @override
   MigrationStrategy get migration {
@@ -304,6 +313,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 8) {
           await m.addColumn(notes, notes.tags);
           await m.addColumn(journal, journal.tags);
+        }
+        if (from < 9) {
+          await m.addColumn(focusSessions, focusSessions.cyclesCompleted);
+          await m.addColumn(focusSessions, focusSessions.presetId);
         }
       },
       beforeOpen: (details) async {

@@ -16,6 +16,7 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/notifications/notification_service.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
+import 'package:quietnote/features/clock/focus_preset.dart';
 import 'package:quietnote/features/routines/routines_screen.dart';
 
 class ClockScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,15 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   bool _scheduling = false;
   bool _finishingExpiredSession = false;
 
+  /// `null` until the student taps a chip this session — falls back to the
+  /// persisted `lastUsedPresetId` (see [_selectedPreset]) so the choice
+  /// survives an app restart mid-decision.
+  FocusPreset? _preset;
+
+  /// Which half of a chained Pomodoro-style session is currently running.
+  /// Reset to 'work' whenever a fresh (non-chained) timer is started.
+  String _phase = 'work';
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +50,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       setState(() => _now = DateTime.now());
       final end = ref.read(settingsProvider).value?.focusSessionEndsAt;
       if (end != null && !end.isAfter(_now)) {
-        unawaited(_completeExpiredSession());
+        unawaited(_handleTimerExpiry());
       }
     });
   }
@@ -51,36 +61,62 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     super.dispose();
   }
 
+  /// The chip the student picked this session, falling back to whatever was
+  /// persisted last time so the Clock screen re-opens with the same choice.
+  FocusPreset? _selectedPreset(AppSettings settings) =>
+      _preset ?? focusPresetFromId(settings.lastUsedPresetId);
+
+  Future<void> _pickPreset(FocusPreset preset) async {
+    setState(() {
+      _preset = preset;
+      final cfg = preset.config;
+      if (cfg != null) _minutes = cfg.work;
+    });
+    // Persisted immediately (not just on session start) so the choice
+    // survives an app restart mid-decision.
+    await ref
+        .read(settingsProvider.notifier)
+        .update((s) => s.copyWith(lastUsedPresetId: preset.name));
+  }
+
   Future<void> _startTimer() async {
     if (_scheduling) return;
     setState(() => _scheduling = true);
-    final scheduled = DateTime.now().add(Duration(minutes: _minutes));
+    final settings = ref.read(settingsProvider).value ?? const AppSettings();
+    final preset = _selectedPreset(settings);
+    final minutes = preset?.config?.work ?? _minutes;
+    final scheduled = DateTime.now().add(Duration(minutes: minutes));
     // Persist and paint the timer first. Notification permission or platform
     // scheduling must never make the primary Start action feel unresponsive.
     await ref.read(focusSessionRepositoryProvider).start(
           endsAt: scheduled,
-          minutes: _minutes,
+          minutes: minutes,
+          presetId: preset?.name,
         );
     await ref
         .read(settingsProvider.notifier)
         .update((s) => s.copyWith(focusSessionEndsAt: scheduled));
     if (!mounted) return;
-    setState(() => _scheduling = false);
+    setState(() {
+      _scheduling = false;
+      _phase = 'work';
+    });
     UiToast.show(context,
       title: 'Focus session started',
       message: 'Ends at ${DateFormat.jm().format(scheduled)}. It is saved to your focus history.',
       intent: UiIntent.success, icon: Icons.timer_outlined);
     // Scheduling is deliberately non-blocking: the running timer remains
     // correct even if a device has notifications disabled.
-    unawaited(_scheduleCompletionAlert(scheduled));
+    unawaited(_scheduleAlert(scheduled, 'Focus timer complete',
+        'Your $minutes-minute focus session is complete.'));
     unawaited(NotificationService().showFocusTimerStatus(scheduled));
   }
 
-  Future<void> _scheduleCompletionAlert(DateTime scheduled) async {
+  Future<void> _scheduleAlert(DateTime scheduled, String title, String body) async {
     final ok = await NotificationService().scheduleReminder(
       NotificationService.focusStatusNotificationId,
-      'Focus timer complete',
-      'Your $_minutes-minute focus session is complete.',
+      title,
+      body,
       scheduled,
     );
     if (!mounted || ok) return;
@@ -96,17 +132,102 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     await ref
         .read(settingsProvider.notifier)
         .update((s) => s.copyWith(clearFocusSession: true));
+    if (mounted) setState(() => _phase = 'work');
   }
 
-  Future<void> _completeExpiredSession() async {
+  /// Ends the active session outright — used when a chained phase (work or
+  /// break) expires and the student declines to continue.
+  Future<void> _finishSession({bool cancelled = false}) async {
+    await ref.read(focusSessionRepositoryProvider).finishActive(cancelled: cancelled);
+    await NotificationService().clearFocusTimerStatus();
+    await ref
+        .read(settingsProvider.notifier)
+        .update((s) => s.copyWith(clearFocusSession: true));
+    if (mounted) setState(() => _phase = 'work');
+  }
+
+  /// Extends the active session row into its next phase (work -> break, or
+  /// break -> next work) instead of finishing it, so the chain stays one
+  /// history entry.
+  Future<void> _continuePhase(int minutes, String nextPhase, String alertTitle, String alertBody) async {
+    final scheduled = DateTime.now().add(Duration(minutes: minutes));
+    await ref.read(focusSessionRepositoryProvider).extendActive(endsAt: scheduled);
+    await ref
+        .read(settingsProvider.notifier)
+        .update((s) => s.copyWith(focusSessionEndsAt: scheduled));
+    if (mounted) setState(() => _phase = nextPhase);
+    unawaited(_scheduleAlert(scheduled, alertTitle, alertBody));
+    unawaited(NotificationService().showFocusTimerStatus(scheduled));
+  }
+
+  /// Fires when the running timer (work or break phase) hits zero. For a
+  /// Pomodoro-style preset this offers to chain into the next phase instead
+  /// of just marking the session done.
+  Future<void> _handleTimerExpiry() async {
     if (_finishingExpiredSession) return;
     _finishingExpiredSession = true;
-    await ref.read(focusSessionRepositoryProvider).finishActive();
-    await NotificationService().clearFocusTimerStatus();
-    await ref.read(settingsProvider.notifier).update(
-          (s) => s.copyWith(clearFocusSession: true),
-        );
+    final active = ref.read(activeFocusSessionProvider).value;
+    final cfg = focusPresetFromId(active?.presetId)?.config;
+
+    if (cfg != null && cfg.brk > 0 && _phase == 'work') {
+      _finishingExpiredSession = false;
+      await _promptStartBreak(cfg);
+      return;
+    }
+    if (cfg != null && cfg.brk > 0 && _phase == 'break') {
+      _finishingExpiredSession = false;
+      await _promptStartNextWork(cfg);
+      return;
+    }
+    await _finishSession();
     _finishingExpiredSession = false;
+  }
+
+  Future<void> _promptStartBreak(FocusPresetConfig cfg) async {
+    if (!mounted) return;
+    final start = await UiDialog.confirm(
+      context,
+      title: 'Work interval complete',
+      description: 'Start your ${cfg.brk}-minute break?',
+      confirmLabel: 'Start break',
+      cancelLabel: 'Skip break',
+    );
+    if (!mounted) return;
+    if (start) {
+      await _continuePhase(
+        cfg.brk,
+        'break',
+        'Break complete',
+        'Your ${cfg.brk}-minute break is complete.',
+      );
+    } else {
+      await _finishSession();
+    }
+  }
+
+  Future<void> _promptStartNextWork(FocusPresetConfig cfg) async {
+    // A break finishing is what closes out a full work -> break -> work
+    // loop, regardless of whether the student continues into another one.
+    await ref.read(focusSessionRepositoryProvider).incrementCycle();
+    if (!mounted) return;
+    final start = await UiDialog.confirm(
+      context,
+      title: 'Break complete',
+      description: 'Start the next ${cfg.work}-minute work interval?',
+      confirmLabel: 'Start work',
+      cancelLabel: 'End session',
+    );
+    if (!mounted) return;
+    if (start) {
+      await _continuePhase(
+        cfg.work,
+        'work',
+        'Focus timer complete',
+        'Your ${cfg.work}-minute focus session is complete.',
+      );
+    } else {
+      await _finishSession();
+    }
   }
 
   @override
@@ -145,8 +266,16 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       (sum, content) => sum + content.doneCount,
     );
     final focusEnd = settings.focusSessionEndsAt;
+    final activeSession = ref.watch(activeFocusSessionProvider).value;
     final focusHistory = ref.watch(recentFocusSessionsProvider).value ??
         const <FocusSession>[];
+    final selectedPreset = _selectedPreset(settings);
+    final presetCfg = selectedPreset?.config;
+    final effectiveMinutes = presetCfg?.work ?? _minutes;
+    final totalCyclesInHistory = focusHistory.fold<int>(
+      0,
+      (sum, s) => sum + s.cyclesCompleted,
+    );
     final midnight = settings.clockStyle == 'midnight';
     final minimal = settings.clockStyle == 'minimal';
     // A fixed rich surface prevents dark-theme foreground colors being drawn
@@ -193,7 +322,14 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
           ),
           if (focusEnd != null && focusEnd.isAfter(_now)) ...[
             const SizedBox(height: 16),
-            _FocusLiveCard(end: focusEnd, now: _now, onCancel: _cancelFocus),
+            _FocusLiveCard(
+              end: focusEnd,
+              now: _now,
+              onCancel: _cancelFocus,
+              phase: _phase,
+              cyclesCompleted: activeSession?.cyclesCompleted ?? 0,
+              presetLabel: focusPresetFromId(activeSession?.presetId)?.chipLabel,
+            ),
           ],
           const SizedBox(height: 18),
           Text('Live progress', style: context.uiText.bodyStrong),
@@ -356,31 +492,70 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                UiToggleGroup<int>(
+                Text('Study preset', style: context.uiText.caption),
+                const SizedBox(height: 8),
+                UiToggleGroup<FocusPreset>(
                   variant: UiToggleGroupVariant.segmented,
                   expand: true,
-                  value: _minutes,
-                  options: const [
-                    UiToggleOption(value: 5, label: '5 min'),
-                    UiToggleOption(value: 25, label: '25 min'),
-                    UiToggleOption(value: 50, label: '50 min'),
+                  scrollableOnMobile: true,
+                  value: selectedPreset,
+                  options: [
+                    for (final preset in FocusPreset.values)
+                      UiToggleOption(
+                        value: preset,
+                        label: preset.chipLabel,
+                      ),
                   ],
-                  onChanged: (value) => setState(() => _minutes = value),
+                  onChanged: _pickPreset,
                 ),
                 const SizedBox(height: 14),
-                UiButton(
-                  label: 'Start $_minutes-minute timer',
-                  leadingIcon: Icons.play_arrow_rounded,
-                  loading: _scheduling,
-                  onPressed: _scheduling ? null : _startTimer,
-                ),
+                if (selectedPreset != null && selectedPreset != FocusPreset.custom) ...[
+                  UiCard(
+                    child: Row(
+                      children: [
+                        Icon(Icons.route_outlined, size: 18, color: context.uiColors.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${presetCfg!.label} — work ${presetCfg.work} min'
+                            '${presetCfg.brk > 0 ? ', break ${presetCfg.brk} min' : ' (no break)'}',
+                            style: context.uiText.caption,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ] else
+                  UiToggleGroup<int>(
+                    variant: UiToggleGroupVariant.segmented,
+                    expand: true,
+                    value: _minutes,
+                    options: const [
+                      UiToggleOption(value: 5, label: '5 min'),
+                      UiToggleOption(value: 25, label: '25 min'),
+                      UiToggleOption(value: 50, label: '50 min'),
+                    ],
+                    onChanged: (value) => setState(() => _minutes = value),
+                  ),
+                const SizedBox(height: 14),
+              SizedBox(
+  width: double.infinity,
+  child: UiButton(
+    label: 'Start $effectiveMinutes-minute timer',
+    leadingIcon: Icons.play_arrow_rounded,
+    loading: _scheduling,
+    onPressed: _scheduling ? null : _startTimer,
+  ),
+),
               ],
             ),
           ),
           if (focusHistory.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              '${focusHistory.where((s) => s.status == 'completed').length} completed focus sessions saved',
+              '${focusHistory.where((s) => s.status == 'completed').length} completed focus sessions saved'
+              '${totalCyclesInHistory > 0 ? ' · $totalCyclesInHistory study cycles completed' : ''}',
               style: context.uiText.caption,
             ),
           ],
@@ -434,29 +609,55 @@ class _FocusLiveCard extends StatelessWidget {
     required this.end,
     required this.now,
     required this.onCancel,
+    required this.phase,
+    required this.cyclesCompleted,
+    this.presetLabel,
   });
   final DateTime end;
   final DateTime now;
   final VoidCallback onCancel;
+  final String phase;
+  final int cyclesCompleted;
+  final String? presetLabel;
 
   @override
   Widget build(BuildContext context) {
     final totalSeconds = end.difference(now).inSeconds.clamp(0, 24 * 60 * 60);
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;
+    final isBreak = phase == 'break';
     return UiCard(
       accentColor: context.uiColors.primary,
       child: Row(
         children: [
-          Icon(Icons.timer_outlined, color: context.uiColors.primary),
+          Icon(
+            isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined,
+            color: context.uiColors.primary,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Focus session in progress',
-                  style: context.uiText.bodyStrong,
+                Row(
+                  children: [
+                    Text(
+                      isBreak ? 'Break in progress' : 'Focus session in progress',
+                      style: context.uiText.bodyStrong,
+                    ),
+                    if (presetLabel != null) ...[
+                      const SizedBox(width: 8),
+                      UiBadge(label: presetLabel!, size: UiSize.xs),
+                    ],
+                    if (cyclesCompleted > 0) ...[
+                      const SizedBox(width: 6),
+                      UiBadge(
+                        label: 'Cycle ${cyclesCompleted + 1}',
+                        intent: UiIntent.primary,
+                        size: UiSize.xs,
+                      ),
+                    ],
+                  ],
                 ),
                 Text(
                   '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')} remaining',

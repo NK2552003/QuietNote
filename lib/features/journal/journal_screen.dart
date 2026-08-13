@@ -41,6 +41,7 @@ extension on _CardViewMode {
   };
 }
 
+final _journalQueryProvider = StateProvider<String>((ref) => '');
 final _moodFilterProvider = StateProvider<String?>((ref) => null);
 final _journalTagFilterProvider = StateProvider<String?>((ref) => null);
 final _journalViewModeProvider = StateProvider<_CardViewMode>(
@@ -147,6 +148,7 @@ class JournalScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final journalAsync = ref.watch(journalStreamProvider);
+    final query = ref.watch(_journalQueryProvider);
     final moodFilter = ref.watch(_moodFilterProvider);
     final tagFilter = ref.watch(_journalTagFilterProvider);
     final viewMode = ref.watch(_journalViewModeProvider);
@@ -178,9 +180,21 @@ class JournalScreen extends ConsumerWidget {
               }
 
               final streak = _currentStreak(entries);
+              final q = query.trim().toLowerCase();
+              final byQuery =
+                  (q.isEmpty
+                          ? entries
+                          : entries
+                                .where(
+                                  (e) =>
+                                      e.title.toLowerCase().contains(q) ||
+                                      e.entry.toLowerCase().contains(q),
+                                )
+                                .toList())
+                      .toList();
               final byMood = moodFilter == null
-                  ? entries
-                  : entries
+                  ? byQuery
+                  : byQuery
                         .where((e) => (e.mood ?? 'Neutral') == moodFilter)
                         .toList();
               final allTags = distinctTagsInUse(entries.map((e) => e.tags));
@@ -249,6 +263,13 @@ class JournalScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  UiSearchField(
+                    hintText: 'Search journal...',
+                    value: query,
+                    onChanged: (v) =>
+                        ref.read(_journalQueryProvider.notifier).state = v,
+                  ),
+                  const SizedBox(height: 12),
                   Builder(
                     builder: (ctx) {
                       final moodOptions = <UiToggleOption<String?>>[
@@ -361,8 +382,12 @@ class JournalScreen extends ConsumerWidget {
                   if (filtered.isEmpty)
                     UiEmptyState(
                       title: 'No entries here',
-                      message: 'Nothing matches "$moodFilter" yet.',
-                      icon: Icons.filter_alt_off_outlined,
+                      message: q.isNotEmpty
+                          ? 'Nothing found for "$query".'
+                          : 'Nothing matches "$moodFilter" yet.',
+                      icon: q.isNotEmpty
+                          ? Icons.search_off_rounded
+                          : Icons.filter_alt_off_outlined,
                     )
                   else
                     UiCardGrid(

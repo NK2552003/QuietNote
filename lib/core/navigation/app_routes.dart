@@ -33,6 +33,7 @@ import '../../features/ai/ai_screen.dart';
 import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/clock/clock_screen.dart';
+import '../../features/search/global_search_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -207,6 +208,10 @@ final appRouter = GoRouter(
       path: '/journal/:id',
       builder: (context, state) =>
           JournalPreviewScreen(entryId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/search',
+      builder: (context, state) => const GlobalSearchScreen(),
     ),
   ],
 );
