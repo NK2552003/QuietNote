@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/database_provider.dart';
+import 'package:quietnote/core/utils/tag_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
 
@@ -58,6 +59,17 @@ final courseGoalsStreamProvider =
     StreamProvider.family<List<Goal>, String>((ref, courseId) {
   final repo = ref.watch(courseRepositoryProvider);
   return repo.watchGoalsForCourse(courseId);
+});
+
+/// Journal entries "linked" to a course. The [Journal] table has no
+/// `courseId` column (journal entries are personal, not homework), so
+/// linking reuses the same free-form `tags` convention already powering
+/// the Notes tag filter bar: an entry tagged with the course's code (or
+/// name, if it has no code) shows up here. Keyed by that tag string.
+final courseJournalEntriesStreamProvider =
+    StreamProvider.family<List<JournalData>, String>((ref, courseTag) {
+  final repo = ref.watch(courseRepositoryProvider);
+  return repo.watchJournalEntriesForTag(courseTag);
 });
 
 /// Weighted average (0-100 scale) across a set of assessments, following the
@@ -132,6 +144,20 @@ class CourseRepository {
   Stream<List<Goal>> watchGoalsForCourse(String courseId) {
     return (_db.select(_db.goals)..where((g) => g.courseId.equals(courseId)))
         .watch();
+  }
+
+  /// Journal entries whose CSV `tags` column contains [courseTag] as a
+  /// whole tag (not just a text fragment). Filtering happens client-side
+  /// since the column is a comma-separated string rather than a join table.
+  Stream<List<JournalData>> watchJournalEntriesForTag(String courseTag) {
+    return (_db.select(_db.journal)
+          ..orderBy([(j) => drift.OrderingTerm.desc(j.createdAt)]))
+        .watch()
+        .map(
+          (entries) => entries
+              .where((e) => parseTagsCsv(e.tags).contains(courseTag))
+              .toList(),
+        );
   }
 
   Future<String> addCourse(

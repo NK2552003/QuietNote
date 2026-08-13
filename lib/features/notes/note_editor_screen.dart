@@ -19,7 +19,12 @@ import 'package:drift/drift.dart' as drift;
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
   final String? noteId;
-  const NoteEditorScreen({super.key, this.noteId});
+
+  /// Pre-selects the linked course when creating a brand-new note (e.g.
+  /// opened from a course's "Notes" tab). Ignored while editing an existing
+  /// note, since that note's own saved course always wins.
+  final String? initialCourseId;
+  const NoteEditorScreen({super.key, this.noteId, this.initialCourseId});
 
   @override
   ConsumerState<NoteEditorScreen> createState() => _NoteEditorScreenState();
@@ -52,6 +57,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _currentNoteId = widget.noteId ?? const Uuid().v4();
     if (_isEditing) {
       _loadNote();
+    } else if (widget.initialCourseId != null) {
+      _courseId = widget.initialCourseId!;
     }
   }
 

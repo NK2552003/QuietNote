@@ -55,7 +55,12 @@ const List<UiToggleOption<int>> _priorityOptions = [
 
 class GoalEditorScreen extends ConsumerStatefulWidget {
   final String? goalId;
-  const GoalEditorScreen({super.key, this.goalId});
+
+  /// Pre-selects the linked course when creating a brand-new goal (e.g.
+  /// opened from a course's "Goals" tab). Ignored while editing an existing
+  /// goal, since that goal's own saved course always wins.
+  final String? initialCourseId;
+  const GoalEditorScreen({super.key, this.goalId, this.initialCourseId});
 
   @override
   ConsumerState<GoalEditorScreen> createState() => _GoalEditorScreenState();
@@ -83,7 +88,11 @@ class _GoalEditorScreenState extends ConsumerState<GoalEditorScreen> {
     super.initState();
     _targetController.text = '10';
     _currentController.text = '0';
-    if (_isEditing) _loadGoal();
+    if (_isEditing) {
+      _loadGoal();
+    } else if (widget.initialCourseId != null) {
+      _linkedCourseSel = widget.initialCourseId!;
+    }
   }
 
   @override

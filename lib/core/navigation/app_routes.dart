@@ -169,7 +169,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/notes/new',
-      builder: (context, state) => const NoteEditorScreen(),
+      builder: (context, state) => NoteEditorScreen(
+        initialCourseId: state.uri.queryParameters['courseId'],
+      ),
     ),
     GoRoute(
       path: '/notes/edit/:id',
@@ -183,7 +185,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/todos/new',
-      builder: (context, state) => const TodoEditorScreen(),
+      builder: (context, state) => TodoEditorScreen(
+        initialCourseId: state.uri.queryParameters['courseId'],
+      ),
     ),
     GoRoute(
       path: '/todos/edit/:id',
@@ -211,7 +215,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/goals/new',
-      builder: (context, state) => const GoalEditorScreen(),
+      builder: (context, state) => GoalEditorScreen(
+        initialCourseId: state.uri.queryParameters['courseId'],
+      ),
     ),
     GoRoute(
       path: '/goals/edit/:id',
@@ -229,7 +235,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/journal/new',
-      builder: (context, state) => const JournalEditorScreen(),
+      builder: (context, state) => JournalEditorScreen(
+        initialTag: state.uri.queryParameters['tag'],
+      ),
     ),
     GoRoute(
       path: '/journal/edit/:id',
@@ -274,6 +282,18 @@ class _AppShellState extends State<AppShell> {
   late final PageController _pageController;
   int _currentIndex = 0;
   final Set<int> _visitedIndices = <int>{0};
+
+  // The PageView that drives Home/Todos/Notes/Settings is unmounted
+  // whenever a quick-grid screen (Habits, Journal, Courses, ...) is shown
+  // in its place, which detaches `_pageController` from its scroll
+  // position. When the PageView remounts it has no memory of the page it
+  // was on and falls back to page 0 (Home) — even though `_currentIndex`
+  // and the URL are already correct. This flag says "the last tab change
+  // couldn't reach the controller because it wasn't attached yet; force it
+  // into sync the moment it reattaches" so tapping a dock icon from a
+  // quick-grid screen lands on the right tab instead of silently
+  // resetting to Home.
+  bool _pendingPageJump = false;
 
   @override
   void initState() {
@@ -350,6 +370,13 @@ class _AppShellState extends State<AppShell> {
             curve: Curves.fastOutSlowIn,
           );
         }
+      } else {
+        // We're navigating away from a quick-grid screen where the
+        // PageView isn't mounted right now, so there's no controller to
+        // move yet. Once it remounts on the target route, the
+        // post-frame sync below (guarded by `_pendingPageJump`) will
+        // force it onto `_currentIndex` instead of defaulting to page 0.
+        _pendingPageJump = true;
       }
       context.go(targetRoute);
     } else if (_currentIndex != index) {
@@ -358,6 +385,8 @@ class _AppShellState extends State<AppShell> {
       });
       if (_pageController.hasClients) {
         _pageController.jumpToPage(index);
+      } else {
+        _pendingPageJump = true;
       }
     }
   }
@@ -391,14 +420,24 @@ class _AppShellState extends State<AppShell> {
     if (isMainTabRoute && _currentIndex != calculatedIndex) {
       _currentIndex = calculatedIndex;
       _markVisited(calculatedIndex);
-      if (_pageController.hasClients &&
-          _pageController.page?.round() != calculatedIndex) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_pageController.hasClients) {
-            _pageController.jumpToPage(calculatedIndex);
+      _pendingPageJump = true;
+    }
+
+    if (isMainTabRoute) {
+      // Runs after every build of a main-tab route. Most of the time the
+      // controller is already showing the right page and this is a
+      // no-op; it only actually moves anything right after the PageView
+      // has just (re)attached following a trip to a quick-grid screen,
+      // which is exactly the case `_pendingPageJump` marks.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pendingPageJump) return;
+        if (_pageController.hasClients) {
+          if (_pageController.page?.round() != _currentIndex) {
+            _pageController.jumpToPage(_currentIndex);
           }
-        });
-      }
+          _pendingPageJump = false;
+        }
+      });
     }
 
     final selectedIndex =

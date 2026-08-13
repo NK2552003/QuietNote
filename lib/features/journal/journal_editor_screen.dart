@@ -24,7 +24,12 @@ const List<UiToggleOption<String>> _moodOptions = [
 
 class JournalEditorScreen extends ConsumerStatefulWidget {
   final String? entryId;
-  const JournalEditorScreen({super.key, this.entryId});
+
+  /// Pre-fills a tag when creating a brand-new entry (e.g. opened from a
+  /// course's "Journal" tab, tagged with that course's code/name so it
+  /// shows back up there). Ignored while editing an existing entry.
+  final String? initialTag;
+  const JournalEditorScreen({super.key, this.entryId, this.initialTag});
 
   @override
   ConsumerState<JournalEditorScreen> createState() =>
@@ -58,6 +63,8 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
     _currentEntryId = widget.entryId ?? const Uuid().v4();
     if (_isEditing) {
       _loadEntry();
+    } else if (widget.initialTag != null && widget.initialTag!.trim().isNotEmpty) {
+      _tags = [widget.initialTag!.trim()];
     }
   }
 

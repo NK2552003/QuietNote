@@ -40,7 +40,12 @@ const List<UiToggleOption<int>> _priorityOptions = [
 
 class TodoEditorScreen extends ConsumerStatefulWidget {
   final String? taskId;
-  const TodoEditorScreen({super.key, this.taskId});
+
+  /// Pre-selects the linked course when creating a brand-new task (e.g.
+  /// opened from a course's "Tasks" tab). Ignored while editing an existing
+  /// task, since that task's own saved course always wins.
+  final String? initialCourseId;
+  const TodoEditorScreen({super.key, this.taskId, this.initialCourseId});
 
   @override
   ConsumerState<TodoEditorScreen> createState() => _TodoEditorScreenState();
@@ -70,6 +75,8 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
     super.initState();
     if (_isEditing) {
       _loadTask();
+    } else if (widget.initialCourseId != null) {
+      _linkedCourseSel = widget.initialCourseId!;
     }
   }
 

@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/database/repositories/task_repository.dart';
-import 'package:quietnote/core/database/repositories/note_repository.dart';
+import 'package:quietnote/core/database/repositories/habit_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 
 class CourseDetailScreen extends ConsumerStatefulWidget {
@@ -23,7 +23,7 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -67,77 +67,6 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
     );
   }
 
-  Future<void> _quickAddTask(BuildContext context, WidgetRef ref) async {
-    final titleController = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Course Task'),
-        content: TextField(
-          controller: titleController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Read Chapter 4 & finish problem set',
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
-        ],
-      ),
-    );
-    if (ok == true && titleController.text.trim().isNotEmpty) {
-      await ref.read(taskRepositoryProvider).addTask(
-            titleController.text.trim(),
-            courseId: widget.courseId,
-          );
-      if (context.mounted) {
-        UiToast.show(context, title: 'Task added', intent: UiIntent.success);
-      }
-    }
-  }
-
-  Future<void> _quickAddNote(BuildContext context, WidgetRef ref) async {
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Lecture Note'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: 'Note title'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: contentController,
-              maxLines: 3,
-              decoration: const InputDecoration(hintText: 'Lecture key takeaways...'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save Note')),
-        ],
-      ),
-    );
-    if (ok == true && titleController.text.trim().isNotEmpty) {
-      await ref.read(noteRepositoryProvider).addNote(
-            titleController.text.trim(),
-            contentController.text.trim(),
-            courseId: widget.courseId,
-          );
-      if (context.mounted) {
-        UiToast.show(context, title: 'Note created', intent: UiIntent.success);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(coursesStreamProvider);
@@ -165,6 +94,9 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
         }
 
         final accentColor = course.color != null ? Color(course.color!) : c.primary;
+        final courseTag = (course.code != null && course.code!.trim().isNotEmpty)
+            ? course.code!.trim()
+            : course.name.trim();
 
         return UiPage(
           header: UiHeader(
@@ -203,6 +135,9 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
                   Tab(text: 'Grades & Overview'),
                   Tab(text: 'Tasks & Homework'),
                   Tab(text: 'Notes'),
+                  Tab(text: 'Goals'),
+                  Tab(text: 'Journal'),
+                  Tab(text: 'Habits'),
                   Tab(text: 'Classes & Exams'),
                   Tab(text: 'Study Focus'),
                 ],
@@ -220,14 +155,11 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
                       onEditAssessment: (a) => _openAssessmentEditor(context, ref, assessment: a),
                       onDeleteAssessment: (a) => _confirmDeleteAssessment(context, ref, a),
                     ),
-                    _TasksTab(
-                      courseId: widget.courseId,
-                      onAddTask: () => _quickAddTask(context, ref),
-                    ),
-                    _NotesTab(
-                      courseId: widget.courseId,
-                      onAddNote: () => _quickAddNote(context, ref),
-                    ),
+                    _TasksTab(courseId: widget.courseId),
+                    _NotesTab(courseId: widget.courseId),
+                    _GoalsTab(courseId: widget.courseId),
+                    _JournalTab(courseTag: courseTag),
+                    const _HabitsTab(),
                     _EventsTab(courseId: widget.courseId),
                     _FocusTab(courseId: widget.courseId, courseName: course.name),
                   ],
@@ -380,9 +312,8 @@ class _GradesTab extends ConsumerWidget {
 }
 
 class _TasksTab extends ConsumerWidget {
-  const _TasksTab({required this.courseId, required this.onAddTask});
+  const _TasksTab({required this.courseId});
   final String courseId;
-  final VoidCallback onAddTask;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -400,7 +331,7 @@ class _TasksTab extends ConsumerWidget {
                 label: 'Add Task',
                 leadingIcon: Icons.add,
                 size: UiSize.sm,
-                onPressed: onAddTask,
+                onPressed: () => context.push('/todos/new?courseId=$courseId'),
               ),
             ],
           ),
@@ -416,14 +347,18 @@ class _TasksTab extends ConsumerWidget {
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: UiCard(
-                  onTap: () => ref.read(taskRepositoryProvider).toggleTaskCompletion(t.id, t.isCompleted),
+                  onTap: () => context.push('/todos/edit/${t.id}'),
                   child: Row(
                     children: [
-                      Icon(
-                        t.isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
-                        color: context.uiColors.primary,
+                      UiIconButton(
+                        icon: t.isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+                        variant: UiVariant.ghost,
+                        size: UiSize.sm,
+                        tooltip: t.isCompleted ? 'Mark incomplete' : 'Mark complete',
+                        onPressed: () =>
+                            ref.read(taskRepositoryProvider).toggleTaskCompletion(t.id, t.isCompleted),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           t.title,
@@ -450,9 +385,8 @@ class _TasksTab extends ConsumerWidget {
 }
 
 class _NotesTab extends ConsumerWidget {
-  const _NotesTab({required this.courseId, required this.onAddNote});
+  const _NotesTab({required this.courseId});
   final String courseId;
-  final VoidCallback onAddNote;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -470,7 +404,7 @@ class _NotesTab extends ConsumerWidget {
                 label: 'Add Note',
                 leadingIcon: Icons.add,
                 size: UiSize.sm,
-                onPressed: onAddNote,
+                onPressed: () => context.push('/notes/new?courseId=$courseId'),
               ),
             ],
           ),
@@ -502,6 +436,222 @@ class _NotesTab extends ConsumerWidget {
                       Text(
                         DateFormat.yMMMd().format(n.createdAt),
                         style: context.uiText.caption,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalsTab extends ConsumerWidget {
+  const _GoalsTab({required this.courseId});
+  final String courseId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goalsAsync = ref.watch(courseGoalsStreamProvider(courseId));
+    final goals = goalsAsync.value ?? const <Goal>[];
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text('Linked Goals (${goals.length})', style: context.uiText.bodyStrong),
+              const Spacer(),
+              UiButton(
+                label: 'Add Goal',
+                leadingIcon: Icons.add,
+                size: UiSize.sm,
+                onPressed: () => context.push('/goals/new?courseId=$courseId'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (goals.isEmpty)
+            const UiEmptyState(
+              title: 'No course goals',
+              message: 'Goals linked to this course will show up here.',
+              icon: Icons.flag_outlined,
+            )
+          else
+            ...goals.map(
+              (g) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: UiCard(
+                  onTap: () => context.push('/goals/edit/${g.id}'),
+                  child: Row(
+                    children: [
+                      Icon(Icons.flag_outlined, color: context.uiColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(g.title, style: context.uiText.bodyStrong),
+                            Text(
+                              '${g.current.toStringAsFixed(g.current == g.current.roundToDouble() ? 0 : 1)} / ${g.target.toStringAsFixed(g.target == g.target.roundToDouble() ? 0 : 1)}',
+                              style: context.uiText.caption.copyWith(color: context.uiColors.foregroundMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      UiBadge(
+                        label: '${g.progressPercent}%',
+                        intent: g.progressPercent >= 100 ? UiIntent.success : UiIntent.neutral,
+                        size: UiSize.xs,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JournalTab extends ConsumerWidget {
+  const _JournalTab({required this.courseTag});
+  final String courseTag;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(courseJournalEntriesStreamProvider(courseTag));
+    final entries = entriesAsync.value ?? const <JournalData>[];
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text('Course Journal (${entries.length})', style: context.uiText.bodyStrong),
+              const Spacer(),
+              UiButton(
+                label: 'Add Entry',
+                leadingIcon: Icons.add,
+                size: UiSize.sm,
+                onPressed: () => context.push('/journal/new?tag=${Uri.encodeComponent(courseTag)}'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Entries tagged "$courseTag" appear here — tag any journal entry with it to link it to this course.',
+            style: context.uiText.caption.copyWith(color: context.uiColors.foregroundMuted),
+          ),
+          const SizedBox(height: 12),
+          if (entries.isEmpty)
+            const UiEmptyState(
+              title: 'No journal entries yet',
+              message: 'Entries tagged with this course will be collected here.',
+              icon: Icons.menu_book_outlined,
+            )
+          else
+            ...entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: UiCard(
+                  onTap: () => context.push('/journal/${e.id}'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(e.title, style: context.uiText.bodyStrong),
+                      const SizedBox(height: 4),
+                      Text(
+                        e.entry,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.uiText.caption.copyWith(color: context.uiColors.foregroundMuted),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        DateFormat.yMMMd().format(e.createdAt),
+                        style: context.uiText.caption,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HabitsTab extends ConsumerWidget {
+  const _HabitsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final habitsAsync = ref.watch(habitsStreamProvider);
+    final habits = habitsAsync.value ?? const <Habit>[];
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text('Your Habits (${habits.length})', style: context.uiText.bodyStrong),
+              const Spacer(),
+              UiButton(
+                label: 'New Habit',
+                leadingIcon: Icons.add,
+                size: UiSize.sm,
+                onPressed: () => context.push('/habits/new'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Habits aren\'t tied to a single course, so this shows all of them — tap one to log today\'s entry or open it.',
+            style: context.uiText.caption.copyWith(color: context.uiColors.foregroundMuted),
+          ),
+          const SizedBox(height: 12),
+          if (habits.isEmpty)
+            const UiEmptyState(
+              title: 'No habits yet',
+              message: 'Build a study habit for this course from the Habits screen.',
+              icon: Icons.repeat_rounded,
+            )
+          else
+            ...habits.map(
+              (h) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: UiCard(
+                  onTap: () => context.push('/habits/${h.id}'),
+                  child: Row(
+                    children: [
+                      Icon(Icons.repeat_rounded, color: context.uiColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(h.title, style: context.uiText.bodyStrong),
+                            if (h.subtitle.isNotEmpty)
+                              Text(
+                                h.subtitle,
+                                style: context.uiText.caption.copyWith(color: context.uiColors.foregroundMuted),
+                              ),
+                          ],
+                        ),
+                      ),
+                      UiIconButton(
+                        icon: Icons.check_circle_outline,
+                        variant: UiVariant.ghost,
+                        size: UiSize.sm,
+                        tooltip: 'Log today',
+                        onPressed: () => ref
+                            .read(habitRepositoryProvider)
+                            .toggleEntry(h.id, dateOnly(DateTime.now())),
                       ),
                     ],
                   ),

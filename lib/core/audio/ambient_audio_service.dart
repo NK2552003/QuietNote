@@ -109,7 +109,7 @@ class AmbientAudioService {
           sample = white * 0.1;
       }
 
-      final fadeLen = sampleRate ~/ 4;
+      const fadeLen = sampleRate ~/ 4;
       if (i < fadeLen) {
         sample *= (i / fadeLen);
       } else if (i > totalSamples - fadeLen) {
@@ -119,8 +119,8 @@ class AmbientAudioService {
       pcmSamples[i] = (sample.clamp(-1.0, 1.0) * 32767).toInt();
     }
 
-    final dataSize = totalSamples * 2;
-    final fileSize = 36 + dataSize;
+    const dataSize = totalSamples * 2;
+    const fileSize = 36 + dataSize;
 
     final header = ByteData(44);
     header.setUint32(0, 0x52494646, Endian.big);
