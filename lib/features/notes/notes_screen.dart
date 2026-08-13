@@ -151,7 +151,7 @@ class NotesScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Notes',
-        subtitle: 'Capture your thoughts.',
+        subtitle: 'Capture ideas, organize thoughts & build your personal knowledge base.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'New note',

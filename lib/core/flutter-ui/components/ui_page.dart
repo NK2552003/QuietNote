@@ -55,7 +55,6 @@ class UiPage extends StatelessWidget {
       // for it (plus the gesture inset) so the final fields and buttons on
       // every scrollable screen remain reachable.
       bottom: viewPadding.bottom +
-          mq.viewInsets.bottom +
           context.sp(r.isMobile ? 96 : theme.spacing.md),
     );
 
@@ -95,17 +94,17 @@ class UiPage extends StatelessWidget {
 
     final Widget page = Material(
       color: theme.colors.background,
-      child: scrollable
-          ? SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: safe,
-            )
-          : AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
-              child: safe,
-            ),
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
+        child: scrollable
+            ? SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: safe,
+              )
+            : safe,
+      ),
     );
 
     if (floatingActionButton == null) return page;
@@ -149,6 +148,7 @@ class UiHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.ui;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
         if (leading != null) ...<Widget>[
           leading!,
@@ -162,8 +162,10 @@ class UiHeader extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.uiText.subheading.copyWith(
-                  fontWeight: FontWeight.bold,
+                style: context.uiText.heading.copyWith(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
                   color: theme.colors.foreground,
                 ),
               ),
@@ -174,6 +176,8 @@ class UiHeader extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: context.uiText.caption.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                     color: theme.colors.foregroundMuted,
                   ),
                 ),

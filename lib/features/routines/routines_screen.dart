@@ -136,7 +136,7 @@ class RoutinesScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Routines',
-        subtitle: 'Sequenced habits for time blocks.',
+        subtitle: 'Build consistent daily rhythms that guide seamless productivity.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'New routine',

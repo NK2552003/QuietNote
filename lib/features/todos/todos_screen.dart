@@ -77,7 +77,7 @@ class TodosScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Todos',
-        subtitle: 'Focus on what matters today.',
+        subtitle: 'Clear your mind, capture your tasks & conquer your day.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'Add task',
@@ -186,19 +186,24 @@ class TodosScreen extends ConsumerWidget {
                       const UiToggleOption(value: _TodoFilter.upcoming, label: 'Upcoming'),
                       const UiToggleOption(value: _TodoFilter.completed, label: 'Done'),
                     ];
-                    final shouldExpand = todoOptions.length <= 4;
-                    final group = UiToggleGroup<_TodoFilter>(
-                      variant: UiToggleGroupVariant.segmented,
-                      size: UiSize.sm,
-                      expand: shouldExpand,
-                      value: filter,
-                      onChanged: (v) => ref.read(_todoFilterProvider.notifier).state = v,
-                      options: todoOptions,
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                            child: UiToggleGroup<_TodoFilter>(
+                              variant: UiToggleGroupVariant.segmented,
+                              size: UiSize.sm,
+                              expand: true,
+                              value: filter,
+                              onChanged: (v) => ref.read(_todoFilterProvider.notifier).state = v,
+                              options: todoOptions,
+                            ),
+                          ),
+                        );
+                      },
                     );
-                    if (!shouldExpand) {
-                      return SingleChildScrollView(scrollDirection: Axis.horizontal, child: group);
-                    }
-                    return group;
                   }),
                   const SizedBox(height: 16),
                   if (filtered.isEmpty)

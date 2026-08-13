@@ -37,6 +37,7 @@ import '../../features/search/global_search_screen.dart';
 import '../../features/courses/courses_screen.dart';
 import '../../features/courses/course_editor_screen.dart';
 import '../../features/courses/course_detail_screen.dart';
+import '../../features/options/all_options_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -56,51 +57,75 @@ final appRouter = GoRouter(
       navigatorKey: shellNavigatorKey,
       builder: (context, state, child) => AppShell(child: child),
       routes: [
-        GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+        GoRoute(
+          path: '/',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: HomeScreen()),
+        ),
+        GoRoute(
+          path: '/options',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: AllOptionsScreen()),
+        ),
         GoRoute(
           path: '/habits',
-          builder: (context, state) => const HabitsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: HabitsScreen()),
         ),
         GoRoute(
           path: '/todos',
-          builder: (context, state) => const TodosScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: TodosScreen()),
         ),
         GoRoute(
           path: '/notes',
-          builder: (context, state) => const NotesScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: NotesScreen()),
         ),
         GoRoute(
           path: '/routines',
-          builder: (context, state) => const RoutinesScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: RoutinesScreen()),
         ),
         GoRoute(
           path: '/calendar',
-          builder: (context, state) => const CalendarScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: CalendarScreen()),
         ),
         GoRoute(
           path: '/goals',
-          builder: (context, state) => const GoalsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: GoalsScreen()),
         ),
         GoRoute(
           path: '/journal',
-          builder: (context, state) => const JournalScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: JournalScreen()),
         ),
         GoRoute(
           path: '/analytics',
-          builder: (context, state) => const AnalyticsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: AnalyticsScreen()),
         ),
-        GoRoute(path: '/ai', builder: (context, state) => const AiScreen()),
+        GoRoute(
+          path: '/ai',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: AiScreen()),
+        ),
         GoRoute(
           path: '/settings',
-          builder: (context, state) => const SettingsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: SettingsScreen()),
         ),
         GoRoute(
           path: '/clock',
-          builder: (context, state) => const ClockScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: ClockScreen()),
         ),
         GoRoute(
           path: '/courses',
-          builder: (context, state) => const CoursesScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: CoursesScreen()),
         ),
       ],
     ),
@@ -237,92 +262,196 @@ final appRouter = GoRouter(
   ],
 );
 
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return UiNavShell(
-      selectedIndex: _calculateSelectedIndex(context),
-      onChanged: (idx) => _onItemTapped(idx, context),
-      items: const [
-        UiTabItem(icon: Icons.home_outlined, label: 'Home'),
-        UiTabItem(icon: Icons.repeat_outlined, label: 'Habits'),
-        UiTabItem(icon: Icons.checklist_outlined, label: 'Todos'),
-        UiTabItem(icon: Icons.notes_outlined, label: 'Notes'),
-        UiTabItem(icon: Icons.route_outlined, label: 'Routines'),
-        UiTabItem(icon: Icons.calendar_month_outlined, label: 'Calendar'),
-        UiTabItem(icon: Icons.flag_outlined, label: 'Goals'),
-        UiTabItem(icon: Icons.menu_book_outlined, label: 'Journal'),
-        UiTabItem(icon: Icons.school_outlined, label: 'Courses'),
-        UiTabItem(icon: Icons.insights_outlined, label: 'Analytics'),
-        UiTabItem(icon: Icons.settings_outlined, label: 'Settings'),
-        UiTabItem(icon: Icons.access_time_outlined, label: 'Clock'),
-        UiTabItem(icon: Icons.auto_awesome_outlined, label: 'AI Capture'),
-      ],
-      body: child,
-    );
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  late final PageController _pageController;
+  int _currentIndex = 0;
+  final Set<int> _visitedIndices = <int>{0};
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+  }
+
+  void _markVisited(int index) {
+    if (!_visitedIndices.contains(index)) {
+      _visitedIndices.add(index);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   static int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.path;
-    if (location.startsWith('/habits')) return 1;
-    if (location.startsWith('/todos')) return 2;
-    if (location.startsWith('/notes')) return 3;
-    if (location.startsWith('/routines')) return 4;
-    if (location.startsWith('/calendar')) return 5;
-    if (location.startsWith('/goals')) return 6;
-    if (location.startsWith('/journal')) return 7;
-    if (location.startsWith('/courses')) return 8;
-    if (location.startsWith('/analytics')) return 9;
-    if (location.startsWith('/settings')) return 10;
-    if (location.startsWith('/clock')) return 11;
-    if (location.startsWith('/ai')) return 12;
+    if (location.startsWith('/todos')) return 1;
+    if (location.startsWith('/notes')) return 2;
+    if (location.startsWith('/settings')) return 3;
+    if (location.startsWith('/options') ||
+        location.startsWith('/habits') ||
+        location.startsWith('/routines') ||
+        location.startsWith('/calendar') ||
+        location.startsWith('/goals') ||
+        location.startsWith('/journal') ||
+        location.startsWith('/courses') ||
+        location.startsWith('/analytics') ||
+        location.startsWith('/clock') ||
+        location.startsWith('/ai')) {
+      return 4;
+    }
     return 0;
   }
 
-  void _onItemTapped(int index, BuildContext context) {
+  static String _routeForIndex(int index) {
     switch (index) {
       case 0:
-        context.go('/');
-        break;
+        return '/';
       case 1:
-        context.go('/habits');
-        break;
+        return '/todos';
       case 2:
-        context.go('/todos');
-        break;
+        return '/notes';
       case 3:
-        context.go('/notes');
-        break;
+        return '/settings';
       case 4:
-        context.go('/routines');
-        break;
-      case 5:
-        context.go('/calendar');
-        break;
-      case 6:
-        context.go('/goals');
-        break;
-      case 7:
-        context.go('/journal');
-        break;
-      case 8:
-        context.go('/courses');
-        break;
-      case 9:
-        context.go('/analytics');
-        break;
-      case 10:
-        context.go('/settings');
-        break;
-      case 11:
-        context.go('/clock');
-        break;
-      case 12:
-        context.go('/ai');
-        break;
+        return '/options';
+      default:
+        return '/';
     }
+  }
+
+  void _onItemTapped(int index) {
+    _markVisited(index);
+    final String targetRoute = _routeForIndex(index);
+    final String currentRoute = GoRouterState.of(context).uri.path;
+
+    if (currentRoute != targetRoute) {
+      final int prevIndex = _currentIndex;
+      setState(() {
+        _currentIndex = index;
+      });
+      if (_pageController.hasClients) {
+        if ((index - prevIndex).abs() > 1) {
+          _pageController.jumpToPage(index);
+        } else {
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.fastOutSlowIn,
+          );
+        }
+      }
+      context.go(targetRoute);
+    } else if (_currentIndex != index) {
+      setState(() {
+        _currentIndex = index;
+      });
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(index);
+      }
+    }
+  }
+
+  Widget _buildPage(int index) {
+    if (!_visitedIndices.contains(index)) {
+      return const SizedBox.shrink();
+    }
+    final Widget content = switch (index) {
+      0 => const HomeScreen(),
+      1 => const TodosScreen(),
+      2 => const NotesScreen(),
+      3 => const SettingsScreen(),
+      4 => const AllOptionsScreen(),
+      _ => const SizedBox.shrink(),
+    };
+    return RepaintBoundary(child: _KeepAliveWrapper(child: content));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String location = GoRouterState.of(context).uri.path;
+    final bool isMainTabRoute = location == '/' ||
+        location.startsWith('/todos') ||
+        location.startsWith('/notes') ||
+        location.startsWith('/settings') ||
+        location.startsWith('/options');
+
+    final int calculatedIndex = _calculateSelectedIndex(context);
+
+    if (isMainTabRoute && _currentIndex != calculatedIndex) {
+      _currentIndex = calculatedIndex;
+      _markVisited(calculatedIndex);
+      if (_pageController.hasClients &&
+          _pageController.page?.round() != calculatedIndex) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(calculatedIndex);
+          }
+        });
+      }
+    }
+
+    final selectedIndex =
+        isMainTabRoute ? _currentIndex : calculatedIndex;
+
+    return UiNavShell(
+      selectedIndex: selectedIndex,
+      onChanged: (idx) => _onItemTapped(idx),
+      items: const [
+        UiTabItem(icon: Icons.home_outlined, label: 'Home'),
+        UiTabItem(icon: Icons.checklist_outlined, label: 'Todos'),
+        UiTabItem(icon: Icons.notes_outlined, label: 'Notes'),
+        UiTabItem(icon: Icons.settings_outlined, label: 'Settings'),
+        UiTabItem(icon: Icons.grid_view_outlined, label: 'Options'),
+      ],
+      body: isMainTabRoute
+          ? PageView.builder(
+              controller: _pageController,
+              physics: const ClampingScrollPhysics(),
+              allowImplicitScrolling: false,
+              itemCount: 5,
+              onPageChanged: (index) {
+                _markVisited(index);
+                if (_currentIndex != index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                  context.go(_routeForIndex(index));
+                }
+              },
+              itemBuilder: (context, index) => _buildPage(index),
+            )
+          : widget.child,
+    );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  const _KeepAliveWrapper({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

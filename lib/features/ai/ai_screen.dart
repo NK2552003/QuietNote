@@ -301,7 +301,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
     return UiPage(
       header: UiHeader(
         title: 'AI Capture',
-        subtitle: 'Say it once — it lands in the right place.',
+        subtitle: 'Intelligent AI assistant to organize your life effortlessly.',
         actions: [
           UiIconButton(
             icon: Icons.tune_outlined,

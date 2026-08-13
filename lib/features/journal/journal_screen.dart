@@ -157,7 +157,7 @@ class JournalScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Journal',
-        subtitle: 'Reflect, review, and reset.',
+        subtitle: 'Reflect on your journey, express your mood and ideas.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'Write entry',

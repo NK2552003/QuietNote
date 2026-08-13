@@ -84,7 +84,7 @@ class CalendarScreen extends ConsumerWidget {
     return UiPage(
       header: UiHeader(
         title: 'Calendar',
-        subtitle: 'Schedule your priorities.',
+        subtitle: 'Plan your schedule and stay ahead of every commitment.',
         actions: [
           UiIconButton(
             icon: Icons.today_outlined,

@@ -63,7 +63,7 @@ class GoalsScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Goals',
-        subtitle: 'Vision translated into milestones.',
+        subtitle: 'Turn ambitious vision into clear, achievable milestones.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'New goal',

@@ -24,7 +24,7 @@ class HabitsScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Habits',
-        subtitle: 'Small disciplines compounded over time.',
+        subtitle: 'Small daily steps lead to remarkable long-term growth.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'New habit',

@@ -93,7 +93,8 @@ class HomeScreen extends ConsumerWidget {
         title: settings.displayName.trim().isEmpty
             ? _greeting()
             : '${_greeting()}, ${settings.displayName.trim()}',
-        subtitle: DateFormat('EEEE, MMMM d').format(selectedDay),
+        subtitle:
+            '${DateFormat('EEEE, MMMM d').format(selectedDay)} \u00b7 Stay focused & build momentum',
         actions: [
           UiIconButton(
             icon: Icons.search_rounded,
@@ -218,6 +219,16 @@ class _TodayBody extends StatelessWidget {
     for (final e in events) {
       final start = _dateOnly(e.startTime);
       if (start != selectedDay) continue;
+      // Skip synthetic events aggregated from habits, tasks, or goals
+      // since Home screen renders tasks and habits from their own streams.
+      if (e.id.startsWith('habit:') ||
+          e.id.startsWith('task:') ||
+          e.id.startsWith('goal:') ||
+          e.category == 'Habit' ||
+          e.category == 'Task' ||
+          e.category == 'Goal') {
+        continue;
+      }
       items.add(
         _TodayItem(
           kind: _TodayKind.event,
@@ -322,6 +333,7 @@ class _TodayBody extends StatelessWidget {
 
     if (items.isEmpty) {
       return const UiEmptyState(
+        compact: true,
         title: 'Your day is clear',
         message: 'Nothing scheduled. Take a deep breath, or add something new.',
         icon: Icons.wb_sunny_outlined,

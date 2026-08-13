@@ -202,7 +202,7 @@ class AnalyticsScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Analytics',
-        subtitle: 'Patterns across everything you track.',
+        subtitle: 'Track your habits, measure consistency & celebrate growth.',
       ),
       child: pageChild,
     );

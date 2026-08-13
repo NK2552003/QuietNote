@@ -1,6 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../theme/ui_theme.dart';
 import 'ui_common.dart';
@@ -122,58 +122,64 @@ class _UiNavShellState extends State<UiNavShell> {
     // destination lives behind the '+' as a 3x3 grid of tiles.
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Calculate active dock slot (0 to 4). Slot 2 is the '+' trigger; it
-    // also lights up whenever the currently selected screen is one of the
-    // 9 tiles behind it (i.e. anything not in the fixed 4 dock items).
+    // Calculate active dock slot (0 to 4). Slot 2 is the '+' trigger (Options page 4);
+    // it lights up whenever the currently selected screen is 4 or an option.
     int activeNavIndex = 2;
     if (!_isMenuOpen) {
       if (widget.selectedIndex == 0) {
         activeNavIndex = 0; // Home
-      } else if (widget.selectedIndex == 2) {
+      } else if (widget.selectedIndex == 1) {
         activeNavIndex = 1; // Todos
-      } else if (widget.selectedIndex == 3) {
+      } else if (widget.selectedIndex == 2) {
         activeNavIndex = 3; // Notes
-      } else if (widget.selectedIndex == 10) {
+      } else if (widget.selectedIndex == 3) {
         activeNavIndex = 4; // Settings
+      } else if (widget.selectedIndex == 4) {
+        activeNavIndex = 2; // All Options Grid (Middle slot)
       }
-      // else: selectedIndex is one of the grid destinations -> keep '+' (2) lit
     }
 
-    // The 9 remaining destinations, indices matched exactly to the
-    // `items` list built in AppShell (app_routes.dart).
     const gridOptions = [
-      _QuickGridItem(icon: Icons.repeat_rounded, label: 'Habits', index: 1),
+      _QuickGridItem(
+        icon: Icons.repeat_rounded,
+        label: 'Habits',
+        route: '/habits',
+      ),
       _QuickGridItem(
         icon: Icons.alt_route_rounded,
         label: 'Routines',
-        index: 4,
+        route: '/routines',
       ),
       _QuickGridItem(
         icon: Icons.calendar_month_rounded,
         label: 'Calendar',
-        index: 5,
+        route: '/calendar',
       ),
-      _QuickGridItem(icon: Icons.flag_rounded, label: 'Goals', index: 6),
+      _QuickGridItem(icon: Icons.flag_rounded, label: 'Goals', route: '/goals'),
       _QuickGridItem(
         icon: Icons.menu_book_rounded,
         label: 'Journal',
-        index: 7,
+        route: '/journal',
       ),
-      _QuickGridItem(icon: Icons.school_rounded, label: 'Courses', index: 8),
+      _QuickGridItem(
+        icon: Icons.school_rounded,
+        label: 'Courses',
+        route: '/courses',
+      ),
       _QuickGridItem(
         icon: Icons.insights_rounded,
         label: 'Analytics',
-        index: 9,
+        route: '/analytics',
       ),
       _QuickGridItem(
         icon: Icons.access_time_rounded,
         label: 'Clock',
-        index: 11,
+        route: '/clock',
       ),
       _QuickGridItem(
         icon: Icons.auto_awesome,
         label: 'AI Capture',
-        index: 12,
+        route: '/ai',
       ),
     ];
     assert(gridOptions.length == 9, 'Quick-grid must hold exactly 9 tiles');
@@ -279,8 +285,8 @@ class _UiNavShellState extends State<UiNavShell> {
                   children: [
                     // Sliding Bubble Shift Background Animation
                     AnimatedAlign(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutBack,
+                      duration: const Duration(milliseconds: 140),
+                      curve: Curves.fastOutSlowIn,
                       alignment: Alignment(-1.0 + (activeNavIndex * 0.5), 0.0),
                       child: FractionallySizedBox(
                         widthFactor: 0.20,
@@ -308,7 +314,7 @@ class _UiNavShellState extends State<UiNavShell> {
                         ),
                       ),
                     ),
-                    // Foreground Interactive Tabs: Home (0), Todos (2), + (Middle), Notes (3), Settings (10)
+                    // Foreground Interactive Tabs: Home (0), Todos (1), Options (4), Notes (2), Settings (3)
                     Row(
                       children: <Widget>[
                         // Home (0)
@@ -326,18 +332,18 @@ class _UiNavShellState extends State<UiNavShell> {
                             },
                           ),
                         ),
-                        // Todos (2)
+                        // Todos (1)
                         Expanded(
                           child: _UiNavEntry(
-                            item: widget.items[2],
-                            activeIcon: _getActiveIcon(widget.items[2].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 2,
+                            item: widget.items[1],
+                            activeIcon: _getActiveIcon(widget.items[1].icon),
+                            selected: !_isMenuOpen && widget.selectedIndex == 1,
                             showLabel: false,
                             vertical: true,
                             isBubbleTab: true,
                             onTap: () {
                               _closeQuickMenu();
-                              widget.onChanged(2);
+                              widget.onChanged(1);
                             },
                           ),
                         ),
@@ -382,34 +388,34 @@ class _UiNavShellState extends State<UiNavShell> {
                             },
                           ),
                         ),
-                        // Notes (3)
+                        // Notes (2)
+                        Expanded(
+                          child: _UiNavEntry(
+                            item: widget.items[2],
+                            activeIcon: _getActiveIcon(widget.items[2].icon),
+                            selected: !_isMenuOpen && widget.selectedIndex == 2,
+                            showLabel: false,
+                            vertical: true,
+                            isBubbleTab: true,
+                            onTap: () {
+                              _closeQuickMenu();
+                              widget.onChanged(2);
+                            },
+                          ),
+                        ),
+                        // Settings (3)
                         Expanded(
                           child: _UiNavEntry(
                             item: widget.items[3],
                             activeIcon: _getActiveIcon(widget.items[3].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 3,
+                            selected:
+                                !_isMenuOpen && widget.selectedIndex == 3,
                             showLabel: false,
                             vertical: true,
                             isBubbleTab: true,
                             onTap: () {
                               _closeQuickMenu();
                               widget.onChanged(3);
-                            },
-                          ),
-                        ),
-                        // Settings (10)
-                        Expanded(
-                          child: _UiNavEntry(
-                            item: widget.items[10],
-                            activeIcon: _getActiveIcon(widget.items[10].icon),
-                            selected:
-                                !_isMenuOpen && widget.selectedIndex == 10,
-                            showLabel: false,
-                            vertical: true,
-                            isBubbleTab: true,
-                            onTap: () {
-                              _closeQuickMenu();
-                              widget.onChanged(10);
                             },
                           ),
                         ),
@@ -429,7 +435,7 @@ class _UiNavShellState extends State<UiNavShell> {
     return UiInteractive(
       onTap: () {
         _closeQuickMenu();
-        widget.onChanged(item.index);
+        context.push(item.route);
       },
       builder: (context, state) {
         return Container(
@@ -445,28 +451,24 @@ class _UiNavShellState extends State<UiNavShell> {
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? (state.hovered
-                            ? const Color(0xFE252321)
-                            : const Color(0xDC1A1817))
-                      : (state.hovered
-                            ? theme.colors.surface
-                            : theme.colors.surface.withValues(alpha: 0.85)),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : Colors.black.withValues(alpha: 0.08),
-                    width: 1.2,
-                  ),
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? (state.hovered
+                      ? const Color(0xFE252321)
+                      : const Color(0xFE1A1817))
+                  : (state.hovered
+                      ? theme.colors.surface
+                      : theme.colors.surfaceMuted),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
+                width: 1.2,
+              ),
+            ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -494,8 +496,6 @@ class _UiNavShellState extends State<UiNavShell> {
                     ),
                   ],
                 ),
-              ),
-            ),
           ),
         );
       },
@@ -506,11 +506,11 @@ class _UiNavShellState extends State<UiNavShell> {
 class _QuickGridItem {
   final IconData icon;
   final String label;
-  final int index;
+  final String route;
   const _QuickGridItem({
     required this.icon,
     required this.label,
-    required this.index,
+    required this.route,
   });
 }
 

@@ -288,8 +288,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final foreground = minimal ? context.uiColors.foreground : Colors.white;
     return UiPage(
       header: const UiHeader(
-        title: 'Clock',
-        subtitle: 'Time, focus, and what’s next.',
+        title: 'Clock & Focus',
+        subtitle: 'Time your deep work sessions and boost concentration.',
         leading: QuietNoteMark(size: 38),
       ),
       child: Column(

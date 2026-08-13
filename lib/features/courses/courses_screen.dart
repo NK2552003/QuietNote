@@ -47,7 +47,7 @@ class CoursesScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Courses',
-        subtitle: 'Track assessments and stay ahead of your target grade.',
+        subtitle: 'Master new skills & expand your knowledge step by step.',
       ),
       floatingActionButton: UiFab(
         tooltip: 'New course',

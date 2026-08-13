@@ -35,7 +35,7 @@ class SettingsScreen extends ConsumerWidget {
     return UiPage(
       header: const UiHeader(
         title: 'Settings',
-        subtitle: 'Your study space, tuned to you.',
+        subtitle: 'Tailor QuietNote theme, storage & AI to your lifestyle.',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
