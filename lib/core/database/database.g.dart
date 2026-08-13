@@ -7052,6 +7052,1881 @@ class AssessmentsCompanion extends UpdateCompanion<Assessment> {
   }
 }
 
+class $FlashcardDecksTable extends FlashcardDecks
+    with TableInfo<$FlashcardDecksTable, FlashcardDeck> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FlashcardDecksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+    'subject',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _courseIdMeta = const VerificationMeta(
+    'courseId',
+  );
+  @override
+  late final GeneratedColumn<String> courseId = GeneratedColumn<String>(
+    'course_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<int> color = GeneratedColumn<int>(
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _archivedMeta = const VerificationMeta(
+    'archived',
+  );
+  @override
+  late final GeneratedColumn<bool> archived = GeneratedColumn<bool>(
+    'archived',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("archived" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    description,
+    subject,
+    courseId,
+    color,
+    archived,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'flashcard_decks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FlashcardDeck> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    }
+    if (data.containsKey('course_id')) {
+      context.handle(
+        _courseIdMeta,
+        courseId.isAcceptableOrUnknown(data['course_id']!, _courseIdMeta),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
+    if (data.containsKey('archived')) {
+      context.handle(
+        _archivedMeta,
+        archived.isAcceptableOrUnknown(data['archived']!, _archivedMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FlashcardDeck map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FlashcardDeck(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject'],
+      ),
+      courseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}course_id'],
+      ),
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color'],
+      ),
+      archived: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}archived'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FlashcardDecksTable createAlias(String alias) {
+    return $FlashcardDecksTable(attachedDatabase, alias);
+  }
+}
+
+class FlashcardDeck extends DataClass implements Insertable<FlashcardDeck> {
+  final String id;
+  final String title;
+  final String? description;
+  final String? subject;
+  final String? courseId;
+  final int? color;
+  final bool archived;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const FlashcardDeck({
+    required this.id,
+    required this.title,
+    this.description,
+    this.subject,
+    this.courseId,
+    this.color,
+    required this.archived,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || subject != null) {
+      map['subject'] = Variable<String>(subject);
+    }
+    if (!nullToAbsent || courseId != null) {
+      map['course_id'] = Variable<String>(courseId);
+    }
+    if (!nullToAbsent || color != null) {
+      map['color'] = Variable<int>(color);
+    }
+    map['archived'] = Variable<bool>(archived);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  FlashcardDecksCompanion toCompanion(bool nullToAbsent) {
+    return FlashcardDecksCompanion(
+      id: Value(id),
+      title: Value(title),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      subject: subject == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subject),
+      courseId: courseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courseId),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
+      archived: Value(archived),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory FlashcardDeck.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FlashcardDeck(
+      id: serializer.fromJson<String>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      description: serializer.fromJson<String?>(json['description']),
+      subject: serializer.fromJson<String?>(json['subject']),
+      courseId: serializer.fromJson<String?>(json['courseId']),
+      color: serializer.fromJson<int?>(json['color']),
+      archived: serializer.fromJson<bool>(json['archived']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'title': serializer.toJson<String>(title),
+      'description': serializer.toJson<String?>(description),
+      'subject': serializer.toJson<String?>(subject),
+      'courseId': serializer.toJson<String?>(courseId),
+      'color': serializer.toJson<int?>(color),
+      'archived': serializer.toJson<bool>(archived),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  FlashcardDeck copyWith({
+    String? id,
+    String? title,
+    Value<String?> description = const Value.absent(),
+    Value<String?> subject = const Value.absent(),
+    Value<String?> courseId = const Value.absent(),
+    Value<int?> color = const Value.absent(),
+    bool? archived,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => FlashcardDeck(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    description: description.present ? description.value : this.description,
+    subject: subject.present ? subject.value : this.subject,
+    courseId: courseId.present ? courseId.value : this.courseId,
+    color: color.present ? color.value : this.color,
+    archived: archived ?? this.archived,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  FlashcardDeck copyWithCompanion(FlashcardDecksCompanion data) {
+    return FlashcardDeck(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      courseId: data.courseId.present ? data.courseId.value : this.courseId,
+      color: data.color.present ? data.color.value : this.color,
+      archived: data.archived.present ? data.archived.value : this.archived,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FlashcardDeck(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('description: $description, ')
+          ..write('subject: $subject, ')
+          ..write('courseId: $courseId, ')
+          ..write('color: $color, ')
+          ..write('archived: $archived, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    description,
+    subject,
+    courseId,
+    color,
+    archived,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FlashcardDeck &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.description == this.description &&
+          other.subject == this.subject &&
+          other.courseId == this.courseId &&
+          other.color == this.color &&
+          other.archived == this.archived &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class FlashcardDecksCompanion extends UpdateCompanion<FlashcardDeck> {
+  final Value<String> id;
+  final Value<String> title;
+  final Value<String?> description;
+  final Value<String?> subject;
+  final Value<String?> courseId;
+  final Value<int?> color;
+  final Value<bool> archived;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const FlashcardDecksCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.description = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.courseId = const Value.absent(),
+    this.color = const Value.absent(),
+    this.archived = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FlashcardDecksCompanion.insert({
+    required String id,
+    required String title,
+    this.description = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.courseId = const Value.absent(),
+    this.color = const Value.absent(),
+    this.archived = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       title = Value(title);
+  static Insertable<FlashcardDeck> custom({
+    Expression<String>? id,
+    Expression<String>? title,
+    Expression<String>? description,
+    Expression<String>? subject,
+    Expression<String>? courseId,
+    Expression<int>? color,
+    Expression<bool>? archived,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+      if (subject != null) 'subject': subject,
+      if (courseId != null) 'course_id': courseId,
+      if (color != null) 'color': color,
+      if (archived != null) 'archived': archived,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FlashcardDecksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? title,
+    Value<String?>? description,
+    Value<String?>? subject,
+    Value<String?>? courseId,
+    Value<int?>? color,
+    Value<bool>? archived,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return FlashcardDecksCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      subject: subject ?? this.subject,
+      courseId: courseId ?? this.courseId,
+      color: color ?? this.color,
+      archived: archived ?? this.archived,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
+    }
+    if (courseId.present) {
+      map['course_id'] = Variable<String>(courseId.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<int>(color.value);
+    }
+    if (archived.present) {
+      map['archived'] = Variable<bool>(archived.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FlashcardDecksCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('description: $description, ')
+          ..write('subject: $subject, ')
+          ..write('courseId: $courseId, ')
+          ..write('color: $color, ')
+          ..write('archived: $archived, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FlashcardsTable extends Flashcards
+    with TableInfo<$FlashcardsTable, Flashcard> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FlashcardsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deckIdMeta = const VerificationMeta('deckId');
+  @override
+  late final GeneratedColumn<String> deckId = GeneratedColumn<String>(
+    'deck_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _frontMeta = const VerificationMeta('front');
+  @override
+  late final GeneratedColumn<String> front = GeneratedColumn<String>(
+    'front',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _backMeta = const VerificationMeta('back');
+  @override
+  late final GeneratedColumn<String> back = GeneratedColumn<String>(
+    'back',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hintMeta = const VerificationMeta('hint');
+  @override
+  late final GeneratedColumn<String> hint = GeneratedColumn<String>(
+    'hint',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _easeFactorMeta = const VerificationMeta(
+    'easeFactor',
+  );
+  @override
+  late final GeneratedColumn<double> easeFactor = GeneratedColumn<double>(
+    'ease_factor',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(2.5),
+  );
+  static const VerificationMeta _intervalDaysMeta = const VerificationMeta(
+    'intervalDays',
+  );
+  @override
+  late final GeneratedColumn<int> intervalDays = GeneratedColumn<int>(
+    'interval_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _dueDateMeta = const VerificationMeta(
+    'dueDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> dueDate = GeneratedColumn<DateTime>(
+    'due_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _reviewCountMeta = const VerificationMeta(
+    'reviewCount',
+  );
+  @override
+  late final GeneratedColumn<int> reviewCount = GeneratedColumn<int>(
+    'review_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lapsesMeta = const VerificationMeta('lapses');
+  @override
+  late final GeneratedColumn<int> lapses = GeneratedColumn<int>(
+    'lapses',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastReviewedAtMeta = const VerificationMeta(
+    'lastReviewedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastReviewedAt =
+      GeneratedColumn<DateTime>(
+        'last_reviewed_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _suspendedMeta = const VerificationMeta(
+    'suspended',
+  );
+  @override
+  late final GeneratedColumn<bool> suspended = GeneratedColumn<bool>(
+    'suspended',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("suspended" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sourceNoteIdMeta = const VerificationMeta(
+    'sourceNoteId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceNoteId = GeneratedColumn<String>(
+    'source_note_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deckId,
+    front,
+    back,
+    hint,
+    tags,
+    easeFactor,
+    intervalDays,
+    dueDate,
+    reviewCount,
+    lapses,
+    lastReviewedAt,
+    suspended,
+    sourceNoteId,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'flashcards';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Flashcard> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('deck_id')) {
+      context.handle(
+        _deckIdMeta,
+        deckId.isAcceptableOrUnknown(data['deck_id']!, _deckIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deckIdMeta);
+    }
+    if (data.containsKey('front')) {
+      context.handle(
+        _frontMeta,
+        front.isAcceptableOrUnknown(data['front']!, _frontMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_frontMeta);
+    }
+    if (data.containsKey('back')) {
+      context.handle(
+        _backMeta,
+        back.isAcceptableOrUnknown(data['back']!, _backMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_backMeta);
+    }
+    if (data.containsKey('hint')) {
+      context.handle(
+        _hintMeta,
+        hint.isAcceptableOrUnknown(data['hint']!, _hintMeta),
+      );
+    }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
+    if (data.containsKey('ease_factor')) {
+      context.handle(
+        _easeFactorMeta,
+        easeFactor.isAcceptableOrUnknown(data['ease_factor']!, _easeFactorMeta),
+      );
+    }
+    if (data.containsKey('interval_days')) {
+      context.handle(
+        _intervalDaysMeta,
+        intervalDays.isAcceptableOrUnknown(
+          data['interval_days']!,
+          _intervalDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('due_date')) {
+      context.handle(
+        _dueDateMeta,
+        dueDate.isAcceptableOrUnknown(data['due_date']!, _dueDateMeta),
+      );
+    }
+    if (data.containsKey('review_count')) {
+      context.handle(
+        _reviewCountMeta,
+        reviewCount.isAcceptableOrUnknown(
+          data['review_count']!,
+          _reviewCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lapses')) {
+      context.handle(
+        _lapsesMeta,
+        lapses.isAcceptableOrUnknown(data['lapses']!, _lapsesMeta),
+      );
+    }
+    if (data.containsKey('last_reviewed_at')) {
+      context.handle(
+        _lastReviewedAtMeta,
+        lastReviewedAt.isAcceptableOrUnknown(
+          data['last_reviewed_at']!,
+          _lastReviewedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('suspended')) {
+      context.handle(
+        _suspendedMeta,
+        suspended.isAcceptableOrUnknown(data['suspended']!, _suspendedMeta),
+      );
+    }
+    if (data.containsKey('source_note_id')) {
+      context.handle(
+        _sourceNoteIdMeta,
+        sourceNoteId.isAcceptableOrUnknown(
+          data['source_note_id']!,
+          _sourceNoteIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Flashcard map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Flashcard(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      deckId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deck_id'],
+      )!,
+      front: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}front'],
+      )!,
+      back: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}back'],
+      )!,
+      hint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hint'],
+      ),
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      ),
+      easeFactor: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ease_factor'],
+      )!,
+      intervalDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interval_days'],
+      )!,
+      dueDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}due_date'],
+      )!,
+      reviewCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}review_count'],
+      )!,
+      lapses: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lapses'],
+      )!,
+      lastReviewedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_reviewed_at'],
+      ),
+      suspended: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}suspended'],
+      )!,
+      sourceNoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_note_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FlashcardsTable createAlias(String alias) {
+    return $FlashcardsTable(attachedDatabase, alias);
+  }
+}
+
+class Flashcard extends DataClass implements Insertable<Flashcard> {
+  final String id;
+  final String deckId;
+  final String front;
+  final String back;
+  final String? hint;
+  final String? tags;
+  final double easeFactor;
+  final int intervalDays;
+  final DateTime dueDate;
+  final int reviewCount;
+  final int lapses;
+  final DateTime? lastReviewedAt;
+  final bool suspended;
+
+  /// Set when the card was generated from a note via "Send to flashcards".
+  final String? sourceNoteId;
+  final DateTime createdAt;
+  const Flashcard({
+    required this.id,
+    required this.deckId,
+    required this.front,
+    required this.back,
+    this.hint,
+    this.tags,
+    required this.easeFactor,
+    required this.intervalDays,
+    required this.dueDate,
+    required this.reviewCount,
+    required this.lapses,
+    this.lastReviewedAt,
+    required this.suspended,
+    this.sourceNoteId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['deck_id'] = Variable<String>(deckId);
+    map['front'] = Variable<String>(front);
+    map['back'] = Variable<String>(back);
+    if (!nullToAbsent || hint != null) {
+      map['hint'] = Variable<String>(hint);
+    }
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(tags);
+    }
+    map['ease_factor'] = Variable<double>(easeFactor);
+    map['interval_days'] = Variable<int>(intervalDays);
+    map['due_date'] = Variable<DateTime>(dueDate);
+    map['review_count'] = Variable<int>(reviewCount);
+    map['lapses'] = Variable<int>(lapses);
+    if (!nullToAbsent || lastReviewedAt != null) {
+      map['last_reviewed_at'] = Variable<DateTime>(lastReviewedAt);
+    }
+    map['suspended'] = Variable<bool>(suspended);
+    if (!nullToAbsent || sourceNoteId != null) {
+      map['source_note_id'] = Variable<String>(sourceNoteId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FlashcardsCompanion toCompanion(bool nullToAbsent) {
+    return FlashcardsCompanion(
+      id: Value(id),
+      deckId: Value(deckId),
+      front: Value(front),
+      back: Value(back),
+      hint: hint == null && nullToAbsent ? const Value.absent() : Value(hint),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
+      easeFactor: Value(easeFactor),
+      intervalDays: Value(intervalDays),
+      dueDate: Value(dueDate),
+      reviewCount: Value(reviewCount),
+      lapses: Value(lapses),
+      lastReviewedAt: lastReviewedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastReviewedAt),
+      suspended: Value(suspended),
+      sourceNoteId: sourceNoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceNoteId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Flashcard.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Flashcard(
+      id: serializer.fromJson<String>(json['id']),
+      deckId: serializer.fromJson<String>(json['deckId']),
+      front: serializer.fromJson<String>(json['front']),
+      back: serializer.fromJson<String>(json['back']),
+      hint: serializer.fromJson<String?>(json['hint']),
+      tags: serializer.fromJson<String?>(json['tags']),
+      easeFactor: serializer.fromJson<double>(json['easeFactor']),
+      intervalDays: serializer.fromJson<int>(json['intervalDays']),
+      dueDate: serializer.fromJson<DateTime>(json['dueDate']),
+      reviewCount: serializer.fromJson<int>(json['reviewCount']),
+      lapses: serializer.fromJson<int>(json['lapses']),
+      lastReviewedAt: serializer.fromJson<DateTime?>(json['lastReviewedAt']),
+      suspended: serializer.fromJson<bool>(json['suspended']),
+      sourceNoteId: serializer.fromJson<String?>(json['sourceNoteId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'deckId': serializer.toJson<String>(deckId),
+      'front': serializer.toJson<String>(front),
+      'back': serializer.toJson<String>(back),
+      'hint': serializer.toJson<String?>(hint),
+      'tags': serializer.toJson<String?>(tags),
+      'easeFactor': serializer.toJson<double>(easeFactor),
+      'intervalDays': serializer.toJson<int>(intervalDays),
+      'dueDate': serializer.toJson<DateTime>(dueDate),
+      'reviewCount': serializer.toJson<int>(reviewCount),
+      'lapses': serializer.toJson<int>(lapses),
+      'lastReviewedAt': serializer.toJson<DateTime?>(lastReviewedAt),
+      'suspended': serializer.toJson<bool>(suspended),
+      'sourceNoteId': serializer.toJson<String?>(sourceNoteId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Flashcard copyWith({
+    String? id,
+    String? deckId,
+    String? front,
+    String? back,
+    Value<String?> hint = const Value.absent(),
+    Value<String?> tags = const Value.absent(),
+    double? easeFactor,
+    int? intervalDays,
+    DateTime? dueDate,
+    int? reviewCount,
+    int? lapses,
+    Value<DateTime?> lastReviewedAt = const Value.absent(),
+    bool? suspended,
+    Value<String?> sourceNoteId = const Value.absent(),
+    DateTime? createdAt,
+  }) => Flashcard(
+    id: id ?? this.id,
+    deckId: deckId ?? this.deckId,
+    front: front ?? this.front,
+    back: back ?? this.back,
+    hint: hint.present ? hint.value : this.hint,
+    tags: tags.present ? tags.value : this.tags,
+    easeFactor: easeFactor ?? this.easeFactor,
+    intervalDays: intervalDays ?? this.intervalDays,
+    dueDate: dueDate ?? this.dueDate,
+    reviewCount: reviewCount ?? this.reviewCount,
+    lapses: lapses ?? this.lapses,
+    lastReviewedAt: lastReviewedAt.present
+        ? lastReviewedAt.value
+        : this.lastReviewedAt,
+    suspended: suspended ?? this.suspended,
+    sourceNoteId: sourceNoteId.present ? sourceNoteId.value : this.sourceNoteId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Flashcard copyWithCompanion(FlashcardsCompanion data) {
+    return Flashcard(
+      id: data.id.present ? data.id.value : this.id,
+      deckId: data.deckId.present ? data.deckId.value : this.deckId,
+      front: data.front.present ? data.front.value : this.front,
+      back: data.back.present ? data.back.value : this.back,
+      hint: data.hint.present ? data.hint.value : this.hint,
+      tags: data.tags.present ? data.tags.value : this.tags,
+      easeFactor: data.easeFactor.present
+          ? data.easeFactor.value
+          : this.easeFactor,
+      intervalDays: data.intervalDays.present
+          ? data.intervalDays.value
+          : this.intervalDays,
+      dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
+      reviewCount: data.reviewCount.present
+          ? data.reviewCount.value
+          : this.reviewCount,
+      lapses: data.lapses.present ? data.lapses.value : this.lapses,
+      lastReviewedAt: data.lastReviewedAt.present
+          ? data.lastReviewedAt.value
+          : this.lastReviewedAt,
+      suspended: data.suspended.present ? data.suspended.value : this.suspended,
+      sourceNoteId: data.sourceNoteId.present
+          ? data.sourceNoteId.value
+          : this.sourceNoteId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Flashcard(')
+          ..write('id: $id, ')
+          ..write('deckId: $deckId, ')
+          ..write('front: $front, ')
+          ..write('back: $back, ')
+          ..write('hint: $hint, ')
+          ..write('tags: $tags, ')
+          ..write('easeFactor: $easeFactor, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('dueDate: $dueDate, ')
+          ..write('reviewCount: $reviewCount, ')
+          ..write('lapses: $lapses, ')
+          ..write('lastReviewedAt: $lastReviewedAt, ')
+          ..write('suspended: $suspended, ')
+          ..write('sourceNoteId: $sourceNoteId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    deckId,
+    front,
+    back,
+    hint,
+    tags,
+    easeFactor,
+    intervalDays,
+    dueDate,
+    reviewCount,
+    lapses,
+    lastReviewedAt,
+    suspended,
+    sourceNoteId,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Flashcard &&
+          other.id == this.id &&
+          other.deckId == this.deckId &&
+          other.front == this.front &&
+          other.back == this.back &&
+          other.hint == this.hint &&
+          other.tags == this.tags &&
+          other.easeFactor == this.easeFactor &&
+          other.intervalDays == this.intervalDays &&
+          other.dueDate == this.dueDate &&
+          other.reviewCount == this.reviewCount &&
+          other.lapses == this.lapses &&
+          other.lastReviewedAt == this.lastReviewedAt &&
+          other.suspended == this.suspended &&
+          other.sourceNoteId == this.sourceNoteId &&
+          other.createdAt == this.createdAt);
+}
+
+class FlashcardsCompanion extends UpdateCompanion<Flashcard> {
+  final Value<String> id;
+  final Value<String> deckId;
+  final Value<String> front;
+  final Value<String> back;
+  final Value<String?> hint;
+  final Value<String?> tags;
+  final Value<double> easeFactor;
+  final Value<int> intervalDays;
+  final Value<DateTime> dueDate;
+  final Value<int> reviewCount;
+  final Value<int> lapses;
+  final Value<DateTime?> lastReviewedAt;
+  final Value<bool> suspended;
+  final Value<String?> sourceNoteId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const FlashcardsCompanion({
+    this.id = const Value.absent(),
+    this.deckId = const Value.absent(),
+    this.front = const Value.absent(),
+    this.back = const Value.absent(),
+    this.hint = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.easeFactor = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.dueDate = const Value.absent(),
+    this.reviewCount = const Value.absent(),
+    this.lapses = const Value.absent(),
+    this.lastReviewedAt = const Value.absent(),
+    this.suspended = const Value.absent(),
+    this.sourceNoteId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FlashcardsCompanion.insert({
+    required String id,
+    required String deckId,
+    required String front,
+    required String back,
+    this.hint = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.easeFactor = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.dueDate = const Value.absent(),
+    this.reviewCount = const Value.absent(),
+    this.lapses = const Value.absent(),
+    this.lastReviewedAt = const Value.absent(),
+    this.suspended = const Value.absent(),
+    this.sourceNoteId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       deckId = Value(deckId),
+       front = Value(front),
+       back = Value(back);
+  static Insertable<Flashcard> custom({
+    Expression<String>? id,
+    Expression<String>? deckId,
+    Expression<String>? front,
+    Expression<String>? back,
+    Expression<String>? hint,
+    Expression<String>? tags,
+    Expression<double>? easeFactor,
+    Expression<int>? intervalDays,
+    Expression<DateTime>? dueDate,
+    Expression<int>? reviewCount,
+    Expression<int>? lapses,
+    Expression<DateTime>? lastReviewedAt,
+    Expression<bool>? suspended,
+    Expression<String>? sourceNoteId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (deckId != null) 'deck_id': deckId,
+      if (front != null) 'front': front,
+      if (back != null) 'back': back,
+      if (hint != null) 'hint': hint,
+      if (tags != null) 'tags': tags,
+      if (easeFactor != null) 'ease_factor': easeFactor,
+      if (intervalDays != null) 'interval_days': intervalDays,
+      if (dueDate != null) 'due_date': dueDate,
+      if (reviewCount != null) 'review_count': reviewCount,
+      if (lapses != null) 'lapses': lapses,
+      if (lastReviewedAt != null) 'last_reviewed_at': lastReviewedAt,
+      if (suspended != null) 'suspended': suspended,
+      if (sourceNoteId != null) 'source_note_id': sourceNoteId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FlashcardsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? deckId,
+    Value<String>? front,
+    Value<String>? back,
+    Value<String?>? hint,
+    Value<String?>? tags,
+    Value<double>? easeFactor,
+    Value<int>? intervalDays,
+    Value<DateTime>? dueDate,
+    Value<int>? reviewCount,
+    Value<int>? lapses,
+    Value<DateTime?>? lastReviewedAt,
+    Value<bool>? suspended,
+    Value<String?>? sourceNoteId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return FlashcardsCompanion(
+      id: id ?? this.id,
+      deckId: deckId ?? this.deckId,
+      front: front ?? this.front,
+      back: back ?? this.back,
+      hint: hint ?? this.hint,
+      tags: tags ?? this.tags,
+      easeFactor: easeFactor ?? this.easeFactor,
+      intervalDays: intervalDays ?? this.intervalDays,
+      dueDate: dueDate ?? this.dueDate,
+      reviewCount: reviewCount ?? this.reviewCount,
+      lapses: lapses ?? this.lapses,
+      lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
+      suspended: suspended ?? this.suspended,
+      sourceNoteId: sourceNoteId ?? this.sourceNoteId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (deckId.present) {
+      map['deck_id'] = Variable<String>(deckId.value);
+    }
+    if (front.present) {
+      map['front'] = Variable<String>(front.value);
+    }
+    if (back.present) {
+      map['back'] = Variable<String>(back.value);
+    }
+    if (hint.present) {
+      map['hint'] = Variable<String>(hint.value);
+    }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
+    if (easeFactor.present) {
+      map['ease_factor'] = Variable<double>(easeFactor.value);
+    }
+    if (intervalDays.present) {
+      map['interval_days'] = Variable<int>(intervalDays.value);
+    }
+    if (dueDate.present) {
+      map['due_date'] = Variable<DateTime>(dueDate.value);
+    }
+    if (reviewCount.present) {
+      map['review_count'] = Variable<int>(reviewCount.value);
+    }
+    if (lapses.present) {
+      map['lapses'] = Variable<int>(lapses.value);
+    }
+    if (lastReviewedAt.present) {
+      map['last_reviewed_at'] = Variable<DateTime>(lastReviewedAt.value);
+    }
+    if (suspended.present) {
+      map['suspended'] = Variable<bool>(suspended.value);
+    }
+    if (sourceNoteId.present) {
+      map['source_note_id'] = Variable<String>(sourceNoteId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FlashcardsCompanion(')
+          ..write('id: $id, ')
+          ..write('deckId: $deckId, ')
+          ..write('front: $front, ')
+          ..write('back: $back, ')
+          ..write('hint: $hint, ')
+          ..write('tags: $tags, ')
+          ..write('easeFactor: $easeFactor, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('dueDate: $dueDate, ')
+          ..write('reviewCount: $reviewCount, ')
+          ..write('lapses: $lapses, ')
+          ..write('lastReviewedAt: $lastReviewedAt, ')
+          ..write('suspended: $suspended, ')
+          ..write('sourceNoteId: $sourceNoteId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FlashcardReviewsTable extends FlashcardReviews
+    with TableInfo<$FlashcardReviewsTable, FlashcardReview> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FlashcardReviewsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>(
+    'card_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deckIdMeta = const VerificationMeta('deckId');
+  @override
+  late final GeneratedColumn<String> deckId = GeneratedColumn<String>(
+    'deck_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
+  @override
+  late final GeneratedColumn<int> rating = GeneratedColumn<int>(
+    'rating',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _intervalDaysMeta = const VerificationMeta(
+    'intervalDays',
+  );
+  @override
+  late final GeneratedColumn<int> intervalDays = GeneratedColumn<int>(
+    'interval_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _easeFactorMeta = const VerificationMeta(
+    'easeFactor',
+  );
+  @override
+  late final GeneratedColumn<double> easeFactor = GeneratedColumn<double>(
+    'ease_factor',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(2.5),
+  );
+  static const VerificationMeta _reviewedAtMeta = const VerificationMeta(
+    'reviewedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> reviewedAt = GeneratedColumn<DateTime>(
+    'reviewed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    cardId,
+    deckId,
+    rating,
+    intervalDays,
+    easeFactor,
+    reviewedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'flashcard_reviews';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FlashcardReview> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(
+        _cardIdMeta,
+        cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('deck_id')) {
+      context.handle(
+        _deckIdMeta,
+        deckId.isAcceptableOrUnknown(data['deck_id']!, _deckIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deckIdMeta);
+    }
+    if (data.containsKey('rating')) {
+      context.handle(
+        _ratingMeta,
+        rating.isAcceptableOrUnknown(data['rating']!, _ratingMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ratingMeta);
+    }
+    if (data.containsKey('interval_days')) {
+      context.handle(
+        _intervalDaysMeta,
+        intervalDays.isAcceptableOrUnknown(
+          data['interval_days']!,
+          _intervalDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ease_factor')) {
+      context.handle(
+        _easeFactorMeta,
+        easeFactor.isAcceptableOrUnknown(data['ease_factor']!, _easeFactorMeta),
+      );
+    }
+    if (data.containsKey('reviewed_at')) {
+      context.handle(
+        _reviewedAtMeta,
+        reviewedAt.isAcceptableOrUnknown(data['reviewed_at']!, _reviewedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FlashcardReview map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FlashcardReview(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      cardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_id'],
+      )!,
+      deckId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deck_id'],
+      )!,
+      rating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rating'],
+      )!,
+      intervalDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interval_days'],
+      )!,
+      easeFactor: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ease_factor'],
+      )!,
+      reviewedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reviewed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FlashcardReviewsTable createAlias(String alias) {
+    return $FlashcardReviewsTable(attachedDatabase, alias);
+  }
+}
+
+class FlashcardReview extends DataClass implements Insertable<FlashcardReview> {
+  final String id;
+  final String cardId;
+  final String deckId;
+  final int rating;
+  final int intervalDays;
+  final double easeFactor;
+  final DateTime reviewedAt;
+  const FlashcardReview({
+    required this.id,
+    required this.cardId,
+    required this.deckId,
+    required this.rating,
+    required this.intervalDays,
+    required this.easeFactor,
+    required this.reviewedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['card_id'] = Variable<String>(cardId);
+    map['deck_id'] = Variable<String>(deckId);
+    map['rating'] = Variable<int>(rating);
+    map['interval_days'] = Variable<int>(intervalDays);
+    map['ease_factor'] = Variable<double>(easeFactor);
+    map['reviewed_at'] = Variable<DateTime>(reviewedAt);
+    return map;
+  }
+
+  FlashcardReviewsCompanion toCompanion(bool nullToAbsent) {
+    return FlashcardReviewsCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      deckId: Value(deckId),
+      rating: Value(rating),
+      intervalDays: Value(intervalDays),
+      easeFactor: Value(easeFactor),
+      reviewedAt: Value(reviewedAt),
+    );
+  }
+
+  factory FlashcardReview.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FlashcardReview(
+      id: serializer.fromJson<String>(json['id']),
+      cardId: serializer.fromJson<String>(json['cardId']),
+      deckId: serializer.fromJson<String>(json['deckId']),
+      rating: serializer.fromJson<int>(json['rating']),
+      intervalDays: serializer.fromJson<int>(json['intervalDays']),
+      easeFactor: serializer.fromJson<double>(json['easeFactor']),
+      reviewedAt: serializer.fromJson<DateTime>(json['reviewedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'cardId': serializer.toJson<String>(cardId),
+      'deckId': serializer.toJson<String>(deckId),
+      'rating': serializer.toJson<int>(rating),
+      'intervalDays': serializer.toJson<int>(intervalDays),
+      'easeFactor': serializer.toJson<double>(easeFactor),
+      'reviewedAt': serializer.toJson<DateTime>(reviewedAt),
+    };
+  }
+
+  FlashcardReview copyWith({
+    String? id,
+    String? cardId,
+    String? deckId,
+    int? rating,
+    int? intervalDays,
+    double? easeFactor,
+    DateTime? reviewedAt,
+  }) => FlashcardReview(
+    id: id ?? this.id,
+    cardId: cardId ?? this.cardId,
+    deckId: deckId ?? this.deckId,
+    rating: rating ?? this.rating,
+    intervalDays: intervalDays ?? this.intervalDays,
+    easeFactor: easeFactor ?? this.easeFactor,
+    reviewedAt: reviewedAt ?? this.reviewedAt,
+  );
+  FlashcardReview copyWithCompanion(FlashcardReviewsCompanion data) {
+    return FlashcardReview(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      deckId: data.deckId.present ? data.deckId.value : this.deckId,
+      rating: data.rating.present ? data.rating.value : this.rating,
+      intervalDays: data.intervalDays.present
+          ? data.intervalDays.value
+          : this.intervalDays,
+      easeFactor: data.easeFactor.present
+          ? data.easeFactor.value
+          : this.easeFactor,
+      reviewedAt: data.reviewedAt.present
+          ? data.reviewedAt.value
+          : this.reviewedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FlashcardReview(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('deckId: $deckId, ')
+          ..write('rating: $rating, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('easeFactor: $easeFactor, ')
+          ..write('reviewedAt: $reviewedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    cardId,
+    deckId,
+    rating,
+    intervalDays,
+    easeFactor,
+    reviewedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FlashcardReview &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.deckId == this.deckId &&
+          other.rating == this.rating &&
+          other.intervalDays == this.intervalDays &&
+          other.easeFactor == this.easeFactor &&
+          other.reviewedAt == this.reviewedAt);
+}
+
+class FlashcardReviewsCompanion extends UpdateCompanion<FlashcardReview> {
+  final Value<String> id;
+  final Value<String> cardId;
+  final Value<String> deckId;
+  final Value<int> rating;
+  final Value<int> intervalDays;
+  final Value<double> easeFactor;
+  final Value<DateTime> reviewedAt;
+  final Value<int> rowid;
+  const FlashcardReviewsCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.deckId = const Value.absent(),
+    this.rating = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.easeFactor = const Value.absent(),
+    this.reviewedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FlashcardReviewsCompanion.insert({
+    required String id,
+    required String cardId,
+    required String deckId,
+    required int rating,
+    this.intervalDays = const Value.absent(),
+    this.easeFactor = const Value.absent(),
+    this.reviewedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       cardId = Value(cardId),
+       deckId = Value(deckId),
+       rating = Value(rating);
+  static Insertable<FlashcardReview> custom({
+    Expression<String>? id,
+    Expression<String>? cardId,
+    Expression<String>? deckId,
+    Expression<int>? rating,
+    Expression<int>? intervalDays,
+    Expression<double>? easeFactor,
+    Expression<DateTime>? reviewedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (deckId != null) 'deck_id': deckId,
+      if (rating != null) 'rating': rating,
+      if (intervalDays != null) 'interval_days': intervalDays,
+      if (easeFactor != null) 'ease_factor': easeFactor,
+      if (reviewedAt != null) 'reviewed_at': reviewedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FlashcardReviewsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? cardId,
+    Value<String>? deckId,
+    Value<int>? rating,
+    Value<int>? intervalDays,
+    Value<double>? easeFactor,
+    Value<DateTime>? reviewedAt,
+    Value<int>? rowid,
+  }) {
+    return FlashcardReviewsCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      deckId: deckId ?? this.deckId,
+      rating: rating ?? this.rating,
+      intervalDays: intervalDays ?? this.intervalDays,
+      easeFactor: easeFactor ?? this.easeFactor,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (deckId.present) {
+      map['deck_id'] = Variable<String>(deckId.value);
+    }
+    if (rating.present) {
+      map['rating'] = Variable<int>(rating.value);
+    }
+    if (intervalDays.present) {
+      map['interval_days'] = Variable<int>(intervalDays.value);
+    }
+    if (easeFactor.present) {
+      map['ease_factor'] = Variable<double>(easeFactor.value);
+    }
+    if (reviewedAt.present) {
+      map['reviewed_at'] = Variable<DateTime>(reviewedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FlashcardReviewsCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('deckId: $deckId, ')
+          ..write('rating: $rating, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('easeFactor: $easeFactor, ')
+          ..write('reviewedAt: $reviewedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7067,6 +8942,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FocusSessionsTable focusSessions = $FocusSessionsTable(this);
   late final $CoursesTable courses = $CoursesTable(this);
   late final $AssessmentsTable assessments = $AssessmentsTable(this);
+  late final $FlashcardDecksTable flashcardDecks = $FlashcardDecksTable(this);
+  late final $FlashcardsTable flashcards = $FlashcardsTable(this);
+  late final $FlashcardReviewsTable flashcardReviews = $FlashcardReviewsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7084,6 +8964,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     focusSessions,
     courses,
     assessments,
+    flashcardDecks,
+    flashcards,
+    flashcardReviews,
   ];
 }
 
@@ -10525,6 +12408,933 @@ typedef $$AssessmentsTableProcessedTableManager =
       Assessment,
       PrefetchHooks Function()
     >;
+typedef $$FlashcardDecksTableCreateCompanionBuilder =
+    FlashcardDecksCompanion Function({
+      required String id,
+      required String title,
+      Value<String?> description,
+      Value<String?> subject,
+      Value<String?> courseId,
+      Value<int?> color,
+      Value<bool> archived,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$FlashcardDecksTableUpdateCompanionBuilder =
+    FlashcardDecksCompanion Function({
+      Value<String> id,
+      Value<String> title,
+      Value<String?> description,
+      Value<String?> subject,
+      Value<String?> courseId,
+      Value<int?> color,
+      Value<bool> archived,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$FlashcardDecksTableFilterComposer
+    extends Composer<_$AppDatabase, $FlashcardDecksTable> {
+  $$FlashcardDecksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get archived => $composableBuilder(
+    column: $table.archived,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FlashcardDecksTableOrderingComposer
+    extends Composer<_$AppDatabase, $FlashcardDecksTable> {
+  $$FlashcardDecksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get courseId => $composableBuilder(
+    column: $table.courseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get archived => $composableBuilder(
+    column: $table.archived,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FlashcardDecksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FlashcardDecksTable> {
+  $$FlashcardDecksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<String> get courseId =>
+      $composableBuilder(column: $table.courseId, builder: (column) => column);
+
+  GeneratedColumn<int> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<bool> get archived =>
+      $composableBuilder(column: $table.archived, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$FlashcardDecksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FlashcardDecksTable,
+          FlashcardDeck,
+          $$FlashcardDecksTableFilterComposer,
+          $$FlashcardDecksTableOrderingComposer,
+          $$FlashcardDecksTableAnnotationComposer,
+          $$FlashcardDecksTableCreateCompanionBuilder,
+          $$FlashcardDecksTableUpdateCompanionBuilder,
+          (
+            FlashcardDeck,
+            BaseReferences<_$AppDatabase, $FlashcardDecksTable, FlashcardDeck>,
+          ),
+          FlashcardDeck,
+          PrefetchHooks Function()
+        > {
+  $$FlashcardDecksTableTableManager(
+    _$AppDatabase db,
+    $FlashcardDecksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FlashcardDecksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FlashcardDecksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FlashcardDecksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> subject = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+                Value<bool> archived = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FlashcardDecksCompanion(
+                id: id,
+                title: title,
+                description: description,
+                subject: subject,
+                courseId: courseId,
+                color: color,
+                archived: archived,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String title,
+                Value<String?> description = const Value.absent(),
+                Value<String?> subject = const Value.absent(),
+                Value<String?> courseId = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+                Value<bool> archived = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FlashcardDecksCompanion.insert(
+                id: id,
+                title: title,
+                description: description,
+                subject: subject,
+                courseId: courseId,
+                color: color,
+                archived: archived,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FlashcardDecksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FlashcardDecksTable,
+      FlashcardDeck,
+      $$FlashcardDecksTableFilterComposer,
+      $$FlashcardDecksTableOrderingComposer,
+      $$FlashcardDecksTableAnnotationComposer,
+      $$FlashcardDecksTableCreateCompanionBuilder,
+      $$FlashcardDecksTableUpdateCompanionBuilder,
+      (
+        FlashcardDeck,
+        BaseReferences<_$AppDatabase, $FlashcardDecksTable, FlashcardDeck>,
+      ),
+      FlashcardDeck,
+      PrefetchHooks Function()
+    >;
+typedef $$FlashcardsTableCreateCompanionBuilder =
+    FlashcardsCompanion Function({
+      required String id,
+      required String deckId,
+      required String front,
+      required String back,
+      Value<String?> hint,
+      Value<String?> tags,
+      Value<double> easeFactor,
+      Value<int> intervalDays,
+      Value<DateTime> dueDate,
+      Value<int> reviewCount,
+      Value<int> lapses,
+      Value<DateTime?> lastReviewedAt,
+      Value<bool> suspended,
+      Value<String?> sourceNoteId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$FlashcardsTableUpdateCompanionBuilder =
+    FlashcardsCompanion Function({
+      Value<String> id,
+      Value<String> deckId,
+      Value<String> front,
+      Value<String> back,
+      Value<String?> hint,
+      Value<String?> tags,
+      Value<double> easeFactor,
+      Value<int> intervalDays,
+      Value<DateTime> dueDate,
+      Value<int> reviewCount,
+      Value<int> lapses,
+      Value<DateTime?> lastReviewedAt,
+      Value<bool> suspended,
+      Value<String?> sourceNoteId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$FlashcardsTableFilterComposer
+    extends Composer<_$AppDatabase, $FlashcardsTable> {
+  $$FlashcardsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deckId => $composableBuilder(
+    column: $table.deckId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get front => $composableBuilder(
+    column: $table.front,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get back => $composableBuilder(
+    column: $table.back,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hint => $composableBuilder(
+    column: $table.hint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get easeFactor => $composableBuilder(
+    column: $table.easeFactor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dueDate => $composableBuilder(
+    column: $table.dueDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reviewCount => $composableBuilder(
+    column: $table.reviewCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lapses => $composableBuilder(
+    column: $table.lapses,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastReviewedAt => $composableBuilder(
+    column: $table.lastReviewedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get suspended => $composableBuilder(
+    column: $table.suspended,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceNoteId => $composableBuilder(
+    column: $table.sourceNoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FlashcardsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FlashcardsTable> {
+  $$FlashcardsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deckId => $composableBuilder(
+    column: $table.deckId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get front => $composableBuilder(
+    column: $table.front,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get back => $composableBuilder(
+    column: $table.back,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hint => $composableBuilder(
+    column: $table.hint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get easeFactor => $composableBuilder(
+    column: $table.easeFactor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get dueDate => $composableBuilder(
+    column: $table.dueDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reviewCount => $composableBuilder(
+    column: $table.reviewCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lapses => $composableBuilder(
+    column: $table.lapses,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastReviewedAt => $composableBuilder(
+    column: $table.lastReviewedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get suspended => $composableBuilder(
+    column: $table.suspended,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceNoteId => $composableBuilder(
+    column: $table.sourceNoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FlashcardsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FlashcardsTable> {
+  $$FlashcardsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deckId =>
+      $composableBuilder(column: $table.deckId, builder: (column) => column);
+
+  GeneratedColumn<String> get front =>
+      $composableBuilder(column: $table.front, builder: (column) => column);
+
+  GeneratedColumn<String> get back =>
+      $composableBuilder(column: $table.back, builder: (column) => column);
+
+  GeneratedColumn<String> get hint =>
+      $composableBuilder(column: $table.hint, builder: (column) => column);
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumn<double> get easeFactor => $composableBuilder(
+    column: $table.easeFactor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get dueDate =>
+      $composableBuilder(column: $table.dueDate, builder: (column) => column);
+
+  GeneratedColumn<int> get reviewCount => $composableBuilder(
+    column: $table.reviewCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lapses =>
+      $composableBuilder(column: $table.lapses, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastReviewedAt => $composableBuilder(
+    column: $table.lastReviewedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get suspended =>
+      $composableBuilder(column: $table.suspended, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceNoteId => $composableBuilder(
+    column: $table.sourceNoteId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$FlashcardsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FlashcardsTable,
+          Flashcard,
+          $$FlashcardsTableFilterComposer,
+          $$FlashcardsTableOrderingComposer,
+          $$FlashcardsTableAnnotationComposer,
+          $$FlashcardsTableCreateCompanionBuilder,
+          $$FlashcardsTableUpdateCompanionBuilder,
+          (
+            Flashcard,
+            BaseReferences<_$AppDatabase, $FlashcardsTable, Flashcard>,
+          ),
+          Flashcard,
+          PrefetchHooks Function()
+        > {
+  $$FlashcardsTableTableManager(_$AppDatabase db, $FlashcardsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FlashcardsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FlashcardsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FlashcardsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> deckId = const Value.absent(),
+                Value<String> front = const Value.absent(),
+                Value<String> back = const Value.absent(),
+                Value<String?> hint = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
+                Value<double> easeFactor = const Value.absent(),
+                Value<int> intervalDays = const Value.absent(),
+                Value<DateTime> dueDate = const Value.absent(),
+                Value<int> reviewCount = const Value.absent(),
+                Value<int> lapses = const Value.absent(),
+                Value<DateTime?> lastReviewedAt = const Value.absent(),
+                Value<bool> suspended = const Value.absent(),
+                Value<String?> sourceNoteId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FlashcardsCompanion(
+                id: id,
+                deckId: deckId,
+                front: front,
+                back: back,
+                hint: hint,
+                tags: tags,
+                easeFactor: easeFactor,
+                intervalDays: intervalDays,
+                dueDate: dueDate,
+                reviewCount: reviewCount,
+                lapses: lapses,
+                lastReviewedAt: lastReviewedAt,
+                suspended: suspended,
+                sourceNoteId: sourceNoteId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String deckId,
+                required String front,
+                required String back,
+                Value<String?> hint = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
+                Value<double> easeFactor = const Value.absent(),
+                Value<int> intervalDays = const Value.absent(),
+                Value<DateTime> dueDate = const Value.absent(),
+                Value<int> reviewCount = const Value.absent(),
+                Value<int> lapses = const Value.absent(),
+                Value<DateTime?> lastReviewedAt = const Value.absent(),
+                Value<bool> suspended = const Value.absent(),
+                Value<String?> sourceNoteId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FlashcardsCompanion.insert(
+                id: id,
+                deckId: deckId,
+                front: front,
+                back: back,
+                hint: hint,
+                tags: tags,
+                easeFactor: easeFactor,
+                intervalDays: intervalDays,
+                dueDate: dueDate,
+                reviewCount: reviewCount,
+                lapses: lapses,
+                lastReviewedAt: lastReviewedAt,
+                suspended: suspended,
+                sourceNoteId: sourceNoteId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FlashcardsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FlashcardsTable,
+      Flashcard,
+      $$FlashcardsTableFilterComposer,
+      $$FlashcardsTableOrderingComposer,
+      $$FlashcardsTableAnnotationComposer,
+      $$FlashcardsTableCreateCompanionBuilder,
+      $$FlashcardsTableUpdateCompanionBuilder,
+      (Flashcard, BaseReferences<_$AppDatabase, $FlashcardsTable, Flashcard>),
+      Flashcard,
+      PrefetchHooks Function()
+    >;
+typedef $$FlashcardReviewsTableCreateCompanionBuilder =
+    FlashcardReviewsCompanion Function({
+      required String id,
+      required String cardId,
+      required String deckId,
+      required int rating,
+      Value<int> intervalDays,
+      Value<double> easeFactor,
+      Value<DateTime> reviewedAt,
+      Value<int> rowid,
+    });
+typedef $$FlashcardReviewsTableUpdateCompanionBuilder =
+    FlashcardReviewsCompanion Function({
+      Value<String> id,
+      Value<String> cardId,
+      Value<String> deckId,
+      Value<int> rating,
+      Value<int> intervalDays,
+      Value<double> easeFactor,
+      Value<DateTime> reviewedAt,
+      Value<int> rowid,
+    });
+
+class $$FlashcardReviewsTableFilterComposer
+    extends Composer<_$AppDatabase, $FlashcardReviewsTable> {
+  $$FlashcardReviewsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deckId => $composableBuilder(
+    column: $table.deckId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get easeFactor => $composableBuilder(
+    column: $table.easeFactor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reviewedAt => $composableBuilder(
+    column: $table.reviewedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FlashcardReviewsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FlashcardReviewsTable> {
+  $$FlashcardReviewsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deckId => $composableBuilder(
+    column: $table.deckId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get easeFactor => $composableBuilder(
+    column: $table.easeFactor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reviewedAt => $composableBuilder(
+    column: $table.reviewedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FlashcardReviewsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FlashcardReviewsTable> {
+  $$FlashcardReviewsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardId =>
+      $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get deckId =>
+      $composableBuilder(column: $table.deckId, builder: (column) => column);
+
+  GeneratedColumn<int> get rating =>
+      $composableBuilder(column: $table.rating, builder: (column) => column);
+
+  GeneratedColumn<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get easeFactor => $composableBuilder(
+    column: $table.easeFactor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get reviewedAt => $composableBuilder(
+    column: $table.reviewedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$FlashcardReviewsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FlashcardReviewsTable,
+          FlashcardReview,
+          $$FlashcardReviewsTableFilterComposer,
+          $$FlashcardReviewsTableOrderingComposer,
+          $$FlashcardReviewsTableAnnotationComposer,
+          $$FlashcardReviewsTableCreateCompanionBuilder,
+          $$FlashcardReviewsTableUpdateCompanionBuilder,
+          (
+            FlashcardReview,
+            BaseReferences<
+              _$AppDatabase,
+              $FlashcardReviewsTable,
+              FlashcardReview
+            >,
+          ),
+          FlashcardReview,
+          PrefetchHooks Function()
+        > {
+  $$FlashcardReviewsTableTableManager(
+    _$AppDatabase db,
+    $FlashcardReviewsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FlashcardReviewsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FlashcardReviewsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FlashcardReviewsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> cardId = const Value.absent(),
+                Value<String> deckId = const Value.absent(),
+                Value<int> rating = const Value.absent(),
+                Value<int> intervalDays = const Value.absent(),
+                Value<double> easeFactor = const Value.absent(),
+                Value<DateTime> reviewedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FlashcardReviewsCompanion(
+                id: id,
+                cardId: cardId,
+                deckId: deckId,
+                rating: rating,
+                intervalDays: intervalDays,
+                easeFactor: easeFactor,
+                reviewedAt: reviewedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String cardId,
+                required String deckId,
+                required int rating,
+                Value<int> intervalDays = const Value.absent(),
+                Value<double> easeFactor = const Value.absent(),
+                Value<DateTime> reviewedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FlashcardReviewsCompanion.insert(
+                id: id,
+                cardId: cardId,
+                deckId: deckId,
+                rating: rating,
+                intervalDays: intervalDays,
+                easeFactor: easeFactor,
+                reviewedAt: reviewedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FlashcardReviewsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FlashcardReviewsTable,
+      FlashcardReview,
+      $$FlashcardReviewsTableFilterComposer,
+      $$FlashcardReviewsTableOrderingComposer,
+      $$FlashcardReviewsTableAnnotationComposer,
+      $$FlashcardReviewsTableCreateCompanionBuilder,
+      $$FlashcardReviewsTableUpdateCompanionBuilder,
+      (
+        FlashcardReview,
+        BaseReferences<_$AppDatabase, $FlashcardReviewsTable, FlashcardReview>,
+      ),
+      FlashcardReview,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10553,4 +13363,10 @@ class $AppDatabaseManager {
       $$CoursesTableTableManager(_db, _db.courses);
   $$AssessmentsTableTableManager get assessments =>
       $$AssessmentsTableTableManager(_db, _db.assessments);
+  $$FlashcardDecksTableTableManager get flashcardDecks =>
+      $$FlashcardDecksTableTableManager(_db, _db.flashcardDecks);
+  $$FlashcardsTableTableManager get flashcards =>
+      $$FlashcardsTableTableManager(_db, _db.flashcards);
+  $$FlashcardReviewsTableTableManager get flashcardReviews =>
+      $$FlashcardReviewsTableTableManager(_db, _db.flashcardReviews);
 }

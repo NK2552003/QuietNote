@@ -239,6 +239,64 @@ class Assessments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// A deck of spaced-repetition flashcards (Feature 4). `subject` reuses the
+/// same comma-separated tag convention as [Notes]/[Journal] (see
+/// `lib/core/utils/tag_utils.dart`) so decks can be filtered by subject the
+/// same way notes are.
+class FlashcardDecks extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get subject => text().nullable()(); // CSV of subject tags
+  TextColumn get courseId => text().nullable()();
+  IntColumn get color => integer().nullable()(); // ARGB integer
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One flashcard. The scheduling columns (`easeFactor`, `intervalDays`,
+/// `dueDate`, `reviewCount`, `lapses`) are written by the SM-2 implementation
+/// in `lib/features/flashcards/sm2.dart` after every rating.
+class Flashcards extends Table {
+  TextColumn get id => text()();
+  TextColumn get deckId => text()();
+  TextColumn get front => text()();
+  TextColumn get back => text()();
+  TextColumn get hint => text().nullable()();
+  TextColumn get tags => text().nullable()(); // CSV, same convention as notes
+  RealColumn get easeFactor => real().withDefault(const Constant(2.5))();
+  IntColumn get intervalDays => integer().withDefault(const Constant(0))();
+  DateTimeColumn get dueDate => dateTime().withDefault(currentDateAndTime)();
+  IntColumn get reviewCount => integer().withDefault(const Constant(0))();
+  IntColumn get lapses => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastReviewedAt => dateTime().nullable()();
+  BoolColumn get suspended => boolean().withDefault(const Constant(false))();
+
+  /// Set when the card was generated from a note via "Send to flashcards".
+  TextColumn get sourceNoteId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One row per rating given during study. Powers accuracy, review streaks and
+/// the study history charts without having to derive them from card state.
+class FlashcardReviews extends Table {
+  TextColumn get id => text()();
+  TextColumn get cardId => text()();
+  TextColumn get deckId => text()();
+  IntColumn get rating => integer()(); // 0=Again, 1=Hard, 2=Good, 3=Easy
+  IntColumn get intervalDays => integer().withDefault(const Constant(0))();
+  RealColumn get easeFactor => real().withDefault(const Constant(2.5))();
+  DateTimeColumn get reviewedAt => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+
 @DriftDatabase(
   tables: [
     Habits,
@@ -253,13 +311,16 @@ class Assessments extends Table {
     FocusSessions,
     Courses,
     Assessments,
+    FlashcardDecks,
+    Flashcards,
+    FlashcardReviews,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 11; // v11: rich courses & focus session linking
+  int get schemaVersion => 12; // v12: flashcards & spaced repetition
 
   @override
   MigrationStrategy get migration {
@@ -388,6 +449,14 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(notes, notes.courseId);
           await m.addColumn(calendarEvents, calendarEvents.courseId);
           await m.addColumn(goals, goals.courseId);
+        }
+        if (from < 12) {
+          // -> v12: flashcards. All three tables are brand new, so this is
+          // only ever `createTable` — never `addColumn` (same pattern as
+          // attachments/focusSessions above).
+          await m.createTable(flashcardDecks);
+          await m.createTable(flashcards);
+          await m.createTable(flashcardReviews);
         }
       },
       beforeOpen: (details) async {

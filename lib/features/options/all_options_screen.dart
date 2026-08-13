@@ -45,6 +45,12 @@ class AllOptionsScreen extends StatelessWidget {
       route: '/courses',
     ),
     _OptionItem(
+      title: 'Flashcards',
+      subtitle: 'Spaced repetition study',
+      icon: Icons.style_rounded,
+      route: '/flashcards',
+    ),
+    _OptionItem(
       title: 'Analytics',
       subtitle: 'Productivity trends',
       icon: Icons.insights_rounded,

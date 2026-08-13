@@ -38,6 +38,10 @@ import '../../features/courses/courses_screen.dart';
 import '../../features/courses/course_editor_screen.dart';
 import '../../features/courses/course_detail_screen.dart';
 import '../../features/options/all_options_screen.dart';
+import '../../features/flashcards/flashcard_decks_screen.dart';
+import '../../features/flashcards/flashcard_deck_editor_screen.dart';
+import '../../features/flashcards/flashcard_deck_detail_screen.dart';
+import '../../features/flashcards/flashcard_study_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -126,6 +130,11 @@ final appRouter = GoRouter(
           path: '/courses',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: CoursesScreen()),
+        ),
+        GoRoute(
+          path: '/flashcards',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: FlashcardDecksScreen()),
         ),
       ],
     ),
@@ -262,6 +271,31 @@ final appRouter = GoRouter(
       builder: (context, state) =>
           CourseEditorScreen(courseId: state.pathParameters['id']),
     ),
+    // Flashcards (Feature 4). `/flashcards/study` must be declared before
+    // `/flashcards/:id` so it isn't swallowed by the dynamic segment.
+    GoRoute(
+      path: '/flashcards/new',
+      builder: (context, state) => const FlashcardDeckEditorScreen(),
+    ),
+    GoRoute(
+      path: '/flashcards/study',
+      builder: (context, state) => const FlashcardStudyScreen(),
+    ),
+    GoRoute(
+      path: '/flashcards/edit/:id',
+      builder: (context, state) =>
+          FlashcardDeckEditorScreen(deckId: state.pathParameters['id']),
+    ),
+    GoRoute(
+      path: '/flashcards/:id/study',
+      builder: (context, state) =>
+          FlashcardStudyScreen(deckId: state.pathParameters['id']),
+    ),
+    GoRoute(
+      path: '/flashcards/:id',
+      builder: (context, state) =>
+          FlashcardDeckDetailScreen(deckId: state.pathParameters['id']!),
+    ),
     GoRoute(
       path: '/courses/:id',
       builder: (context, state) =>
@@ -333,6 +367,7 @@ class _AppShellState extends State<AppShell> {
         location.startsWith('/goals') ||
         location.startsWith('/journal') ||
         location.startsWith('/courses') ||
+        location.startsWith('/flashcards') ||
         location.startsWith('/analytics') ||
         location.startsWith('/clock') ||
         location.startsWith('/ai')) {
