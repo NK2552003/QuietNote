@@ -4,12 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
+import 'package:quietnote/features/ai/cloud_ai_providers.dart';
 import 'package:quietnote/features/ai/local_ai_engine.dart';
 import 'package:quietnote/features/settings/widgets/settings_widgets.dart';
 
-/// Local model management plus AI Capture defaults.
-class SettingsAiScreen extends ConsumerWidget {
+/// Local model management, cloud API configuration, and AI Capture defaults.
+class SettingsAiScreen extends ConsumerStatefulWidget {
   const SettingsAiScreen({super.key});
+
+  @override
+  ConsumerState<SettingsAiScreen> createState() => _SettingsAiScreenState();
+}
+
+class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
+  bool _testingConnection = false;
 
   Future<void> _importModel(BuildContext context, WidgetRef ref) async {
     final bool go = await UiDialog.confirm(
@@ -111,8 +119,51 @@ class SettingsAiScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _testConnection(AppSettings settings) async {
+    setState(() => _testingConnection = true);
+    try {
+      final CloudAiProviderPreset preset = cloudAiProviderById(
+        settings.aiApiProviderId,
+      );
+      final String baseUrl = preset.id == 'custom'
+          ? settings.aiApiBaseUrl
+          : preset.baseUrl;
+      final client = CloudAiClient(
+        baseUrl: baseUrl,
+        apiKey: settings.aiApiKey,
+        model: settings.aiApiModel,
+      );
+      await client.chat(
+        systemPrompt: 'Reply with the single word: ok',
+        userMessage: 'ok',
+        maxTokens: 8,
+      );
+      if (mounted) {
+        UiToast.show(
+          context,
+          title: 'Connected',
+          message: '${preset.label} answered successfully.',
+          intent: UiIntent.success,
+          icon: Icons.check_circle_outline,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        UiToast.show(
+          context,
+          title: "Couldn't connect",
+          message: '$e',
+          intent: UiIntent.danger,
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testingConnection = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = context.ui;
     final AiEngineState state = ref.watch(aiEngineProvider);
     final AppSettings settings =
@@ -121,6 +172,9 @@ class SettingsAiScreen extends ConsumerWidget {
 
     final bool ready = state == AiEngineState.ready;
     final bool importing = state == AiEngineState.importing;
+    final CloudAiProviderPreset selectedPreset = cloudAiProviderById(
+      settings.aiApiProviderId,
+    );
 
     return SettingsSubPage(
       title: 'AI Capture',
@@ -172,6 +226,142 @@ class SettingsAiScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+        SizedBox(height: context.sp(theme.spacing.xl)),
+        SettingsSection(
+          title: 'Provider',
+          description:
+              'Run AI Capture fully on-device, or use your own API key with '
+              'a hosted provider instead. The key is stored only on this '
+              'device and sent only to the provider you pick below.',
+          children: <Widget>[
+            SettingsTile(
+              icon: Icons.smartphone_outlined,
+              title: 'Use on-device model',
+              showChevron: false,
+              trailing: Switch(
+                value: settings.aiProviderMode == 'local',
+                onChanged: (bool useLocal) => controller.update(
+                  (AppSettings s) => s.copyWith(
+                    aiProviderMode: useLocal ? 'local' : 'api',
+                  ),
+                ),
+              ),
+            ),
+            if (settings.aiProviderMode == 'api') ...[
+              SettingsTile(
+                icon: Icons.cloud_outlined,
+                title: 'Provider',
+                showChevron: false,
+                trailing: SizedBox(
+                  width: context.sz(190),
+                  child: UiSelect<String>(
+                    value: settings.aiApiProviderId,
+                    options: <UiOption<String>>[
+                      for (final CloudAiProviderPreset p in kCloudAiProviders)
+                        UiOption<String>(value: p.id, label: p.label),
+                    ],
+                    onChanged: (String v) => controller.update(
+                      (AppSettings s) => s.copyWith(aiApiProviderId: v),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.sp(theme.spacing.md),
+                ),
+                child: Text(
+                  selectedPreset.description,
+                  style: context.uiText.caption.copyWith(
+                    color: theme.colors.foregroundMuted,
+                  ),
+                ),
+              ),
+              SizedBox(height: context.sp(theme.spacing.sm)),
+              if (selectedPreset.id == 'custom')
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.sp(theme.spacing.md),
+                  ),
+                  child: UiInput(
+                    hintText: 'Base URL, e.g. https://your-host/v1',
+                    value: settings.aiApiBaseUrl,
+                    onChanged: (String v) => controller.update(
+                      (AppSettings s) => s.copyWith(aiApiBaseUrl: v),
+                    ),
+                  ),
+                ),
+              if (selectedPreset.id == 'custom')
+                SizedBox(height: context.sp(theme.spacing.sm)),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.sp(theme.spacing.md),
+                ),
+                child: UiInput(
+                  hintText: 'API key',
+                  obscure: true,
+                  value: settings.aiApiKey,
+                  onChanged: (String v) => controller.update(
+                    (AppSettings s) => s.copyWith(aiApiKey: v),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.sp(theme.spacing.sm)),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.sp(theme.spacing.md),
+                ),
+                child: UiInput(
+                  hintText: 'Model ID',
+                  value: settings.aiApiModel,
+                  onChanged: (String v) => controller.update(
+                    (AppSettings s) => s.copyWith(aiApiModel: v),
+                  ),
+                ),
+              ),
+              if (selectedPreset.suggestedFreeModels.isNotEmpty) ...[
+                SizedBox(height: context.sp(theme.spacing.sm)),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.sp(theme.spacing.md),
+                  ),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      for (final String m in selectedPreset.suggestedFreeModels)
+                        UiBadge(
+                          label: m,
+                          size: UiSize.sm,
+                          variant: UiBadgeVariant.soft,
+                          intent: settings.aiApiModel == m
+                              ? UiIntent.primary
+                              : UiIntent.neutral,
+                          onTap: () => controller.update(
+                            (AppSettings s) => s.copyWith(aiApiModel: m),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+              SizedBox(height: context.sp(theme.spacing.md)),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.sp(theme.spacing.md),
+                ),
+                child: UiButton(
+                  label: _testingConnection ? 'Testing…' : 'Test connection',
+                  leadingIcon: Icons.wifi_tethering,
+                  onPressed: _testingConnection
+                      ? null
+                      : () => _testConnection(settings),
+                ),
+              ),
+              SizedBox(height: context.sp(theme.spacing.sm)),
+            ],
+          ],
         ),
         SizedBox(height: context.sp(theme.spacing.xl)),
         SettingsSection(

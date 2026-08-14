@@ -12,6 +12,13 @@ class MermaidCodeBuilder extends MarkdownElementBuilder {
 
   final bool dark;
 
+  // `pre` is a block-level tag. Without this override some flutter_markdown
+  // versions never hand the element to a custom builder at all and silently
+  // fall back to the default code-block renderer, which is why ```mermaid
+  // fences were showing up as plain text instead of a diagram.
+  @override
+  bool isBlockElement() => true;
+
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final md.Element? code = element.children?.whereType<md.Element>().firstOrNull;
@@ -23,6 +30,23 @@ class MermaidCodeBuilder extends MarkdownElementBuilder {
     final String source = code.textContent.trim();
     if (source.isEmpty) return null;
 
+    return _MermaidBlock(source: source, dark: dark);
+  }
+}
+
+/// Wraps the diagram in a fixed-minimum-height box. The note/journal
+/// markdown body renders inside a scrolling column with unbounded height,
+/// and [MermaidDiagram] needs a bounded/non-zero constraint to lay itself
+/// out — without this the diagram could collapse to zero height and never
+/// actually appear even though the builder ran correctly.
+class _MermaidBlock extends StatelessWidget {
+  const _MermaidBlock({required this.source, required this.dark});
+
+  final String source;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -36,9 +60,12 @@ class MermaidCodeBuilder extends MarkdownElementBuilder {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: MermaidDiagram(
-          code: source,
-          style: dark ? MermaidStyle.dark() : MermaidStyle.neutral(),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 160),
+          child: MermaidDiagram(
+            code: source,
+            style: dark ? MermaidStyle.dark() : MermaidStyle.neutral(),
+          ),
         ),
       ),
     );

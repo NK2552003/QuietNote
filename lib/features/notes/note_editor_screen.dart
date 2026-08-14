@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,8 +9,10 @@ import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -239,6 +242,88 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _insertMarkdown('![image](local-image://$attachmentId)', '');
   }
 
+  /// Imports a `.md`/`.txt`/`.pdf` file into the note body at the cursor.
+  ///
+  /// Plain text and Markdown files are inserted as-is. PDFs are text
+  /// extracted (via `syncfusion_flutter_pdf` — pure Dart, no native build
+  /// step, free Community license) and the extracted text is inserted as
+  /// Markdown with a citation line. If a PDF has no extractable text (e.g.
+  /// a scanned/image-only PDF), it's copied into the attachments folder and
+  /// linked from the note instead, with a toast explaining why.
+  Future<void> _pickDocument() async {
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'txt', 'md'],
+    );
+    final PlatformFile? picked = result?.files.single;
+    final String? path = picked?.path;
+    if (path == null) return;
+
+    final file = File(path);
+    final String filename = picked!.name;
+    final String ext = filename.contains('.')
+        ? filename.split('.').last.toLowerCase()
+        : '';
+
+    if (ext == 'txt' || ext == 'md') {
+      final String content = await file.readAsString();
+      _insertMarkdown(content, '');
+      return;
+    }
+
+    // .pdf: attempt text extraction.
+    String extracted = '';
+    try {
+      final bytes = await file.readAsBytes();
+      final sf.PdfDocument document = sf.PdfDocument(inputBytes: bytes);
+      extracted = sf.PdfTextExtractor(document).extractText().trim();
+      document.dispose();
+    } catch (_) {
+      extracted = '';
+    }
+
+    if (extracted.isNotEmpty) {
+      _insertMarkdown(
+        '\n\n---\n*Imported from: $filename*\n\n$extracted',
+        '',
+      );
+      return;
+    }
+
+    // No extractable text (scanned/image-only PDF): don't fail silently —
+    // attach the file and link to it instead.
+    final directory = await getApplicationDocumentsDirectory();
+    final attachmentsDir = Directory('${directory.path}/attachments');
+    if (!await attachmentsDir.exists()) {
+      await attachmentsDir.create(recursive: true);
+    }
+    final savedFile = await file.copy(
+      '${attachmentsDir.path}/${const Uuid().v4()}.pdf',
+    );
+    final attachmentId = const Uuid().v4();
+    await ref
+        .read(databaseProvider)
+        .into(ref.read(databaseProvider).attachments)
+        .insert(
+          AttachmentsCompanion.insert(
+            id: attachmentId,
+            parentId: _currentNoteId,
+            parentType: 'note',
+            filePath: savedFile.path,
+          ),
+        );
+    _insertMarkdown('[📄 $filename](local-file://$attachmentId)', '');
+    if (mounted) {
+      UiToast.show(
+        context,
+        title: "Couldn't extract text",
+        message:
+            "$filename looks like a scanned or image-only PDF, so it was attached as a reference instead.",
+        intent: UiIntent.warning,
+      );
+    }
+  }
+
   Future<void> _toggleVoiceInput() async {
     if (_listening) {
       await _speech.stop();
@@ -392,6 +477,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 const SizedBox(height: 16),
                 if (_isPreview)
                   MarkdownBody(
+                    extensionSet: md.ExtensionSet.gitHubFlavored,
                     data: _contentController.text.isEmpty
                         ? '*Nothing written yet.*'
                         : _contentController.text,
@@ -530,6 +616,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                             icon: Icons.image_outlined,
                             hint: 'Add image',
                             onTap: _pickImage,
+                          ),
+                          _ToolbarButton(
+                            icon: Icons.upload_file_outlined,
+                            hint: 'Import document',
+                            onTap: _pickDocument,
                           ),
                           _ToolbarButton(
                             icon: Icons.link,

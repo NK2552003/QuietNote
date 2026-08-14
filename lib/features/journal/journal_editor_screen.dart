@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +8,10 @@ import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
@@ -252,6 +255,83 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
     setState(() {});
   }
 
+  /// Imports a `.md`/`.txt`/`.pdf` file into the entry body at the cursor.
+  /// Mirrors the notes editor's import (see note_editor_screen.dart) so the
+  /// same file-handling behaviour is available from the journal too.
+  Future<void> _pickDocument() async {
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'txt', 'md'],
+    );
+    final PlatformFile? picked = result?.files.single;
+    final String? path = picked?.path;
+    if (path == null) return;
+
+    final file = File(path);
+    final String filename = picked!.name;
+    final String ext = filename.contains('.')
+        ? filename.split('.').last.toLowerCase()
+        : '';
+
+    if (ext == 'txt' || ext == 'md') {
+      final String content = await file.readAsString();
+      _insertMarkdown(content, '');
+      setState(() {});
+      return;
+    }
+
+    String extracted = '';
+    try {
+      final bytes = await file.readAsBytes();
+      final sf.PdfDocument document = sf.PdfDocument(inputBytes: bytes);
+      extracted = sf.PdfTextExtractor(document).extractText().trim();
+      document.dispose();
+    } catch (_) {
+      extracted = '';
+    }
+
+    if (extracted.isNotEmpty) {
+      _insertMarkdown(
+        '\n\n---\n*Imported from: $filename*\n\n$extracted',
+        '',
+      );
+      setState(() {});
+      return;
+    }
+
+    final directory = await getApplicationDocumentsDirectory();
+    final attachmentsDir = Directory('${directory.path}/attachments');
+    if (!await attachmentsDir.exists()) {
+      await attachmentsDir.create(recursive: true);
+    }
+    final savedFile = await file.copy(
+      '${attachmentsDir.path}/${const Uuid().v4()}.pdf',
+    );
+    final attachmentId = const Uuid().v4();
+    final db = ref.read(databaseProvider);
+    await db
+        .into(db.attachments)
+        .insert(
+          AttachmentsCompanion.insert(
+            id: attachmentId,
+            parentId: _currentEntryId,
+            parentType: 'journal',
+            filePath: savedFile.path,
+          ),
+        );
+    _insertMarkdown('[📄 $filename](local-file://$attachmentId)', '');
+    setState(() {});
+    if (mounted) {
+      UiToast.show(
+        context,
+        title: "Couldn't extract text",
+        message:
+            "$filename looks like a scanned or image-only PDF, so it was attached as a reference instead.",
+        intent: UiIntent.warning,
+      );
+    }
+  }
+
   Future<void> _toggleVoiceInput() async {
     if (_listening) {
       await _speech.stop();
@@ -385,6 +465,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                 const SizedBox(height: 16),
                 if (_isPreview)
                   MarkdownBody(
+                    extensionSet: md.ExtensionSet.gitHubFlavored,
                     data: _contentController.text.isEmpty
                         ? '*Nothing written yet.*'
                         : _contentController.text,
@@ -523,6 +604,11 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                             icon: Icons.image_outlined,
                             hint: 'Add photo',
                             onTap: _pickImage,
+                          ),
+                          _ToolbarButton(
+                            icon: Icons.upload_file_outlined,
+                            hint: 'Import document',
+                            onTap: _pickDocument,
                           ),
                           _ToolbarButton(
                             icon: Icons.link,

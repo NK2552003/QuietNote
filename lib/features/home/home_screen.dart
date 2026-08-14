@@ -19,12 +19,13 @@ final selectedDayProvider = StateProvider<DateTime>(
   (ref) => _dateOnly(DateTime.now()),
 );
 
-/// Session-only "done today" state for habits and routines.
+/// Session-only "done today" state for routines.
 ///
-/// The current schema doesn't persist a per-day completion log for habits
-/// or routines (only a running `streak` counter), so this keeps the check
-/// mark reflected in the UI for the session. Tasks are real, persisted
-/// completions via [TaskRepository.toggleTaskCompletion].
+/// The current schema doesn't persist a per-day completion log for
+/// routines (only an `isActive` flag), so this keeps the check mark
+/// reflected in the UI for the session. Tasks and habits are real,
+/// persisted completions via [TaskRepository.toggleTaskCompletion] and
+/// [HabitRepository.toggleEntry]/[habitEntriesStreamProvider].
 final _sessionDoneProvider = StateProvider<Set<String>>((ref) => <String>{});
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -266,10 +267,18 @@ class _TodayBody extends StatelessWidget {
       );
     }
 
-    // Habits are recurring, so they show up every day.
+    // Habits are recurring, so they show up every day. Completion is read
+    // from the real per-day entry log (the same source of truth the Habits
+    // screen uses) rather than session-only state, so a habit already
+    // logged done today shows as done here too instead of reverting to
+    // "not done" on every rebuild/navigation.
     for (final h in habits) {
-      final key = 'habit:${h.id}:${selectedDay.toIso8601String()}';
-      final done = sessionDone.contains(key);
+      final entriesAsync = ref.watch(habitEntriesStreamProvider(h.id));
+      final doneDays = (entriesAsync.value ?? const <HabitEntry>[])
+          .where((e) => e.isDone)
+          .map((e) => _dateOnly(e.date))
+          .toSet();
+      final done = doneDays.contains(selectedDay);
       items.add(
         _TodayItem(
           kind: _TodayKind.habit,
@@ -277,19 +286,8 @@ class _TodayBody extends StatelessWidget {
           title: h.title,
           subtitle: h.streak > 0 ? '${h.streak} day streak' : 'Start today',
           done: done,
-          onToggle: () {
-            final notifier = ref.read(_sessionDoneProvider.notifier);
-            final next = {...notifier.state};
-            if (done) {
-              next.remove(key);
-            } else {
-              next.add(key);
-              ref
-                  .read(habitRepositoryProvider)
-                  .incrementStreak(h.id, h.streak, h.progress);
-            }
-            notifier.state = next;
-          },
+          onToggle: () =>
+              ref.read(habitRepositoryProvider).toggleEntry(h.id, selectedDay),
         ),
       );
     }

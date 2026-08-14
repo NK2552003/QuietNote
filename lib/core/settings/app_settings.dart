@@ -101,6 +101,11 @@ class AppSettings {
     this.profileImagePath = '',
     this.focusSessionEndsAt,
     this.lastUsedPresetId,
+    this.aiProviderMode = 'local',
+    this.aiApiProviderId = 'nvidia',
+    this.aiApiBaseUrl = '',
+    this.aiApiModel = '',
+    this.aiApiKey = '',
   });
 
   final ThemeMode themeMode;
@@ -139,6 +144,22 @@ class AppSettings {
   /// pre-selected on the next visit so it survives an app restart
   /// mid-decision. `null` means no preset has been chosen yet.
   final String? lastUsedPresetId;
+
+  /// AI Capture / Ask AI can run against the on-device model ('local') or a
+  /// user-supplied cloud API ('api'). All of the fields below live in this
+  /// same locally-stored settings table (see the class doc) — the key is
+  /// only ever sent from this device directly to whichever provider the
+  /// person configured, using their own key.
+  final String aiProviderMode;
+
+  /// Which built-in preset (see `cloud_ai_providers.dart`) the API key/base
+  /// URL apply to, e.g. 'nvidia', 'openrouter', 'groq', or 'custom'.
+  final String aiApiProviderId;
+
+  /// Only used for the 'custom' provider; presets fill this in themselves.
+  final String aiApiBaseUrl;
+  final String aiApiModel;
+  final String aiApiKey;
 
   int get activeReminderCount => <bool>[
     habitReminders,
@@ -184,6 +205,11 @@ class AppSettings {
     DateTime? focusSessionEndsAt,
     bool clearFocusSession = false,
     String? lastUsedPresetId,
+    String? aiProviderMode,
+    String? aiApiProviderId,
+    String? aiApiBaseUrl,
+    String? aiApiModel,
+    String? aiApiKey,
   }) => AppSettings(
     themeMode: themeMode ?? this.themeMode,
     accent: accent ?? this.accent,
@@ -210,6 +236,11 @@ class AppSettings {
         ? null
         : (focusSessionEndsAt ?? this.focusSessionEndsAt),
     lastUsedPresetId: lastUsedPresetId ?? this.lastUsedPresetId,
+    aiProviderMode: aiProviderMode ?? this.aiProviderMode,
+    aiApiProviderId: aiApiProviderId ?? this.aiApiProviderId,
+    aiApiBaseUrl: aiApiBaseUrl ?? this.aiApiBaseUrl,
+    aiApiModel: aiApiModel ?? this.aiApiModel,
+    aiApiKey: aiApiKey ?? this.aiApiKey,
   );
 
   Map<String, String> toMap() => <String, String>{
@@ -236,6 +267,11 @@ class AppSettings {
     'profileImagePath': profileImagePath,
     'focusSessionEndsAt': focusSessionEndsAt?.toIso8601String() ?? '',
     'lastUsedPresetId': lastUsedPresetId ?? '',
+    'aiProviderMode': aiProviderMode,
+    'aiApiProviderId': aiApiProviderId,
+    'aiApiBaseUrl': aiApiBaseUrl,
+    'aiApiModel': aiApiModel,
+    'aiApiKey': aiApiKey,
   };
 
   static AppSettings fromMap(Map<String, String> map) {
@@ -297,6 +333,15 @@ class AppSettings {
       lastUsedPresetId: (map['lastUsedPresetId'] ?? '').isEmpty
           ? null
           : map['lastUsedPresetId'],
+      aiProviderMode: (map['aiProviderMode'] ?? '').isEmpty
+          ? 'local'
+          : map['aiProviderMode']!,
+      aiApiProviderId: (map['aiApiProviderId'] ?? '').isEmpty
+          ? 'nvidia'
+          : map['aiApiProviderId']!,
+      aiApiBaseUrl: map['aiApiBaseUrl'] ?? '',
+      aiApiModel: map['aiApiModel'] ?? '',
+      aiApiKey: map['aiApiKey'] ?? '',
     );
   }
 }
