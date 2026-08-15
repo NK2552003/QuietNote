@@ -25,17 +25,6 @@ extension on _CardViewMode {
     _CardViewMode.titleAndPreview => Icons.notes_rounded,
     _CardViewMode.full => Icons.view_agenda_outlined,
   };
-
-  /// Fixed tile height for this mode. GridView lays every tile in a row out
-  /// at the same height, so this has to be a constant per mode rather than
-  /// something each card measures itself — chosen generously enough that
-  /// the tallest possible content (2-line title, 3-line preview, a row of
-  /// tags, and the footer) always fits with room to spare.
-  double get tileHeight => switch (this) {
-    _CardViewMode.titleOnly => 120,
-    _CardViewMode.titleAndPreview => 206,
-    _CardViewMode.full => 240,
-  };
 }
 
 final _noteQueryProvider = StateProvider<String>((ref) => '');
@@ -44,7 +33,10 @@ final _noteTagFilterProvider = StateProvider<String?>((ref) => null);
 final _noteViewModeProvider = StateProvider<_CardViewMode>(
   (ref) => _CardViewMode.full,
 );
-final _noteColumnsProvider = StateProvider<int>((ref) => 2);
+// Single column, one card per row, by default — every card is free to be
+// exactly as tall as its own content (see UiCardGrid's dynamicHeight mode)
+// instead of being squeezed or padded to match a fixed row height.
+final _noteColumnsProvider = StateProvider<int>((ref) => 1);
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
