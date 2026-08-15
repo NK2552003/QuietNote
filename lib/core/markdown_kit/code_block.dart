@@ -12,10 +12,10 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 // per-language registration list.
 // ignore: unused_import
 import 'package:highlight/languages/all.dart';
-import 'package:flutter_mermaid/flutter_mermaid.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/markdown_kit/chart_block.dart';
+import 'package:quietnote/core/markdown_kit/flowchart/flowchart_view.dart';
 import 'package:quietnote/core/utils/image_export.dart';
 
 /// Registers with [MarkdownBody]/[Markdown] via the `builders: {'pre': ...}`
@@ -264,17 +264,33 @@ class _MermaidBlockState extends State<_MermaidBlock> {
             onTap: () => _openFullscreen(context),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              // The capture boundary wraps the *full-width* box (not the
+              // diagram's natural-size render), so a downloaded PNG matches
+              // exactly what is on screen.
               child: RepaintBoundary(
                 key: _boundaryKey,
                 child: Container(
+                  width: double.infinity,
                   color: widget.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF6F5F3),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 160),
-                      child: MermaidDiagram(
-                        code: widget.source,
-                        style: widget.dark ? MermaidStyle.dark() : MermaidStyle.neutral(),
+                      // Mermaid lays out at the diagram's own natural size, so
+                      // a narrow chart used to sit small and left-aligned.
+                      // `FittedBox` with `fitWidth` hands the diagram unbounded
+                      // constraints (natural size), then uniformly scales it to
+                      // span the card's width, preserving aspect ratio.
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.fitWidth,
+                          alignment: Alignment.topCenter,
+                          child: FlowchartView(
+                            source: widget.source,
+                            palette: FlowchartPalette.themed(context),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -282,6 +298,7 @@ class _MermaidBlockState extends State<_MermaidBlock> {
               ),
             ),
           ),
+
         ],
       ),
     );
@@ -414,7 +431,7 @@ class _MermaidFullscreenViewState extends State<_MermaidFullscreenView> {
       transformationController: _transform,
       onInteractionStart: _handleInteractionStart,
       // `Center` hands its child *bounded* max constraints equal to the
-      // viewport. Without `UnconstrainedBox`, `MermaidDiagram`'s responsive
+      // viewport. Without `UnconstrainedBox`, `FlowchartView`'s responsive
       // sizing shrinks/clips itself to fit that box instead of laying out at
       // its natural content size — so a diagram taller than one screen never
       // renders what's past the fold, and panning has nothing extra to
@@ -430,9 +447,9 @@ class _MermaidFullscreenViewState extends State<_MermaidFullscreenView> {
             child: Container(
               color: bg,
               padding: const EdgeInsets.all(24),
-              child: MermaidDiagram(
-                code: widget.source,
-                style: widget.dark ? MermaidStyle.dark() : MermaidStyle.neutral(),
+              child: FlowchartView(
+                source: widget.source,
+                palette: FlowchartPalette.themed(context),
               ),
             ),
           ),

@@ -6,6 +6,8 @@ import 'package:quietnote/core/markdown_kit/code_block.dart';
 import 'package:quietnote/core/markdown_kit/inline_balance.dart';
 import 'package:quietnote/core/markdown_kit/markdown_outline.dart';
 import 'package:quietnote/core/markdown_kit/math_syntax.dart';
+import 'package:quietnote/core/markdown_kit/scrollable_table.dart';
+
 
 /// Renders Markdown with (near-)full GitHub-Flavored-Markdown support plus
 /// the extras a note/journal app benefits from: LaTeX math (`$x$`,
@@ -112,6 +114,53 @@ class RichMarkdownPreview extends StatelessWidget {
     MarkdownStyleSheet styleSheet,
     bool dark,
   ) {
+    // GFM tables are pulled out of the markdown before it ever reaches
+    // `MarkdownBody` and rendered by [ScrollableTableBuilder.buildTable]
+    // directly, rather than relying on `MarkdownBody`'s `builders['table']`
+    // dispatch — see the note on [ScrollableTableBuilder.buildTable] for
+    // why. Everything else still goes through `MarkdownBody` exactly as
+    // before, just in the (possibly several) chunks the table split leaves
+    // it in.
+    final ScrollableTableBuilder tableBuilder = ScrollableTableBuilder(
+      styleSheet: styleSheet,
+      borderColor: context.uiColors.border,
+    );
+    final List<_SourcePiece> pieces = extractTableBlocks(source);
+    final double spacing = styleSheet.blockSpacing ?? 14;
+
+    final List<Widget> children = <Widget>[];
+    for (final _SourcePiece piece in pieces) {
+      Widget? child;
+      if (piece.isTable) {
+        final md.Element? table = _parseSingleTable(piece.text);
+        if (table != null) child = tableBuilder.buildTable(table);
+      }
+      // Either not a table piece, or it didn't actually parse as one (an
+      // over-eager match on ordinary text with pipes in it, say) — fall
+      // back to rendering it as plain markdown so nothing is ever lost.
+      child ??= _markdownBody(context, piece.text, styleSheet, dark, tableBuilder);
+
+      if (children.isNotEmpty) children.add(SizedBox(height: spacing));
+      children.add(child);
+    }
+
+    if (children.isEmpty) {
+      return _markdownBody(context, source, styleSheet, dark, tableBuilder);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+
+  Widget _markdownBody(
+    BuildContext context,
+    String source,
+    MarkdownStyleSheet styleSheet,
+    bool dark,
+    ScrollableTableBuilder tableBuilder,
+  ) {
     return MarkdownBody(
       extensionSet: md.ExtensionSet.gitHubFlavored,
       shrinkWrap: shrinkWrap,
@@ -127,7 +176,13 @@ class RichMarkdownPreview extends StatelessWidget {
         'math_inline': MathInlineBuilder(),
         'math_block': MathBlockBuilder(),
         'mark': HighlightMarkBuilder(dark: dark),
+        // Kept registered as a harmless fallback for any table that isn't
+        // caught by [extractTableBlocks] above (belt and braces — the
+        // extraction is line-based and deliberately conservative, so an
+        // edge case could in principle slip through to here).
+        'table': tableBuilder,
       },
+
       sizedImageBuilder: imageResolver == null
           ? null
           : (MarkdownImageConfig config) => imageResolver!(context, config.uri),
@@ -181,15 +236,113 @@ class RichMarkdownPreview extends StatelessWidget {
       tableBorder: TableBorder.all(color: colors.border, width: 1),
       tableHeadAlign: TextAlign.left,
       tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      // flutter_markdown adds horizontal scrolling for fixed-width columns.
-      // Flex columns instead force every table into the viewport, squeezing
-      // wide tables until their contents become unreadable.
-      tableColumnWidth: const FixedColumnWidth(160),
+      // Tables are rendered by [ScrollableTableBuilder] (content-sized columns
+      // inside a horizontal scroll view), so no fixed/flex column width is set
+      // here — this stylesheet only supplies the shared text/border styling.
+
       a: text.body.copyWith(color: colors.primary, decoration: TextDecoration.underline),
       img: text.body,
       blockSpacing: 14,
     );
   }
+}
+
+/// One piece of a document produced by [extractTableBlocks]: either an
+/// ordinary markdown chunk, or the raw source of one GFM table block pulled
+/// out to be rendered directly by [ScrollableTableBuilder.buildTable].
+class _SourcePiece {
+  const _SourcePiece({required this.text, required this.isTable});
+  final String text;
+  final bool isTable;
+}
+
+/// A GFM table delimiter row: optional leading/trailing `|`, one or more
+/// `---`/`:--`/`--:`/`:-:` cells separated by `|`. This is the one line in a
+/// table block that can't be mistaken for anything else, so it's what
+/// triggers detection — the line above it (already sitting in the buffer)
+/// is then reclassified as the table's header row.
+final RegExp _tableDelimiterRow =
+    RegExp(r'^ {0,3}\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$');
+
+/// Splits [source] into ordinary markdown chunks and standalone GFM table
+/// blocks (header row + delimiter row + every following non-blank line that
+/// contains a `|`), skipping anything inside a fenced code block. Table
+/// detection anchors on the delimiter row specifically — the one line that
+/// cannot be mistaken for ordinary prose — rather than guessing from `|`
+/// characters alone, so a stray pipe in normal text is never misread as a
+/// table.
+List<_SourcePiece> extractTableBlocks(String source) {
+  final List<String> lines = source.split('\n');
+  final List<_SourcePiece> pieces = <_SourcePiece>[];
+  List<String> buffer = <String>[];
+  bool inFence = false;
+
+  void flushMarkdown() {
+    final String text = buffer.join('\n');
+    buffer = <String>[];
+    if (text.trim().isEmpty) return;
+    pieces.add(_SourcePiece(text: text, isTable: false));
+  }
+
+  int i = 0;
+  while (i < lines.length) {
+    final String line = lines[i];
+
+    if (_fence.hasMatch(line)) {
+      inFence = !inFence;
+      buffer.add(line);
+      i++;
+      continue;
+    }
+
+    final bool looksLikeDelimiter =
+        !inFence && _tableDelimiterRow.hasMatch(line);
+    final String? headerCandidate = buffer.isEmpty ? null : buffer.last;
+    final bool headerLooksReal = headerCandidate != null &&
+        headerCandidate.trim().isNotEmpty &&
+        headerCandidate.contains('|');
+
+    if (looksLikeDelimiter && headerLooksReal) {
+      final String headerLine = buffer.removeLast();
+      flushMarkdown();
+
+      final List<String> tableLines = <String>[headerLine, line];
+      int j = i + 1;
+      while (j < lines.length) {
+        final String next = lines[j];
+        if (next.trim().isEmpty || !next.contains('|')) break;
+        tableLines.add(next);
+        j++;
+      }
+      pieces.add(_SourcePiece(text: tableLines.join('\n'), isTable: true));
+      i = j;
+      continue;
+    }
+
+    buffer.add(line);
+    i++;
+  }
+  flushMarkdown();
+
+  if (pieces.isEmpty) pieces.add(_SourcePiece(text: source, isTable: false));
+  return pieces;
+}
+
+/// Parses [tableSource] (the raw markdown of a single table block, as
+/// produced by [extractTableBlocks]) and returns its `table` element, or
+/// `null` if it didn't actually parse as one — e.g. a false-positive match
+/// on ordinary text. The caller falls back to rendering the text as plain
+/// markdown in that case, so no content is ever silently dropped.
+md.Element? _parseSingleTable(String tableSource) {
+  final md.Document document = md.Document(
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+    encodeHtml: false,
+  );
+  final List<md.Node> nodes = document.parseLines(tableSource.split('\n'));
+  for (final md.Node node in nodes) {
+    if (node is md.Element && node.tag == 'table') return node;
+  }
+  return null;
 }
 
 /// One slice of a document: an ATX heading line plus everything under it

@@ -10,6 +10,7 @@ import 'capture_parser.dart';
 import 'capture_actions.dart';
 import 'capture_review_sheet.dart';
 import 'local_ai_engine.dart';
+import 'cloud_ai_providers.dart';
 import 'ai_voice_service.dart';
 import 'package:quietnote/core/branding/quietnote_mark.dart';
 
@@ -45,6 +46,11 @@ class _AiScreenState extends ConsumerState<AiScreen>
   bool _isAnswering = false;
   String? _answer;
   bool _speaking = false;
+  bool _savingAnswer = false;
+
+  /// Kept so follow-up questions in one sitting have context. Trimmed to the
+  /// last few turns so a long session can't blow past a model's context.
+  final List<AiChatTurn> _history = <AiChatTurn>[];
 
   @override
   void initState() {
@@ -72,36 +78,22 @@ class _AiScreenState extends ConsumerState<AiScreen>
       _draft = null;
     });
 
-    // A short, deliberate delay keeps the "thinking" animation legible and
-    // gives room for on-device model enrichment when one is installed —
-    // parsing itself is instant and never blocks on the model being ready.
-    final aiState = ref.read(aiEngineProvider);
-    await Future.delayed(const Duration(milliseconds: 550));
-
-    final draft = CaptureParser.parse(text);
     final settings = ref.read(settingsProvider).value ?? const AppSettings();
-    // Honour the user’s chosen default when the parser is genuinely unsure,
-    // while preserving confident interpretations such as explicit dates.
-    if (draft.confidence < 0.60) {
-      draft.type = _captureTypeFor(settings.captureDefaultTarget);
-    }
+    final notifier = ref.read(aiEngineProvider.notifier);
 
-    if (aiState == AiEngineState.ready) {
-      try {
-        // Enrichment layer: when a FunctionGemma model is installed, let it
-        // refine the free-text into a cleaner title/summary. The heuristic
-        // classification (type, dates, mood, priority) is kept either way —
-        // the model only touches the text, never the destination guess, so
-        // a partial or odd model reply can't misfile the capture.
-        final refined = await ref
-            .read(aiEngineProvider.notifier)
-            .parseAction(text);
-        final refinedText = refined['text']?.toString().trim();
-        if (refinedText != null && refinedText.isNotEmpty) {
-          draft.title = CaptureParser.parse(refinedText).title;
-        }
-      } catch (_) {
-        // Model enrichment is best-effort; the heuristic draft already stands.
+    // The heuristic parser runs instantly inside buildDraft, so a capture is
+    // never blocked on a model: AI only refines the result when a backend
+    // (on-device model or the person's own API key) is actually available.
+    CaptureDraft draft;
+    try {
+      draft = await notifier.buildDraft(
+        text,
+        fallbackType: _captureTypeFor(settings.captureDefaultTarget),
+      );
+    } catch (_) {
+      draft = CaptureParser.parse(text);
+      if (draft.confidence < 0.60) {
+        draft.type = _captureTypeFor(settings.captureDefaultTarget);
       }
     }
 
@@ -118,13 +110,18 @@ class _AiScreenState extends ConsumerState<AiScreen>
   Future<void> _askAi() async {
     final text = _captureCtrl.text.trim();
     if (text.isEmpty || _isAnswering) return;
-    if (ref.read(aiEngineProvider) != AiEngineState.ready) {
+    final notifier = ref.read(aiEngineProvider.notifier);
+    if (!notifier.canGenerate) {
       UiToast.show(
         context,
-        title: 'Add a local model first',
+        title: 'Set up AI first',
         message:
-            'AI Capture can still sort your text without a model, but questions need one.',
+            'Capture already works without AI. For questions, import an '
+            'on-device model or paste your own API key in Settings > AI.',
         intent: UiIntent.info,
+        actionLabel: 'Open settings',
+        onAction: () => context.push('/settings/ai'),
+        duration: const Duration(seconds: 6),
       );
       return;
     }
@@ -134,8 +131,20 @@ class _AiScreenState extends ConsumerState<AiScreen>
       _answer = null;
     });
     try {
-      final answer = await ref.read(aiEngineProvider.notifier).answer(text);
-      if (mounted) setState(() => _answer = answer);
+      final answer = await notifier.answer(
+        text,
+        history: List<AiChatTurn>.unmodifiable(_history),
+      );
+      if (!mounted) return;
+      setState(() {
+        _answer = answer;
+        _history
+          ..add(AiChatTurn.user(text))
+          ..add(AiChatTurn.assistant(answer));
+        while (_history.length > 8) {
+          _history.removeAt(0);
+        }
+      });
     } catch (error) {
       if (mounted) {
         UiToast.show(
@@ -148,6 +157,58 @@ class _AiScreenState extends ConsumerState<AiScreen>
     } finally {
       if (mounted) setState(() => _isAnswering = false);
     }
+  }
+
+  /// Keeps a useful answer by filing it as a note, so an AI reply can become a
+  /// real entry instead of vanishing when the screen is left.
+  Future<void> _saveAnswerAsNote() async {
+    final answer = _answer;
+    if (answer == null || _savingAnswer) return;
+    setState(() => _savingAnswer = true);
+    final String source = _captureCtrl.text.trim();
+    final CaptureDraft draft = CaptureDraft(
+      type: CaptureType.note,
+      title: source.isEmpty
+          ? 'AI answer'
+          : (source.length > 70 ? '${source.substring(0, 70)}…' : source),
+      details: answer,
+      confidence: 1,
+      sourceText: source,
+    );
+    try {
+      final result = await saveCaptureDraft(ref, draft);
+      if (!mounted) return;
+      setState(() => _savingAnswer = false);
+      _recent.insert(0, result);
+      _listKey.currentState?.insertItem(
+        0,
+        duration: const Duration(milliseconds: 320),
+      );
+      if (_recent.length > 12) _recent.removeLast();
+      UiToast.show(
+        context,
+        title: 'Saved as note',
+        message: result.title,
+        intent: UiIntent.success,
+        icon: Icons.check_circle_outline,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _savingAnswer = false);
+      UiToast.show(
+        context,
+        title: 'Could not save the answer',
+        message: '$e',
+        intent: UiIntent.danger,
+      );
+    }
+  }
+
+  void _clearConversation() {
+    setState(() {
+      _answer = null;
+      _history.clear();
+    });
   }
 
   Future<void> _toggleSpeech() async {
@@ -297,6 +358,8 @@ class _AiScreenState extends ConsumerState<AiScreen>
   @override
   Widget build(BuildContext context) {
     final aiState = ref.watch(aiEngineProvider);
+    final AiEngineDetail aiDetail = ref.watch(aiEngineDetailProvider);
+    final bool canAsk = aiDetail.localReady || aiDetail.apiReady;
     final c = context.uiColors;
 
     return UiPage(
@@ -307,15 +370,15 @@ class _AiScreenState extends ConsumerState<AiScreen>
         actions: [
           UiIconButton(
             icon: Icons.tune_outlined,
-            tooltip: 'Model settings',
-            onPressed: () => context.push('/settings'),
+            tooltip: 'AI settings',
+            onPressed: () => context.push('/settings/ai'),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ModelStatusBanner(state: aiState),
+          _ModelStatusBanner(state: aiState, detail: aiDetail),
           const SizedBox(height: 16),
           _Composer(
             controller: _captureCtrl,
@@ -326,24 +389,29 @@ class _AiScreenState extends ConsumerState<AiScreen>
             listening: _listening,
             onVoiceInput: _toggleVoiceInput,
             onAsk: _askAi,
-            canAsk: aiState == AiEngineState.ready,
+            canAsk: canAsk,
             answering: _isAnswering,
+            backend: aiDetail.backend,
           ),
           const SizedBox(height: 12),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: _isAnswering
-                ? const UiCard(
-                    key: ValueKey('answering'),
+                ? UiCard(
+                    key: const ValueKey('answering'),
                     child: Row(
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        SizedBox(width: 10),
-                        Text('Thinking on this device…'),
+                        const SizedBox(width: 10),
+                        Text(
+                          aiDetail.backend == AiBackend.api
+                              ? 'Thinking with your API model…'
+                              : 'Thinking on this device…',
+                        ),
                       ],
                     ),
                   )
@@ -367,6 +435,14 @@ class _AiScreenState extends ConsumerState<AiScreen>
                               'AI response',
                               style: context.uiText.bodyStrong,
                             ),
+                            const SizedBox(width: 8),
+                            UiBadge(
+                              label: aiDetail.backend == AiBackend.api
+                                  ? 'API'
+                                  : 'On-device',
+                              size: UiSize.sm,
+                              intent: UiIntent.neutral,
+                            ),
                             const Spacer(),
                             UiIconButton(
                               icon: _speaking
@@ -380,7 +456,32 @@ class _AiScreenState extends ConsumerState<AiScreen>
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(_answer!, style: context.uiText.body),
+                        SelectableText(_answer!, style: context.uiText.body),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: UiButton(
+                                label: 'Save as note',
+                                variant: UiVariant.secondary,
+                                size: UiSize.sm,
+                                leadingIcon: Icons.notes_outlined,
+                                loading: _savingAnswer,
+                                onPressed: _saveAnswerAsNote,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: UiButton(
+                                label: 'New question',
+                                variant: UiVariant.ghost,
+                                size: UiSize.sm,
+                                leadingIcon: Icons.refresh,
+                                onPressed: _clearConversation,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -465,59 +566,64 @@ class _AiScreenState extends ConsumerState<AiScreen>
 }
 
 class _ModelStatusBanner extends StatelessWidget {
-  const _ModelStatusBanner({required this.state});
+  const _ModelStatusBanner({required this.state, required this.detail});
   final AiEngineState state;
+  final AiEngineDetail detail;
 
   @override
   Widget build(BuildContext context) {
-    switch (state) {
-      case AiEngineState.ready:
-        return const UiCallout(
-          intent: UiIntent.success,
-          icon: Icons.memory,
-          title: 'On-device model active',
-          message:
-              'FunctionGemma is installed — captures are enriched locally, nothing leaves this device.',
-        );
-      case AiEngineState.importing:
-        return const UiCallout(
-          intent: UiIntent.info,
-          icon: Icons.downloading_outlined,
-          title: 'Importing model…',
-          message:
-              'Capture still works with the built-in parser while this finishes.',
-        );
-      case AiEngineState.failed:
-        return UiCallout(
-          intent: UiIntent.warning,
-          icon: Icons.warning_amber_rounded,
-          title: 'Model failed to load',
-          message:
-              'Falling back to the built-in parser. You can retry the import from Settings.',
-          action: UiButton(
-            label: 'Open Settings',
-            variant: UiVariant.soft,
-            size: UiSize.sm,
-            expandOnMobile: false,
-            onPressed: () => context.push('/settings'),
-          ),
-        );
-      case AiEngineState.missingModel:
-        return UiCallout(
-          intent: UiIntent.info,
-          icon: Icons.bolt_outlined,
-          title: 'Running the built-in parser',
-          message:
-              'Add a local FunctionGemma model in Settings for smarter, on-device phrasing.',
-          action: UiButton(
-            label: 'Add model',
-            variant: UiVariant.soft,
-            size: UiSize.sm,
-            expandOnMobile: false,
-            onPressed: () => context.push('/settings'),
-          ),
-        );
+    if (detail.isBusy) {
+      final double? progress = detail.progress;
+      return UiCallout(
+        intent: UiIntent.info,
+        icon: Icons.downloading_outlined,
+        title: detail.busyLabel!,
+        message: progress == null
+            ? 'Capture still works with the built-in parser while this finishes.'
+            : '${(progress * 100).round()}% — keep the app open.',
+      );
     }
+
+    if (detail.localReady || detail.apiReady) {
+      final bool onDevice = detail.backend == AiBackend.local;
+      return UiCallout(
+        intent: UiIntent.success,
+        icon: onDevice ? Icons.memory : Icons.cloud_done_outlined,
+        title: onDevice ? 'On-device model active' : 'Your API model is active',
+        message: onDevice
+            ? 'Captures and questions are handled locally — nothing leaves this device.'
+            : 'Requests go straight from this device to your provider with your own key.',
+        action: UiButton(
+          label: 'Change',
+          variant: UiVariant.soft,
+          size: UiSize.sm,
+          expandOnMobile: false,
+          onPressed: () => context.push('/settings/ai'),
+        ),
+      );
+    }
+
+    return UiCallout(
+      intent: state == AiEngineState.failed
+          ? UiIntent.warning
+          : UiIntent.info,
+      icon: state == AiEngineState.failed
+          ? Icons.warning_amber_rounded
+          : Icons.bolt_outlined,
+      title: state == AiEngineState.failed
+          ? 'AI could not start'
+          : 'Running the built-in parser',
+      message: detail.error ??
+          'Capture works right now without AI. For smarter sorting and '
+              'questions, import an on-device model or paste your own API key.',
+      action: UiButton(
+        label: 'Set up AI',
+        variant: UiVariant.soft,
+        size: UiSize.sm,
+        expandOnMobile: false,
+        onPressed: () => context.push('/settings/ai'),
+      ),
+    );
   }
 }
 
@@ -533,6 +639,7 @@ class _Composer extends StatelessWidget {
     required this.onAsk,
     required this.canAsk,
     required this.answering,
+    required this.backend,
   });
 
   final TextEditingController controller;
@@ -545,6 +652,7 @@ class _Composer extends StatelessWidget {
   final VoidCallback onAsk;
   final bool canAsk;
   final bool answering;
+  final AiBackend backend;
 
   @override
   Widget build(BuildContext context) {
@@ -577,11 +685,19 @@ class _Composer extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.lock_outline, size: 14, color: c.foregroundSubtle),
+              Icon(
+                backend == AiBackend.api
+                    ? Icons.cloud_outlined
+                    : Icons.lock_outline,
+                size: 14,
+                color: c.foregroundSubtle,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Parsed entirely on this device.',
+                  backend == AiBackend.api
+                      ? 'Sent to your own provider with your key.'
+                      : 'Parsed entirely on this device.',
                   style: context.uiText.caption.copyWith(
                     color: c.foregroundSubtle,
                   ),
@@ -598,8 +714,10 @@ class _Composer extends StatelessWidget {
               UiIconButton(
                 icon: Icons.chat_bubble_outline,
                 variant: UiVariant.secondary,
-                tooltip: canAsk ? 'Ask local AI' : 'Add a model to ask AI',
-                onPressed: isProcessing || answering || !canAsk ? null : onAsk,
+                tooltip: canAsk
+                    ? 'Ask AI a question'
+                    : 'Set up AI in Settings to ask questions',
+                onPressed: isProcessing || answering ? null : onAsk,
               ),
               const SizedBox(width: 8),
               UiIconButton(

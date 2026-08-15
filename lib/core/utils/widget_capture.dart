@@ -50,9 +50,22 @@ class OffscreenWidgetCapture {
                 type: MaterialType.transparency,
                 child: SizedBox(
                   width: width,
-                  child: RepaintBoundary(key: boundaryKey, child: child),
+                  // Diagrams lay out at their own natural size, which makes a
+                  // narrow flowchart capture as a small image floating in a
+                  // wide frame. Fitting to the target width means every
+                  // capture arrives at a consistent, predictable resolution
+                  // for the page, with aspect ratio preserved.
+                  child: RepaintBoundary(
+                    key: boundaryKey,
+                    child: FittedBox(
+                      fit: BoxFit.fitWidth,
+                      alignment: Alignment.topCenter,
+                      child: child,
+                    ),
+                  ),
                 ),
               ),
+
             ),
           ),
         ),

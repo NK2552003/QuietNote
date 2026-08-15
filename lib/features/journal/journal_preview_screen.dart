@@ -10,6 +10,7 @@ import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/markdown_kit/markdown_kit.dart';
+import 'package:quietnote/core/utils/export_progress.dart';
 import 'package:quietnote/core/utils/markdown_pdf_export.dart';
 import 'package:quietnote/core/utils/pdf_export_options.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
@@ -70,15 +71,23 @@ class _JournalPreviewScreenState extends ConsumerState<JournalPreviewScreen> {
               onPressed: () async {
                 final options = await showPdfExportOptions(context);
                 if (options == null || !context.mounted) return;
-                final ok = await MarkdownPdfExporter.exportAndShare(
-                  context: context,
-                  markdown: entry.entry,
-                  title: entry.title.isEmpty ? 'Journal entry' : entry.title,
-                  subtitle: DateFormat.yMMMd().add_jm().format(entry.createdAt),
-                  imageResolver: (uri) => _imageBytes(ref, uri),
-                  options: options,
+                final ok = await runWithProgressOverlay<bool>(
+                  context,
+                  task: (setStep) async {
+                    setStep('Rendering diagrams');
+                    return MarkdownPdfExporter.exportAndShare(
+                      context: context,
+                      markdown: entry.entry,
+                      title: entry.title.isEmpty ? 'Journal entry' : entry.title,
+                      subtitle:
+                          DateFormat.yMMMd().add_jm().format(entry.createdAt),
+                      imageResolver: (uri) => _imageBytes(ref, uri),
+                      options: options,
+                      onStep: setStep,
+                    );
+                  },
                 );
-                if (!context.mounted) return;
+                if (!context.mounted || ok == null) return;
                 if (!ok) {
                   UiToast.show(
                     context,
@@ -88,6 +97,7 @@ class _JournalPreviewScreenState extends ConsumerState<JournalPreviewScreen> {
                   );
                 }
               },
+
             ),
             UiButton(
               label: 'Edit',
@@ -116,7 +126,11 @@ class _JournalPreviewScreenState extends ConsumerState<JournalPreviewScreen> {
               const SizedBox(height: 16),
             ],
             Container(
-              color: context.uiColors.surface,
+              // Matches the page's own background (not the "surface" card
+              // color) so the preview blends straight into the screen
+              // behind it instead of sitting in a visibly different-colored
+              // box.
+              color: context.uiColors.background,
               child: RichMarkdownPreview(
                 data: entry.entry,
                 imageResolver: (context, uri) => _image(ref, uri),

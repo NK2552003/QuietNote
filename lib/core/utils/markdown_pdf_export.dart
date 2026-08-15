@@ -1,16 +1,17 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart'
     show BuildContext, Color, ColoredBox, EdgeInsets, Padding;
 import 'package:flutter/services.dart' show ByteData, rootBundle;
-import 'package:flutter_mermaid/flutter_mermaid.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:quietnote/core/markdown_kit/chart_block.dart';
+import 'package:quietnote/core/markdown_kit/flowchart/flowchart_view.dart';
 import 'package:quietnote/core/markdown_kit/markdown_preview.dart';
 import 'package:quietnote/core/markdown_kit/math_syntax.dart';
 import 'package:quietnote/core/utils/pdf_export_options.dart';
@@ -44,21 +45,29 @@ class MarkdownPdfExporter {
     BuildContext? context,
     Future<Uint8List?> Function(Uri uri)? imageResolver,
     PdfExportOptions options = const PdfExportOptions(),
+    void Function(String step)? onStep,
   }) async {
     try {
+      debugPrint('MarkdownPdfExporter: loading fonts');
       final _PdfFonts fonts = await _PdfFonts.load();
+      debugPrint('MarkdownPdfExporter: parsing markdown');
       final List<md.Node> nodes = _parse(markdown);
 
       final Map<String, Uint8List> figures = <String, Uint8List>{};
       if (options.includeDiagrams && context != null && context.mounted) {
+        onStep?.call('Rendering diagrams');
+        debugPrint('MarkdownPdfExporter: capturing figures');
         await _captureFigures(context, nodes, figures, options);
       }
 
       final Map<String, Uint8List> images = <String, Uint8List>{};
       if (imageResolver != null) {
+        debugPrint('MarkdownPdfExporter: resolving images');
         await _resolveImages(nodes, imageResolver, images);
       }
 
+      onStep?.call('Building pages');
+      debugPrint('MarkdownPdfExporter: building pages');
       final _PdfMarkdownBuilder builder = _PdfMarkdownBuilder(
         fonts: fonts,
         figures: figures,
@@ -140,9 +149,21 @@ class MarkdownPdfExporter {
           : title.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final File file = File(p.join(dir.path, 'exports', '$safeName.pdf'));
       await file.parent.create(recursive: true);
+      debugPrint('MarkdownPdfExporter: saving to ${file.path}');
       await file.writeAsBytes(await doc.save());
+      debugPrint('MarkdownPdfExporter: export succeeded');
       return file;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      // The caller only ever sees a generic "couldn't export" toast (export
+      // failures are common enough — an odd character, a huge table, a
+      // flaky off-screen render — that surfacing raw exceptions in the UI
+      // would be more confusing than helpful). But swallowing the error
+      // silently made every failure equally invisible to us too, so it's
+      // printed here: reproduce the failed export with `flutter run`
+      // attached and this line will show up right in that same terminal —
+      // look for "MarkdownPdfExporter: PDF export failed".
+      debugPrint('MarkdownPdfExporter: PDF export failed — $error');
+      debugPrint('$stackTrace');
       return null;
     }
   }
@@ -156,6 +177,7 @@ class MarkdownPdfExporter {
     BuildContext? context,
     Future<Uint8List?> Function(Uri uri)? imageResolver,
     PdfExportOptions options = const PdfExportOptions(),
+    void Function(String step)? onStep,
   }) async {
     final File? file = await export(
       markdown: markdown,
@@ -164,8 +186,10 @@ class MarkdownPdfExporter {
       context: context,
       imageResolver: imageResolver,
       options: options,
+      onStep: onStep,
     );
     if (file == null) return false;
+    onStep?.call('Opening share sheet');
     await Share.shareXFiles(
       <XFile>[XFile(file.path, mimeType: 'application/pdf')],
       text: title,
@@ -240,29 +264,47 @@ class MarkdownPdfExporter {
       if (out.containsKey(key)) continue;
       if (!context.mounted) return;
 
-      final Uint8List? bytes = await OffscreenWidgetCapture.capture(
-        context,
-        width: options.diagramQuality == PdfDiagramQuality.high ? 1000 : 760,
-        pixelRatio: options.diagramQuality == PdfDiagramQuality.high ? 4 : 2.5,
-        settle: options.diagramQuality == PdfDiagramQuality.high
-            ? const Duration(milliseconds: 1200)
-            : const Duration(milliseconds: 800),
-        child: ColoredBox(
-          color: const Color(0xFFFFFFFF),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: block.language == 'mermaid'
-                // A printed page is white, so diagrams always use a neutral
-                // high-contrast theme regardless of the current app theme.
-                ? MermaidDiagram(
-                    code: block.source,
-                    style: MermaidStyle.neutral(),
-                  )
-                : ChartBlock(spec: block.source),
+      // One malformed diagram (bad mermaid syntax, a chart spec that fails
+      // to parse, an off-screen render that times out) used to take the
+      // whole export down with it, since this call sat outside any
+      // try/catch and the exception would bubble all the way up to
+      // [export]'s catch — killing pages of otherwise-fine content over one
+      // figure. Each figure now fails on its own: it's simply dropped and
+      // the PDF gets a fallback source-text box for it (see the builder),
+      // while every other block still exports normally.
+      try {
+        final Uint8List? bytes = await OffscreenWidgetCapture.capture(
+          context,
+          width: options.diagramQuality == PdfDiagramQuality.high ? 1000 : 760,
+          pixelRatio:
+              options.diagramQuality == PdfDiagramQuality.high ? 4 : 2.5,
+          settle: options.diagramQuality == PdfDiagramQuality.high
+              ? const Duration(milliseconds: 1200)
+              : const Duration(milliseconds: 800),
+          child: ColoredBox(
+            color: const Color(0xFFFFFFFF),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: block.language == 'mermaid'
+
+                  // A printed page is white, so diagrams always use a fixed
+                  // light palette regardless of the current app theme.
+                  ? FlowchartView(
+                      source: block.source,
+                      palette: FlowchartPalette.printFriendly(),
+                    )
+                  : ChartBlock(spec: block.source),
+            ),
           ),
-        ),
-      );
-      if (bytes != null) out[key] = bytes;
+        );
+        if (bytes != null) out[key] = bytes;
+      } catch (error, stackTrace) {
+        debugPrint(
+          'MarkdownPdfExporter: figure render failed for a '
+          '${block.language} block, skipping it — $error',
+        );
+        debugPrint('$stackTrace');
+      }
     }
   }
 
@@ -610,7 +652,7 @@ class _PdfMarkdownBuilder {
       final Uint8List? figure = figures[_figureKey(language, source.trim())];
       if (figure != null) {
         return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: <pw.Widget>[
             pw.Container(
               width: double.infinity,
@@ -620,9 +662,25 @@ class _PdfMarkdownBuilder {
                 border: pw.Border.all(color: _PdfPalette.hairline, width: 0.6),
                 borderRadius: pw.BorderRadius.circular(6),
               ),
+              // `fit: fitWidth` inside a width-only SizedBox used to let a
+              // tall, narrow diagram scale to a height *taller than the
+              // page itself* — a plain Container isn't a SpanningWidget, so
+              // MultiPage couldn't split it, couldn't fit it on a fresh
+              // page either, and gave up with a TooManyPagesException,
+              // silently failing the whole export. Bounding both width AND
+              // height here with `BoxFit.contain` guarantees the figure
+              // always fits within a single page's content area — it
+              // scales down (preserving aspect ratio) instead of forcing
+              // an impossible layout.
               child: pw.ConstrainedBox(
-                constraints: const pw.BoxConstraints(maxHeight: 500),
-                child: pw.Image(pw.MemoryImage(figure), fit: pw.BoxFit.contain),
+                constraints: pw.BoxConstraints(
+                  maxWidth: _contentWidth - 18,
+                  maxHeight: _contentHeight - 60,
+                ),
+                child: pw.Image(
+                  pw.MemoryImage(figure),
+                  fit: pw.BoxFit.contain,
+                ),
               ),
             ),
             pw.SizedBox(height: 4),
@@ -636,6 +694,7 @@ class _PdfMarkdownBuilder {
             ),
           ],
         );
+
       }
       // Couldn't render the diagram — fall through and print its source
       // rather than losing the content entirely.
@@ -804,6 +863,18 @@ class _PdfMarkdownBuilder {
     return checked != null && checked.toLowerCase() != 'false';
   }
 
+  /// Printable width of the sheet (A4/Letter minus the page margins set on the
+  /// [pw.MultiPage]) and the matching usable height, used to fit tables.
+  static const double _contentWidth = 483.0;
+  static const double _contentHeight = 700.0;
+
+  /// Renders a GFM table so that it (a) never splits across two pages and
+  /// (b) never overflows the printable width.
+  ///
+  /// Column widths are estimated from cell content, then — while the table is
+  /// too wide — font size and cell padding step down; if it still doesn't fit,
+  /// the finished table is uniformly scaled down. A table taller than one page
+  /// is scaled to the page height too, so it always occupies a single page.
   pw.Widget _table(md.Element node) {
     final List<md.Element> rows = <md.Element>[];
     for (final md.Node section in node.children ?? const <md.Node>[]) {
@@ -820,34 +891,96 @@ class _PdfMarkdownBuilder {
     }
     if (rows.isEmpty) return pw.SizedBox();
 
-    return pw.Table(
+    final List<List<md.Element?>> grid = <List<md.Element?>>[];
+    int columns = 0;
+    for (final md.Element row in rows) {
+      final List<md.Element> cells =
+          (row.children ?? const <md.Node>[]).whereType<md.Element>().toList();
+      if (cells.length > columns) columns = cells.length;
+      grid.add(cells);
+    }
+    if (columns == 0) return pw.SizedBox();
+    for (final List<md.Element?> row in grid) {
+      while (row.length < columns) {
+        row.add(null);
+      }
+    }
+
+    // Longest single word and full text length per column drive the natural
+    // and minimum widths. Character widths are estimated from the font size
+    // (the embedded fonts average ~0.52em for mixed-case text).
+    final List<int> longest = List<int>.filled(columns, 1);
+    final List<int> longestWord = List<int>.filled(columns, 1);
+    for (final List<md.Element?> row in grid) {
+      for (int c = 0; c < columns; c++) {
+        final String text = (row[c]?.textContent ?? '').trim();
+        if (text.length > longest[c]) longest[c] = text.length;
+        for (final String word in text.split(RegExp(r'\s+'))) {
+          if (word.length > longestWord[c]) longestWord[c] = word.length;
+        }
+      }
+    }
+
+    double fontSize = _bodySize;
+    double padH = 8;
+    double padV = 6;
+    List<double> widths = const <double>[];
+    double total = 0;
+
+    // Step 1: shrink type and padding until the content-sized columns fit.
+    for (int attempt = 0; attempt < 8; attempt++) {
+      final double em = fontSize * 0.52;
+      widths = <double>[
+        for (int c = 0; c < columns; c++)
+          (longest[c] * em + padH * 2).clamp(
+            (longestWord[c] * em + padH * 2).clamp(28.0, 150.0),
+            190.0,
+          ),
+      ];
+      total = widths.fold<double>(0, (double a, double b) => a + b);
+      if (total <= _contentWidth) break;
+      fontSize = fontSize * 0.9;
+      padH = padH * 0.85;
+      padV = padV * 0.9;
+      if (fontSize < 6.5) break;
+    }
+
+    // Step 2: distribute (or, as a last resort, proportionally squeeze) the
+    // columns so the table exactly matches the printable width.
+    final double fitFactor = total > 0 ? _contentWidth / total : 1;
+    widths = <double>[for (final double w in widths) w * fitFactor];
+
+    final pw.Widget table = pw.Table(
       border: pw.TableBorder.all(color: _PdfPalette.hairline, width: 0.6),
       defaultVerticalAlignment: pw.TableCellVerticalAlignment.top,
+      columnWidths: <int, pw.TableColumnWidth>{
+        for (int c = 0; c < columns; c++) c: pw.FixedColumnWidth(widths[c]),
+      },
       children: <pw.TableRow>[
-        for (final md.Element row in rows)
+        for (int r = 0; r < grid.length; r++)
           pw.TableRow(
-            decoration: _isHeaderRow(row)
+            decoration: _isHeaderRow(rows[r])
                 ? const pw.BoxDecoration(color: _PdfPalette.tableHeader)
                 : null,
             children: <pw.Widget>[
-              for (final md.Element cell in (row.children ?? const <md.Node>[])
-                  .whereType<md.Element>())
+              for (int c = 0; c < columns; c++)
                 pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
+                  padding: pw.EdgeInsets.symmetric(
+                    horizontal: padH,
+                    vertical: padV,
                   ),
                   child: pw.RichText(
-                    textAlign: _cellAlign(cell),
+                    textAlign: _cellAlign(grid[r][c]),
                     text: pw.TextSpan(
                       children: _inline(
-                        cell.children,
-                        cell.tag == 'th'
-                            ? _body.copyWith(
-                                font: fonts.bold,
-                                fontWeight: pw.FontWeight.bold,
-                              )
-                            : _body,
+                        grid[r][c]?.children,
+                        (grid[r][c]?.tag == 'th'
+                                ? _body.copyWith(
+                                    font: fonts.bold,
+                                    fontWeight: pw.FontWeight.bold,
+                                  )
+                                : _body)
+                            .copyWith(fontSize: fontSize),
                       ),
                     ),
                   ),
@@ -856,13 +989,52 @@ class _PdfMarkdownBuilder {
           ),
       ],
     );
+
+    // A rough height estimate (wrapped lines per row) decides whether the
+    // table also needs scaling down to fit a single page's height.
+    double estimatedHeight = 0;
+    for (int r = 0; r < grid.length; r++) {
+      int lines = 1;
+      for (int c = 0; c < columns; c++) {
+        final String text = (grid[r][c]?.textContent ?? '').trim();
+        final double usable = widths[c] - padH * 2;
+        final int perLine = (usable / (fontSize * 0.52)).floor().clamp(1, 500);
+        final int rowLines = (text.length / perLine).ceil().clamp(1, 100);
+        if (rowLines > lines) lines = rowLines;
+      }
+      estimatedHeight += lines * fontSize * 1.4 + padV * 2 + 0.6;
+    }
+
+    final double heightScale = estimatedHeight > _contentHeight
+        ? _contentHeight / estimatedHeight
+        : 1;
+
+    pw.Widget fitted = table;
+    if (heightScale < 1) {
+      fitted = pw.Transform.scale(
+        scale: heightScale,
+        alignment: pw.Alignment.topLeft,
+        child: pw.SizedBox(width: _contentWidth, child: table),
+      );
+    }
+
+    // A plain `Container` is not a `SpanningWidget`, so `MultiPage` places the
+    // table as one indivisible unit: if it doesn't fit in the space left on
+    // this page, the whole table moves onto the next one.
+    return pw.Container(
+      width: double.infinity,
+      alignment: pw.Alignment.topLeft,
+      child: fitted,
+    );
   }
+
 
   static bool _isHeaderRow(md.Element row) => (row.children ?? const <md.Node>[])
       .whereType<md.Element>()
       .any((md.Element c) => c.tag == 'th');
 
-  static pw.TextAlign _cellAlign(md.Element cell) {
+  static pw.TextAlign _cellAlign(md.Element? cell) {
+    if (cell == null) return pw.TextAlign.left;
     switch (cell.attributes['style']) {
       case 'text-align: center;':
         return pw.TextAlign.center;

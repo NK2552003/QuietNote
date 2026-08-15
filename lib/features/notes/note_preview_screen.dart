@@ -10,6 +10,7 @@ import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/markdown_kit/markdown_kit.dart';
+import 'package:quietnote/core/utils/export_progress.dart';
 import 'package:quietnote/core/utils/markdown_pdf_export.dart';
 import 'package:quietnote/core/utils/pdf_export_options.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
@@ -76,15 +77,27 @@ class _NotePreviewScreenState extends ConsumerState<NotePreviewScreen> {
                 onPressed: () async {
                   final options = await showPdfExportOptions(context);
                   if (options == null || !context.mounted) return;
-                  final ok = await MarkdownPdfExporter.exportAndShare(
-                    context: context,
-                    markdown: note.content,
-                    title: note.title.isEmpty ? 'Untitled note' : note.title,
-                    subtitle: DateFormat.yMMMd().add_jm().format(note.createdAt),
-                    imageResolver: (uri) => _imageBytes(ref, uri),
-                    options: options,
+                  // Blocking overlay: hides the off-screen diagram render
+                  // that used to flash over the preview, shows progress, and
+                  // stops a second tap starting a duplicate export.
+                  final ok = await runWithProgressOverlay<bool>(
+                    context,
+                    task: (setStep) async {
+                      setStep('Rendering diagrams');
+                      final result = await MarkdownPdfExporter.exportAndShare(
+                        context: context,
+                        markdown: note.content,
+                        title: note.title.isEmpty ? 'Untitled note' : note.title,
+                        subtitle:
+                            DateFormat.yMMMd().add_jm().format(note.createdAt),
+                        imageResolver: (uri) => _imageBytes(ref, uri),
+                        options: options,
+                        onStep: setStep,
+                      );
+                      return result;
+                    },
                   );
-                  if (!context.mounted) return;
+                  if (!context.mounted || ok == null) return;
                   if (!ok) {
                     UiToast.show(
                       context,
@@ -94,6 +107,7 @@ class _NotePreviewScreenState extends ConsumerState<NotePreviewScreen> {
                     );
                   }
                 },
+
               ),
               UiButton(
                 label: 'Edit',
@@ -122,7 +136,11 @@ class _NotePreviewScreenState extends ConsumerState<NotePreviewScreen> {
                 const SizedBox(height: 16),
               ],
               Container(
-                color: context.uiColors.surface,
+                // Matches the page's own background (not the "surface"
+                // card color) so the preview blends straight into the
+                // screen behind it instead of sitting in a visibly
+                // different-colored box.
+                color: context.uiColors.background,
                 child: RichMarkdownPreview(
                   data: note.content,
                   imageResolver: (context, uri) => _localImage(ref, uri),

@@ -8,3 +8,4 @@ export 'markdown_editor_toolbar.dart';
 export 'markdown_outline.dart';
 export 'markdown_preview.dart';
 export 'math_syntax.dart';
+export 'scrollable_table.dart';

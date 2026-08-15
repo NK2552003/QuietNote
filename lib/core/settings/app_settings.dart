@@ -101,7 +101,7 @@ class AppSettings {
     this.profileImagePath = '',
     this.focusSessionEndsAt,
     this.lastUsedPresetId,
-    this.aiProviderMode = 'local',
+    this.aiProviderMode = 'auto',
     this.aiApiProviderId = 'nvidia',
     this.aiApiBaseUrl = '',
     this.aiApiModel = '',
@@ -334,7 +334,7 @@ class AppSettings {
           ? null
           : map['lastUsedPresetId'],
       aiProviderMode: (map['aiProviderMode'] ?? '').isEmpty
-          ? 'local'
+          ? 'auto'
           : map['aiProviderMode']!,
       aiApiProviderId: (map['aiApiProviderId'] ?? '').isEmpty
           ? 'nvidia'
