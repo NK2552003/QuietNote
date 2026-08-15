@@ -62,6 +62,13 @@ flutter:
     - assets/models/
     - assets/branding/quietnote-logo.png
     - assets/branding/quietnote-logo.svg
+    # Embedded in generated PDFs (the pdf package cannot use system fonts).
+    - assets/fonts/NotoSans-Regular.ttf
+    - assets/fonts/NotoSans-Bold.ttf
+    - assets/fonts/NotoSans-Italic.ttf
+    - assets/fonts/NotoSans-BoldItalic.ttf
+    - assets/fonts/NotoSansMono-Regular.ttf
+    - assets/fonts/NotoSansMono-Bold.ttf
 
 flutter_gemma:
   model_assets:

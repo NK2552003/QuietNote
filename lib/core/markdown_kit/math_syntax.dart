@@ -75,18 +75,16 @@ class MathInlineBuilder extends MarkdownElementBuilder {
 
 class MathBlockBuilder extends MarkdownElementBuilder {
   @override
-  bool isBlockElement() => true;
-
-  @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final String tex = element.textContent;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-      alignment: Alignment.center,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+    // MathBlockSyntax is an inline parser extension, so flutter_markdown
+    // places this node inside a paragraph. Declaring it as a block element
+    // corrupts the builder's inline stack and triggers `_inlines.isEmpty` at
+    // the end of parsing. Keep it inline and return a span-compatible widget.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
         child: Math.tex(
           tex,
           mathStyle: MathStyle.display,

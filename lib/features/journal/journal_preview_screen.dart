@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,18 +11,29 @@ import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/markdown_kit/markdown_kit.dart';
 import 'package:quietnote/core/utils/markdown_pdf_export.dart';
+import 'package:quietnote/core/utils/pdf_export_options.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
 
-class JournalPreviewScreen extends ConsumerWidget {
+class JournalPreviewScreen extends ConsumerStatefulWidget {
   const JournalPreviewScreen({super.key, required this.entryId});
   final String entryId;
 
   @override
-  Widget build(
-    BuildContext context,
-    WidgetRef ref,
-  ) => FutureBuilder<JournalData?>(
-    future: ref.read(journalRepositoryProvider).getEntry(entryId),
+  ConsumerState<JournalPreviewScreen> createState() => _JournalPreviewScreenState();
+}
+
+class _JournalPreviewScreenState extends ConsumerState<JournalPreviewScreen> {
+  final MarkdownOutlineController _outline = MarkdownOutlineController();
+
+  @override
+  void dispose() {
+    _outline.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<JournalData?>(
+    future: ref.read(journalRepositoryProvider).getEntry(widget.entryId),
     builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) {
         return const UiPage(child: Center(child: CircularProgressIndicator()));
@@ -37,8 +49,9 @@ class JournalPreviewScreen extends ConsumerWidget {
           ),
         );
       }
-      final GlobalKey previewBoundaryKey = GlobalKey();
       return UiPage(
+        reserveDockSpace: false,
+        floatingActionButton: MarkdownOutlineFab(controller: _outline),
         header: UiHeader(
           title: entry.title,
           subtitle:
@@ -55,9 +68,15 @@ class JournalPreviewScreen extends ConsumerWidget {
               variant: UiVariant.ghost,
               tooltip: 'Export as PDF',
               onPressed: () async {
+                final options = await showPdfExportOptions(context);
+                if (options == null || !context.mounted) return;
                 final ok = await MarkdownPdfExporter.exportAndShare(
-                  boundaryKey: previewBoundaryKey,
+                  context: context,
+                  markdown: entry.entry,
                   title: entry.title.isEmpty ? 'Journal entry' : entry.title,
+                  subtitle: DateFormat.yMMMd().add_jm().format(entry.createdAt),
+                  imageResolver: (uri) => _imageBytes(ref, uri),
+                  options: options,
                 );
                 if (!context.mounted) return;
                 if (!ok) {
@@ -73,7 +92,7 @@ class JournalPreviewScreen extends ConsumerWidget {
             UiButton(
               label: 'Edit',
               leadingIcon: Icons.edit_outlined,
-              onPressed: () => context.push('/journal/edit/$entryId'),
+              onPressed: () => context.push('/journal/edit/${widget.entryId}'),
             ),
           ],
         ),
@@ -96,14 +115,12 @@ class JournalPreviewScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
             ],
-            RepaintBoundary(
-              key: previewBoundaryKey,
-              child: Container(
-                color: context.uiColors.surface,
-                child: RichMarkdownPreview(
-                  data: entry.entry,
-                  imageResolver: (context, uri) => _image(ref, uri),
-                ),
+            Container(
+              color: context.uiColors.surface,
+              child: RichMarkdownPreview(
+                data: entry.entry,
+                imageResolver: (context, uri) => _image(ref, uri),
+                outlineController: _outline,
               ),
             ),
           ],
@@ -132,4 +149,20 @@ class JournalPreviewScreen extends ConsumerWidget {
             ),
     );
   }
+
+  /// Loads a note image's raw bytes for the PDF exporter (which embeds the
+  /// picture in the document instead of drawing a widget).
+  Future<Uint8List?> _imageBytes(WidgetRef ref, Uri uri) async {
+    if (uri.scheme != 'local-image' && uri.scheme != 'local-file') return null;
+    final db = ref.read(databaseProvider);
+    final attachment =
+        await (db.select(db.attachments)..where((a) => a.id.equals(uri.host)))
+            .getSingleOrNull();
+    final String? path = attachment?.filePath;
+    if (path == null) return null;
+    final File file = File(path);
+    if (!await file.exists()) return null;
+    return file.readAsBytes();
+  }
+
 }

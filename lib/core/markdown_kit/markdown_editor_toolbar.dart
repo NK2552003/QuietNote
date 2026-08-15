@@ -63,7 +63,16 @@ class MarkdownEditorToolbar extends StatelessWidget {
                     label: 'Divider',
                     onTap: () {
                       Navigator.pop(sheetContext);
-                      _editor?.insertBlock('\n---\n\n');
+                      // `***` is an unambiguous thematic break in CommonMark.
+                      // `---` is too, but only when it's *not* sitting right
+                      // under a line of text with no blank line between them
+                      // — in that case it's Setext heading syntax instead,
+                      // which turns the paragraph above it into a heading.
+                      // The preview also guards against this (see
+                      // _normalizeHeadingBoundaries), but generating
+                      // an inherently unambiguous divider here avoids relying
+                      // on that safety net at all.
+                      _editor?.insertBlock('\n***\n\n');
                     },
                   ),
                   _MoreTile(
@@ -143,17 +152,34 @@ class MarkdownEditorToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.uiColors;
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
+      height: 56,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(top: BorderSide(color: colors.border)),
+        color: dark
+            ? const Color(0xDC1A1817)
+            : colors.surface.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.08),
+          width: 1.2,
+        ),
         boxShadow: [
-          BoxShadow(color: colors.overlay, blurRadius: 14, offset: const Offset(0, -3)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         child: Row(
           children: [
             if (_editor != null)

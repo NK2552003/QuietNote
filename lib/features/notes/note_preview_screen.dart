@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,16 +11,32 @@ import 'package:quietnote/core/database/repositories/note_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/markdown_kit/markdown_kit.dart';
 import 'package:quietnote/core/utils/markdown_pdf_export.dart';
+import 'package:quietnote/core/utils/pdf_export_options.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
 
 /// Read-only route: opening an existing note never puts the cursor in a
 /// writable field. Editing is an explicit, deliberate action.
-class NotePreviewScreen extends ConsumerWidget {
+class NotePreviewScreen extends ConsumerStatefulWidget {
   const NotePreviewScreen({super.key, required this.noteId});
   final String noteId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotePreviewScreen> createState() => _NotePreviewScreenState();
+}
+
+class _NotePreviewScreenState extends ConsumerState<NotePreviewScreen> {
+  final MarkdownOutlineController _outline = MarkdownOutlineController();
+
+  @override
+  void dispose() {
+    _outline.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
+    final String noteId = widget.noteId;
     return FutureBuilder<Note?>(
       future: ref.read(noteRepositoryProvider).getNoteById(noteId),
       builder: (context, snapshot) {
@@ -39,8 +56,9 @@ class NotePreviewScreen extends ConsumerWidget {
             ),
           );
         }
-        final GlobalKey previewBoundaryKey = GlobalKey();
-        return UiPage(
+          return UiPage(
+          reserveDockSpace: false,
+          floatingActionButton: MarkdownOutlineFab(controller: _outline),
           header: UiHeader(
             title: note.title.isEmpty ? 'Untitled note' : note.title,
             subtitle: DateFormat.yMMMd().add_jm().format(note.createdAt),
@@ -56,9 +74,15 @@ class NotePreviewScreen extends ConsumerWidget {
                 variant: UiVariant.ghost,
                 tooltip: 'Export as PDF',
                 onPressed: () async {
+                  final options = await showPdfExportOptions(context);
+                  if (options == null || !context.mounted) return;
                   final ok = await MarkdownPdfExporter.exportAndShare(
-                    boundaryKey: previewBoundaryKey,
+                    context: context,
+                    markdown: note.content,
                     title: note.title.isEmpty ? 'Untitled note' : note.title,
+                    subtitle: DateFormat.yMMMd().add_jm().format(note.createdAt),
+                    imageResolver: (uri) => _imageBytes(ref, uri),
+                    options: options,
                   );
                   if (!context.mounted) return;
                   if (!ok) {
@@ -97,14 +121,12 @@ class NotePreviewScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
               ],
-              RepaintBoundary(
-                key: previewBoundaryKey,
-                child: Container(
-                  color: context.uiColors.surface,
-                  child: RichMarkdownPreview(
-                    data: note.content,
-                    imageResolver: (context, uri) => _localImage(ref, uri),
-                  ),
+              Container(
+                color: context.uiColors.surface,
+                child: RichMarkdownPreview(
+                  data: note.content,
+                  imageResolver: (context, uri) => _localImage(ref, uri),
+                  outlineController: _outline,
                 ),
               ),
             ],
@@ -134,4 +156,20 @@ class NotePreviewScreen extends ConsumerWidget {
             ),
     );
   }
+
+  /// Loads a note image's raw bytes for the PDF exporter (which embeds the
+  /// picture in the document instead of drawing a widget).
+  Future<Uint8List?> _imageBytes(WidgetRef ref, Uri uri) async {
+    if (uri.scheme != 'local-image' && uri.scheme != 'local-file') return null;
+    final db = ref.read(databaseProvider);
+    final attachment =
+        await (db.select(db.attachments)..where((a) => a.id.equals(uri.host)))
+            .getSingleOrNull();
+    final String? path = attachment?.filePath;
+    if (path == null) return null;
+    final File file = File(path);
+    if (!await file.exists()) return null;
+    return file.readAsBytes();
+  }
+
 }

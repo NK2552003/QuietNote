@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -302,6 +304,62 @@ class _MermaidFullscreenViewState extends State<_MermaidFullscreenView> {
   final GlobalKey _boundaryKey = GlobalKey();
   final TransformationController _transform = TransformationController();
   bool _exporting = false;
+  Size? _viewportSize;
+  bool _didAutoFit = false;
+  // Mermaid resolves its true rendered size a frame or two after first
+  // build (it parses/lays out the diagram asynchronously), so an auto-fit
+  // that trusts the very first measurement fits to a placeholder-sized box
+  // and then visibly snaps to the real size right after — reading as
+  // "zooms in then zooms back out". Tracking the last measured size and
+  // only committing once two consecutive frames agree means we fit exactly
+  // once, against the diagram's real, settled size.
+  Size? _lastMeasured;
+  // Once the person starts pinching/panning, auto-fit must never touch the
+  // transform again — even if a late layout pass fires after that point —
+  // or it fights their input by silently resetting what they just did.
+  bool _userInteracted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Give the diagram a frame to lay out at its natural (now unconstrained)
+    // size, then zoom out just enough that the whole thing is visible instead
+    // of opening at 100% with the bottom of a tall diagram off-screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitToScreen());
+  }
+
+  void _fitToScreen() {
+    if (_didAutoFit || _userInteracted || !mounted) return;
+    final RenderBox? box = _boundaryKey.currentContext?.findRenderObject() as RenderBox?;
+    final Size? viewport = _viewportSize;
+    if (box == null || viewport == null || !box.hasSize) return;
+    final Size content = box.size;
+    if (content.width <= 0 || content.height <= 0) return;
+
+    // Not settled yet (or this is the first reading) — remember it and
+    // wait for the next frame's measurement to confirm it before acting.
+    if (_lastMeasured == null || _lastMeasured != content) {
+      _lastMeasured = content;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitToScreen());
+      return;
+    }
+
+    final double fitScale = math.min(
+      viewport.width / content.width,
+      viewport.height / content.height,
+    );
+    final double scale = fitScale.clamp(0.4, 1.0);
+    final double dx = (viewport.width - content.width * scale) / 2;
+    final double dy = (viewport.height - content.height * scale) / 2;
+    _transform.value = Matrix4.identity()
+      ..translate(dx, dy)
+      ..scale(scale);
+    _didAutoFit = true;
+  }
+
+  void _handleInteractionStart(ScaleStartDetails _) {
+    _userInteracted = true;
+  }
 
   Future<void> _download() async {
     if (_exporting) return;
@@ -322,12 +380,65 @@ class _MermaidFullscreenViewState extends State<_MermaidFullscreenView> {
     }
   }
 
-  void _resetZoom() => _transform.value = Matrix4.identity();
+  void _resetZoom() {
+    // A deliberate tap on "Reset zoom" should actually refit — including
+    // re-enabling auto-fit even after the person has already panned/pinched,
+    // since that's exactly what they're now asking for.
+    _didAutoFit = false;
+    _userInteracted = false;
+    _lastMeasured = null;
+    _transform.value = Matrix4.identity();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitToScreen());
+  }
 
   @override
   void dispose() {
     _transform.dispose();
     super.dispose();
+  }
+
+  Widget _buildViewer(Color bg) {
+    return InteractiveViewer(
+      // Without `constrained: false`, InteractiveViewer forces its child to
+      // fit inside the viewport no matter what the child itself wants —
+      // zooming still "works" but panning can never reveal anything past
+      // the edge of that box, because the diagram was never actually laid
+      // out larger than the screen in the first place. `constrained: false`
+      // lets the child (here, sized to its natural content size via
+      // UnconstrainedBox below) grow past the viewport so there's actually
+      // something to pan to.
+      constrained: false,
+      minScale: 0.4,
+      maxScale: 8,
+      boundaryMargin: const EdgeInsets.all(120),
+      transformationController: _transform,
+      onInteractionStart: _handleInteractionStart,
+      // `Center` hands its child *bounded* max constraints equal to the
+      // viewport. Without `UnconstrainedBox`, `MermaidDiagram`'s responsive
+      // sizing shrinks/clips itself to fit that box instead of laying out at
+      // its natural content size — so a diagram taller than one screen never
+      // renders what's past the fold, and panning has nothing extra to
+      // reveal (this was the "stuck at half, can't scroll further" bug).
+      // `UnconstrainedBox` ignores the incoming constraints so the diagram
+      // lays out at full size, and `InteractiveViewer` can then pan/zoom
+      // across the whole thing.
+      child: Center(
+        child: UnconstrainedBox(
+          constrainedAxis: null,
+          child: RepaintBoundary(
+            key: _boundaryKey,
+            child: Container(
+              color: bg,
+              padding: const EdgeInsets.all(24),
+              child: MermaidDiagram(
+                code: widget.source,
+                style: widget.dark ? MermaidStyle.dark() : MermaidStyle.neutral(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -377,24 +488,17 @@ class _MermaidFullscreenViewState extends State<_MermaidFullscreenView> {
               ),
             ),
             Expanded(
-              child: InteractiveViewer(
-                minScale: 0.4,
-                maxScale: 8,
-                boundaryMargin: const EdgeInsets.all(120),
-                transformationController: _transform,
-                child: Center(
-                  child: RepaintBoundary(
-                    key: _boundaryKey,
-                    child: Container(
-                      color: bg,
-                      padding: const EdgeInsets.all(24),
-                      child: MermaidDiagram(
-                        code: widget.source,
-                        style: widget.dark ? MermaidStyle.dark() : MermaidStyle.neutral(),
-                      ),
-                    ),
-                  ),
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+                  // Keep nudging _fitToScreen every build; it no-ops itself
+                  // once it has committed a fit (or the person has taken
+                  // over with a pinch/pan) — see _fitToScreen for the
+                  // two-frame settle check that avoids fitting to a
+                  // not-yet-final mermaid layout.
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _fitToScreen());
+                  return _buildViewer(bg);
+                },
               ),
             ),
             Padding(

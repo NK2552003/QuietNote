@@ -11,6 +11,7 @@ class UiPage extends StatelessWidget {
     this.scrollable = true,
     this.maxWidth,
     this.floatingActionButton,
+    this.reserveDockSpace = true,
   });
 
   final Widget child;
@@ -21,6 +22,15 @@ class UiPage extends StatelessWidget {
   /// Optional floating action button, anchored bottom-right. Positioned
   /// above the floating mobile tab bar so it never overlaps it.
   final Widget? floatingActionButton;
+
+  /// Whether the scrollable body's bottom padding and the FAB's bottom
+  /// offset should reserve clearance for the floating mobile tab bar dock.
+  /// Defaults to `true`, matching every screen that lives inside
+  /// [UiNavShell]. Screens reached by pushing a new route outside the
+  /// shell (e.g. a note/journal preview or editor) render with no dock
+  /// present at all, so reserving space for it just leaves a dead gap and
+  /// pushes their own FAB up into it — those screens pass `false`.
+  final bool reserveDockSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -53,57 +63,107 @@ class UiPage extends StatelessWidget {
       top: context.sp(theme.spacing.sm),
       // The floating mobile tab bar overlays the body. Reserve enough space
       // for it (plus the gesture inset) so the final fields and buttons on
-      // every scrollable screen remain reachable.
+      // every scrollable screen remain reachable — but only on screens that
+      // actually render inside the shell where that dock exists.
       bottom: viewPadding.bottom +
-          context.sp(r.isMobile ? 96 : theme.spacing.md),
+          context.sp(
+            reserveDockSpace ? (r.isMobile ? 96 : theme.spacing.md) : theme.spacing.md,
+          ),
     );
 
-    // Align content to the top and allow it to expand vertically. Using
-    // Alignment.topCenter avoids centering the page in the viewport which
-    // could make pages appear blank in some embedder states.
-    Widget body = SizedBox(
-      width: double.infinity,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: maxWidth ?? context.sz(theme.sizes.maxContentWidth),
-          ),
-          child: Column(
-            mainAxisSize: scrollable ? MainAxisSize.min : MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              if (header != null) ...<Widget>[
-                header!,
-                SizedBox(height: context.sp(theme.spacing.lg)),
-              ],
-              child,
-            ],
+    final double contentMaxWidth = maxWidth ?? context.sz(theme.sizes.maxContentWidth);
+
+    // Centers content and clamps it to the page's max width, without
+    // affecting vertical sizing — used for both the fixed header and the
+    // scrollable body so they line up.
+    Widget wrapMaxWidth(Widget child) {
+      return SizedBox(
+        width: double.infinity,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
+            child: child,
           ),
         ),
+      );
+    }
+
+    // The header is deliberately built and laid out *outside* the
+    // SingleChildScrollView below, so it stays pinned to the top of the
+    // screen — e.g. Back/Preview/Save on an editor — instead of scrolling
+    // away with the body. (Previously header and body lived in the same
+    // scrollable Column, so a long note/journal entry pushed the header
+    // off-screen and required scrolling all the way back up to reach it.)
+    final Widget? headerSection = header == null
+        ? null
+        : SafeArea(
+            top: true,
+            bottom: false,
+            child: Padding(
+              // A small bottom inset so the header's own subtitle/word-count
+              // line isn't sitting flush against the body content directly
+              // below it — the body's own top padding is separately reduced
+              // to `theme.spacing.lg` (see below) specifically because a
+              // fixed header already handles this gap, so this is the one
+              // place that gap actually lives.
+              padding: EdgeInsets.fromLTRB(
+                pad.left,
+                pad.top,
+                pad.right,
+                context.sp(theme.spacing.xs),
+              ),
+              child: wrapMaxWidth(header!),
+            ),
+          );
+
+    Widget bodyContent = wrapMaxWidth(
+      Column(
+        mainAxisSize: scrollable ? MainAxisSize.min : MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[child],
       ),
     );
 
-    body = Padding(padding: pad, child: body);
+    bodyContent = Padding(
+      padding: EdgeInsets.only(
+        left: pad.left,
+        right: pad.right,
+        // When there's a fixed header above, only a small visual gap is
+        // needed here; the header's own top padding already handled the
+        // status-bar inset. Without a header, the body needs that same top
+        // padding (and its own SafeArea) since nothing above it provides it.
+        top: header != null ? context.sp(theme.spacing.lg) : pad.top,
+        bottom: pad.bottom,
+      ),
+      child: bodyContent,
+    );
 
-    // Wrap with a SafeArea so the top header always respects the status
-    // bar / notch area. We intentionally keep bottom=false so the page
-    // content can still control bottom spacing independently (the
-    // navigation shell already wraps the bottom navbar with SafeArea).
-    final Widget safe = SafeArea(top: true, bottom: false, child: body);
+    if (header == null) {
+      bodyContent = SafeArea(top: true, bottom: false, child: bodyContent);
+    }
+
+    final Widget scrollableBody = scrollable
+        ? SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: bodyContent,
+          )
+        : bodyContent;
 
     final Widget page = Material(
       color: theme.colors.background,
-      child: AnimatedPadding(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
-        child: scrollable
-            ? SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                child: safe,
-              )
-            : safe,
+      child: Column(
+        children: <Widget>[
+          if (headerSection != null) headerSection,
+          Expanded(
+            child: AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
+              child: scrollableBody,
+            ),
+          ),
+        ],
       ),
     );
 
@@ -111,10 +171,15 @@ class UiPage extends StatelessWidget {
 
     // Reserve the same clearance UiPage already gives scrollable content
     // for the floating mobile tab bar, so the FAB always floats just above
-    // it instead of overlapping.
+    // it instead of overlapping — again, only when that dock is actually
+    // present. On a pushed screen with no dock, `reserveDockSpace: false`
+    // keeps the FAB anchored to the screen's own bottom edge instead of
+    // floating a dock's-worth of empty space above it.
     final double fabBottomInset = viewPadding.bottom +
         mq.viewInsets.bottom +
-        context.sp(r.isMobile ? 96 : theme.spacing.lg);
+        context.sp(
+          reserveDockSpace ? (r.isMobile ? 96 : theme.spacing.lg) : theme.spacing.md,
+        );
 
     return Stack(
       children: <Widget>[

@@ -43,6 +43,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   List<String> _tags = [];
   final SpeechToText _speech = SpeechToText();
   bool _listening = false;
+  final MarkdownOutlineController _outlineController = MarkdownOutlineController();
   // Text already in the field when dictation started. `recognizedWords`
   // from the plugin is the *full* phrase spoken since `listen()` began, not
   // a delta, so every callback must be applied on top of this fixed base —
@@ -69,6 +70,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _outlineController.dispose();
     super.dispose();
   }
 
@@ -369,15 +371,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
                 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                child: SafeArea(
-                  top: false,
-                  child: MarkdownEditorToolbar(
+                child: MarkdownEditorToolbar(
                     editorKey: _editorKey,
                     onPickImage: _pickImage,
                     onPickDocument: _pickDocument,
                     onToggleVoice: _toggleVoiceInput,
                     listening: _listening,
-                  ),
                 ),
               ),
             ),
@@ -418,6 +417,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   Widget _buildScaffold(BuildContext context, int wordCount) {
     return UiPage(
+      reserveDockSpace: false,
+      floatingActionButton: _isPreview ? MarkdownOutlineFab(controller: _outlineController) : null,
       header: UiHeader(
         leading: UiIconButton(
           icon: Icons.arrow_back,
@@ -509,6 +510,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   RichMarkdownPreview(
                     data: _contentController.text,
                     imageResolver: _resolveImage,
+                    outlineController: _outlineController,
                   )
                 else ...[
                   RichMarkdownEditorField(
