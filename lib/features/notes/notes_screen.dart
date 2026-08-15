@@ -363,13 +363,14 @@ class NotesScreen extends ConsumerWidget {
                     )
                   else
                     UiCardGrid(
-                      // A fixed tile height per view mode keeps every card
-                      // in a row the same size (GridView can't vary height
-                      // per item); the column count comes straight from the
-                      // toggle above rather than the available width, so
-                      // the user's choice always wins.
+                      // Every card is exactly as tall as its own content —
+                      // no fixed row height — via UiCardGrid's masonry mode.
+                      // The column count comes straight from the toggle
+                      // above rather than the available width, so the
+                      // user's choice always wins; default is 1 column, so
+                      // by default this is simply one card per row.
                       key: ValueKey('$viewMode-$columns'),
-                      mainAxisExtent: viewMode.tileHeight,
+                      dynamicHeight: true,
                       mobileColumns: columns,
                       tabletColumns: columns,
                       desktopColumns: columns,
@@ -446,9 +447,11 @@ class _NoteCard extends StatelessWidget {
       onLongPress: onDelete,
       padding: EdgeInsets.all(context.sp(context.uiSpace.lg)),
       // Every element below has a capped height (maxLines on text, a fixed
-      // height on the tag row) chosen so the worst-case total always fits
-      // inside the grid's mainAxisExtent for the active view mode. We
-      // deliberately avoid Expanded/Flexible here: UiCard measures this
+      // height on the tag row) — the card grid gives each tile exactly the
+      // height its own content needs (see dynamicHeight on UiCardGrid), so
+      // these caps just keep any one card from growing unreasonably tall
+      // rather than fitting inside a shared row height. We deliberately
+      // avoid Expanded/Flexible here: UiCard measures this
       // child inside an AnimatedCrossFade (for the collapsible feature),
       // which lays it out with an unbounded height to get its natural size
       // — a flex child would throw ("incoming height constraints are

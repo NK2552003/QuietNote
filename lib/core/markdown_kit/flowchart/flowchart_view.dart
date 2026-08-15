@@ -31,11 +31,11 @@ class FlowchartPalette {
     return FlowchartPalette(
       background: Colors.transparent,
       nodeFill: colors.surface,
-      nodeBorder: colors.border,
+      nodeBorder: colors.borderStrong,
       nodeText: colors.foreground,
       decisionFill: colors.primary.withValues(alpha: 0.10),
       edgeColor: colors.foregroundMuted,
-      edgeLabelBackground: colors.background,
+      edgeLabelBackground: colors.surface,
       edgeLabelText: colors.foregroundMuted,
     );
   }
@@ -134,6 +134,36 @@ class _EmptyDiagram extends StatelessWidget {
   }
 }
 
+/// Where on a node's boundary an edge attaches. Used to bucket every edge
+/// touching a given node by which side of it they leave/enter from, so
+/// several edges sharing a side can be spread out along it instead of
+/// stacking on the same point.
+enum _Face { top, bottom, left, right }
+
+/// The two endpoints of one edge's route, resolved to actual attachment
+/// points on the node boundaries (after port distribution).
+class _PortPair {
+  const _PortPair(this.start, this.end);
+  final Offset start;
+  final Offset end;
+}
+
+/// One edge's claim on a face of a node, waiting to be spread evenly along
+/// that face once every edge touching it has been collected.
+class _PortSlot {
+  _PortSlot({required this.edgeIndex, required this.isStart, required this.sortKey});
+  final int edgeIndex;
+  final bool isStart;
+  final double sortKey;
+}
+
+class _Segment {
+  const _Segment(this.a, this.b);
+  final Offset a;
+  final Offset b;
+  double get length => (b - a).distance;
+}
+
 class _FlowchartPainter extends CustomPainter {
   _FlowchartPainter({
     required this.graph,
@@ -145,17 +175,129 @@ class _FlowchartPainter extends CustomPainter {
   final FlowchartPalette palette;
   final TextStyle labelStyle;
 
+  /// Chip rects already placed this paint, used to nudge a new label out
+  /// of the way of ones already drawn. Cleared at the start of every
+  /// [paint] call.
+  final List<Rect> _labelRects = <Rect>[];
+
   @override
   void paint(Canvas canvas, Size size) {
-    for (final FlowEdge edge in graph.edges) {
+    _labelRects.clear();
+    final Map<int, _PortPair> ports = _computePorts();
+
+    for (int i = 0; i < graph.edges.length; i++) {
+      final FlowEdge edge = graph.edges[i];
       final FlowNode? from = graph.nodes[edge.fromId];
       final FlowNode? to = graph.nodes[edge.toId];
-      if (from == null || to == null || from == to) continue;
-      _paintEdge(canvas, from, to, edge);
+      if (from == null || to == null) continue;
+      if (from == to) {
+        _paintSelfLoop(canvas, from, edge);
+        continue;
+      }
+      final _PortPair? pair = ports[i];
+      if (pair == null) continue;
+      _paintRoutedEdge(canvas, edge, pair.start, pair.end);
     }
     for (final FlowNode node in graph.nodes.values) {
       _paintNode(canvas, node);
     }
+  }
+
+  // ---- ports -----------------------------------------------------------
+
+  /// Figures out, for every edge, exactly where on its two nodes' boundary
+  /// it attaches. Edges sharing a face on the same node are spread evenly
+  /// along that face (ordered by the other endpoint's cross-axis
+  /// position) instead of all converging on the center, which is what used
+  /// to make several edges leaving/entering the same node stack exactly on
+  /// top of each other.
+  Map<int, _PortPair> _computePorts() {
+    final bool horizontal = graph.direction == FlowDirection.leftToRight ||
+        graph.direction == FlowDirection.rightToLeft;
+    final bool reversed = graph.direction == FlowDirection.bottomToTop ||
+        graph.direction == FlowDirection.rightToLeft;
+
+    final Map<String, List<_PortSlot>> buckets = <String, List<_PortSlot>>{};
+
+    String key(String nodeId, _Face face) => '$nodeId#${face.index}';
+
+    for (int i = 0; i < graph.edges.length; i++) {
+      final FlowEdge edge = graph.edges[i];
+      final FlowNode? from = graph.nodes[edge.fromId];
+      final FlowNode? to = graph.nodes[edge.toId];
+      if (from == null || to == null || from == to) continue;
+
+      final Rect a = Rect.fromLTWH(from.x, from.y, from.width, from.height);
+      final Rect b = Rect.fromLTWH(to.x, to.y, to.width, to.height);
+      final bool aBeforeB = horizontal
+          ? (reversed ? a.left > b.left : a.left < b.left)
+          : (reversed ? a.top > b.top : a.top < b.top);
+
+      final _Face startFace = horizontal
+          ? (aBeforeB ? _Face.right : _Face.left)
+          : (aBeforeB ? _Face.bottom : _Face.top);
+      final _Face endFace = horizontal
+          ? (aBeforeB ? _Face.left : _Face.right)
+          : (aBeforeB ? _Face.top : _Face.bottom);
+
+      final double startSortKey = horizontal ? b.center.dy : b.center.dx;
+      final double endSortKey = horizontal ? a.center.dy : a.center.dx;
+
+      buckets
+          .putIfAbsent(key(from.id, startFace), () => <_PortSlot>[])
+          .add(_PortSlot(edgeIndex: i, isStart: true, sortKey: startSortKey));
+      buckets
+          .putIfAbsent(key(to.id, endFace), () => <_PortSlot>[])
+          .add(_PortSlot(edgeIndex: i, isStart: false, sortKey: endSortKey));
+    }
+
+    final Map<int, Offset> startOffsets = <int, Offset>{};
+    final Map<int, Offset> endOffsets = <int, Offset>{};
+
+    buckets.forEach((String bucketKey, List<_PortSlot> slots) {
+      final int hashIdx = bucketKey.lastIndexOf('#');
+      final String nodeId = bucketKey.substring(0, hashIdx);
+      final _Face face = _Face.values[int.parse(bucketKey.substring(hashIdx + 1))];
+      final FlowNode? node = graph.nodes[nodeId];
+      if (node == null) return;
+      final Rect rect = Rect.fromLTWH(node.x, node.y, node.width, node.height);
+
+      slots.sort((_PortSlot s1, _PortSlot s2) => s1.sortKey.compareTo(s2.sortKey));
+      final int n = slots.length;
+      for (int i = 0; i < n; i++) {
+        final double t = (i + 1) / (n + 1);
+        final Offset pos;
+        switch (face) {
+          case _Face.top:
+            pos = Offset(rect.left + rect.width * t, rect.top);
+            break;
+          case _Face.bottom:
+            pos = Offset(rect.left + rect.width * t, rect.bottom);
+            break;
+          case _Face.left:
+            pos = Offset(rect.left, rect.top + rect.height * t);
+            break;
+          case _Face.right:
+            pos = Offset(rect.right, rect.top + rect.height * t);
+            break;
+        }
+        if (slots[i].isStart) {
+          startOffsets[slots[i].edgeIndex] = pos;
+        } else {
+          endOffsets[slots[i].edgeIndex] = pos;
+        }
+      }
+    });
+
+    final Map<int, _PortPair> result = <int, _PortPair>{};
+    for (int i = 0; i < graph.edges.length; i++) {
+      final Offset? s = startOffsets[i];
+      final Offset? e = endOffsets[i];
+      if (s != null && e != null) {
+        result[i] = _PortPair(s, e);
+      }
+    }
+    return result;
   }
 
   // ---- nodes ---------------------------------------------------------
@@ -170,12 +312,21 @@ class _FlowchartPainter extends CustomPainter {
     final Paint border = Paint()
       ..color = palette.nodeBorder
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.3;
+      ..strokeWidth = 1.2
+      ..strokeJoin = StrokeJoin.round;
+    // A faint drop shadow gives every node a touch of depth — the same
+    // quiet "card" feel diagrams render with elsewhere — instead of the
+    // flat, slightly harsh look of a plain fill + stroke.
+    final Paint shadow = Paint()
+      ..color = const Color(0x14000000)
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
 
     switch (node.shape) {
       case FlowNodeShape.rect:
       case FlowNodeShape.subroutine:
-        final RRect r = RRect.fromRectAndRadius(rect, const Radius.circular(6));
+        final RRect r = RRect.fromRectAndRadius(rect, const Radius.circular(9));
+        canvas.drawRRect(r.shift(const Offset(0, 1.5)), shadow);
         canvas.drawRRect(r, fill);
         canvas.drawRRect(r, border);
         if (node.shape == FlowNodeShape.subroutine) {
@@ -199,18 +350,21 @@ class _FlowchartPainter extends CustomPainter {
       case FlowNodeShape.rounded:
         final RRect r =
             RRect.fromRectAndRadius(rect, Radius.circular(rect.height / 2.6));
+        canvas.drawRRect(r.shift(const Offset(0, 1.5)), shadow);
         canvas.drawRRect(r, fill);
         canvas.drawRRect(r, border);
         break;
       case FlowNodeShape.stadium:
         final RRect r =
             RRect.fromRectAndRadius(rect, Radius.circular(rect.height / 2));
+        canvas.drawRRect(r.shift(const Offset(0, 1.5)), shadow);
         canvas.drawRRect(r, fill);
         canvas.drawRRect(r, border);
         break;
       case FlowNodeShape.circle:
         final Offset center = rect.center;
         final double radius = math.min(rect.width, rect.height) / 2;
+        canvas.drawCircle(center + const Offset(0, 1.5), radius, shadow);
         canvas.drawCircle(center, radius, fill);
         canvas.drawCircle(center, radius, border);
         break;
@@ -221,6 +375,7 @@ class _FlowchartPainter extends CustomPainter {
           ..lineTo(rect.center.dx, rect.bottom)
           ..lineTo(rect.left, rect.center.dy)
           ..close();
+        canvas.drawPath(path.shift(const Offset(0, 1.5)), shadow);
         canvas.drawPath(path, fill);
         canvas.drawPath(path, border);
         break;
@@ -234,6 +389,7 @@ class _FlowchartPainter extends CustomPainter {
           ..lineTo(rect.left + cut, rect.bottom)
           ..lineTo(rect.left, rect.center.dy)
           ..close();
+        canvas.drawPath(path.shift(const Offset(0, 1.5)), shadow);
         canvas.drawPath(path, fill);
         canvas.drawPath(path, border);
         break;
@@ -300,42 +456,28 @@ class _FlowchartPainter extends CustomPainter {
 
   // ---- edges ----------------------------------------------------------
 
-  void _paintEdge(Canvas canvas, FlowNode from, FlowNode to, FlowEdge edge) {
-    final Rect a = Rect.fromLTWH(from.x, from.y, from.width, from.height);
-    final Rect b = Rect.fromLTWH(to.x, to.y, to.width, to.height);
-
-    final bool horizontal = graph.direction == FlowDirection.leftToRight ||
-        graph.direction == FlowDirection.rightToLeft;
-    final bool reversed = graph.direction == FlowDirection.bottomToTop ||
-        graph.direction == FlowDirection.rightToLeft;
-
-    Offset start;
-    Offset end;
-    if (horizontal) {
-      final bool aBeforeB = reversed ? a.left > b.left : a.left < b.left;
-      start = aBeforeB ? Offset(a.right, a.center.dy) : Offset(a.left, a.center.dy);
-      end = aBeforeB ? Offset(b.left, b.center.dy) : Offset(b.right, b.center.dy);
-    } else {
-      final bool aBeforeB = reversed ? a.top > b.top : a.top < b.top;
-      start = aBeforeB ? Offset(a.center.dx, a.bottom) : Offset(a.center.dx, a.top);
-      end = aBeforeB ? Offset(b.center.dx, b.top) : Offset(b.center.dx, b.bottom);
-    }
+  /// Paints an edge as a rounded polyline through `start`, every waypoint
+  /// the layout inserted for it (one per rank it spans), and `end` — so a
+  /// long edge bends around whatever it needs to instead of being drawn as
+  /// one long curve straight through the boxes in between. Each hop is
+  /// routed as a right-angle "L" (via [_orthogonalize]) rather than a
+  /// diagonal line, so edges leave/enter nodes straight-on and only ever
+  /// bend at 90°.
+  void _paintRoutedEdge(Canvas canvas, FlowEdge edge, Offset start, Offset end) {
+    final List<Offset> points = _orthogonalize(<Offset>[
+      start,
+      for (final FlowPoint p in edge.waypoints) Offset(p.x, p.y),
+      end,
+    ]);
 
     final Paint linePaint = Paint()
       ..color = palette.edgeColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = edge.style == FlowEdgeStyle.thick ? 2.4 : 1.4
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = edge.style == FlowEdgeStyle.thick ? 2.2 : 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    final Path path = Path()..moveTo(start.dx, start.dy);
-    // A gentle curve through a midpoint reads far better than a dead-straight
-    // line once nodes are offset from each other within their rank.
-    final Offset mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-    final Offset c1 = horizontal
-        ? Offset(mid.dx, start.dy)
-        : Offset(start.dx, mid.dy);
-    final Offset c2 = horizontal ? Offset(mid.dx, end.dy) : Offset(end.dx, mid.dy);
-    path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, end.dx, end.dy);
+    final Path path = _roundedPolyline(points, 16);
 
     if (edge.style == FlowEdgeStyle.dashed) {
       _drawDashedPath(canvas, path, linePaint);
@@ -343,32 +485,166 @@ class _FlowchartPainter extends CustomPainter {
       canvas.drawPath(path, linePaint);
     }
 
-    if (edge.arrowEnd) _drawArrowHead(canvas, end, horizontal, reversed, linePaint.color);
-    if (edge.arrowStart) _drawArrowHead(canvas, start, horizontal, !reversed, linePaint.color);
+    if (edge.arrowEnd) {
+      _drawArrowHead(canvas, end, end - points[points.length - 2], linePaint.color);
+    }
+    if (edge.arrowStart) {
+      _drawArrowHead(canvas, start, start - points[1], linePaint.color);
+    }
 
     if (edge.label != null && edge.label!.isNotEmpty) {
-      _drawEdgeLabel(canvas, edge.label!, mid);
+      final _Segment longest = _longestSegment(points);
+      final Offset anchor = Offset(
+        (longest.a.dx + longest.b.dx) / 2,
+        (longest.a.dy + longest.b.dy) / 2,
+      );
+      _drawEdgeLabel(canvas, edge.label!, anchor);
     }
   }
 
-  void _drawArrowHead(Canvas canvas, Offset tip, bool horizontal, bool pointingForward, Color color) {
-    const double size = 7;
-    final Paint paint = Paint()..color = color..style = PaintingStyle.fill;
-    final double dir = pointingForward ? 1 : -1;
-    final Path path = Path();
-    if (horizontal) {
-      path
-        ..moveTo(tip.dx, tip.dy)
-        ..lineTo(tip.dx - size * dir, tip.dy - size * 0.6)
-        ..lineTo(tip.dx - size * dir, tip.dy + size * 0.6)
-        ..close();
+  void _paintSelfLoop(Canvas canvas, FlowNode node, FlowEdge edge) {
+    final Rect rect = Rect.fromLTWH(node.x, node.y, node.width, node.height);
+    final double loopSize = math.max(22, rect.height * 0.5);
+    final Offset exit = Offset(rect.right, rect.top + rect.height * 0.32);
+    final Offset enter = Offset(rect.right, rect.top + rect.height * 0.68);
+    final Offset bulge1 = Offset(rect.right + loopSize, exit.dy - loopSize * 0.35);
+    final Offset bulge2 = Offset(rect.right + loopSize, enter.dy + loopSize * 0.35);
+
+    final Paint linePaint = Paint()
+      ..color = palette.edgeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = edge.style == FlowEdgeStyle.thick ? 2.2 : 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final Path path = Path()
+      ..moveTo(exit.dx, exit.dy)
+      ..cubicTo(bulge1.dx, bulge1.dy, bulge2.dx, bulge2.dy, enter.dx, enter.dy);
+
+    if (edge.style == FlowEdgeStyle.dashed) {
+      _drawDashedPath(canvas, path, linePaint);
     } else {
-      path
-        ..moveTo(tip.dx, tip.dy)
-        ..lineTo(tip.dx - size * 0.6, tip.dy - size * dir)
-        ..lineTo(tip.dx + size * 0.6, tip.dy - size * dir)
-        ..close();
+      canvas.drawPath(path, linePaint);
     }
+
+    if (edge.arrowEnd) {
+      _drawArrowHead(canvas, enter, enter - bulge2, linePaint.color);
+    }
+
+    if (edge.label != null && edge.label!.isNotEmpty) {
+      _drawEdgeLabel(
+        canvas,
+        edge.label!,
+        Offset(rect.right + loopSize + 6, (exit.dy + enter.dy) / 2),
+      );
+    }
+  }
+
+  /// Turns a sequence of straight hops into right-angle ("L"-shaped) ones:
+  /// between each consecutive pair of points, a hop that isn't already
+  /// axis-aligned gets a bend inserted at the midpoint along the flow's
+  /// main axis, so the segment travels straight out along the flow
+  /// direction, turns once, then travels straight in — instead of cutting
+  /// diagonally across the canvas. An already axis-aligned hop (same x for
+  /// a vertical flow, same y for a horizontal one) is left as a single
+  /// straight segment.
+  List<Offset> _orthogonalize(List<Offset> points) {
+    if (points.length < 2) return points;
+    final bool horizontal = graph.direction == FlowDirection.leftToRight ||
+        graph.direction == FlowDirection.rightToLeft;
+
+    final List<Offset> out = <Offset>[points.first];
+    for (int i = 0; i < points.length - 1; i++) {
+      final Offset a = points[i];
+      final Offset b = points[i + 1];
+      if (horizontal) {
+        if ((b.dy - a.dy).abs() > 0.5) {
+          final double midX = (a.dx + b.dx) / 2;
+          out.add(Offset(midX, a.dy));
+          out.add(Offset(midX, b.dy));
+        }
+      } else {
+        if ((b.dx - a.dx).abs() > 0.5) {
+          final double midY = (a.dy + b.dy) / 2;
+          out.add(Offset(a.dx, midY));
+          out.add(Offset(b.dx, midY));
+        }
+      }
+      out.add(b);
+    }
+    return out;
+  }
+
+  /// A polyline through [points] with each interior corner rounded off by
+  /// [radius] (or less, if the adjoining segments are shorter than that).
+  Path _roundedPolyline(List<Offset> points, double radius) {
+    final Path path = Path();
+    if (points.isEmpty) return path;
+    path.moveTo(points.first.dx, points.first.dy);
+    if (points.length < 3) {
+      if (points.length == 2) path.lineTo(points.last.dx, points.last.dy);
+      return path;
+    }
+    for (int i = 1; i < points.length - 1; i++) {
+      final Offset prev = points[i - 1];
+      final Offset curr = points[i];
+      final Offset next = points[i + 1];
+      final Offset toPrev = prev - curr;
+      final Offset toNext = next - curr;
+      final double lenPrev = toPrev.distance;
+      final double lenNext = toNext.distance;
+      final double r = math.min(radius, math.min(lenPrev, lenNext) / 2);
+      final Offset p1 = lenPrev == 0 ? curr : curr + toPrev / lenPrev * r;
+      final Offset p2 = lenNext == 0 ? curr : curr + toNext / lenNext * r;
+      path.lineTo(p1.dx, p1.dy);
+      path.quadraticBezierTo(curr.dx, curr.dy, p2.dx, p2.dy);
+    }
+    path.lineTo(points.last.dx, points.last.dy);
+    return path;
+  }
+
+  _Segment _longestSegment(List<Offset> points) {
+    _Segment best = _Segment(points[0], points[1]);
+    double bestLen = best.length;
+    for (int i = 1; i < points.length - 1; i++) {
+      final _Segment seg = _Segment(points[i], points[i + 1]);
+      if (seg.length > bestLen) {
+        bestLen = seg.length;
+        best = seg;
+      }
+    }
+    return best;
+  }
+
+  /// Draws an arrowhead at [tip], oriented along [approach] — the
+  /// direction of travel arriving at the tip. Using the actual final
+  /// segment direction (rather than assuming purely horizontal/vertical)
+  /// keeps the arrow correctly oriented even where a route's last leg
+  /// isn't axis-aligned, e.g. a self-loop or a port offset from center.
+  void _drawArrowHead(Canvas canvas, Offset tip, Offset approach, Color color) {
+    const double size = 7.5;
+    final double len = approach.distance;
+    final Offset dir = len == 0 ? const Offset(0, 1) : approach / len;
+    final Offset normal = Offset(-dir.dy, dir.dx);
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..strokeJoin = StrokeJoin.round;
+
+    final Offset back = tip - dir * size;
+    final Offset p1 = back + normal * (size * 0.42);
+    final Offset p2 = back - normal * (size * 0.42);
+    final Offset notch = tip - dir * (size * 0.45);
+
+    // A slightly slimmer, closed triangle (versus a plain isoceles one)
+    // reads as a lot cleaner/sharper at small sizes — closer to how
+    // Mermaid/Claude draw arrowheads.
+    final Path path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(p1.dx, p1.dy)
+      ..lineTo(notch.dx, notch.dy)
+      ..lineTo(p2.dx, p2.dy)
+      ..close();
     canvas.drawPath(path, paint);
   }
 
@@ -400,14 +676,32 @@ class _FlowchartPainter extends CustomPainter {
       ellipsis: '…',
     )..layout(maxWidth: 140);
 
-    final Rect chip = Rect.fromCenter(
-      center: center,
-      width: painter.width + 10,
-      height: painter.height + 6,
-    );
+    final double w = painter.width + 12;
+    final double h = painter.height + 7;
+
+    // Nudge straight down, a chip-height at a time, until it clears every
+    // label already placed this paint — a simple occupied-rect check
+    // rather than full collision layout, but enough to keep two labels on
+    // crossing/adjacent edges from landing on top of each other.
+    Offset placeAt = center;
+    Rect chip = Rect.fromCenter(center: placeAt, width: w, height: h);
+    int attempts = 0;
+    while (attempts < 6 && _labelRects.any((Rect r) => r.overlaps(chip))) {
+      placeAt = Offset(placeAt.dx, placeAt.dy + h + 3);
+      chip = Rect.fromCenter(center: placeAt, width: w, height: h);
+      attempts++;
+    }
+    _labelRects.add(chip);
+
+    final RRect chipRRect = RRect.fromRectAndRadius(chip, const Radius.circular(5));
     final Paint bg = Paint()..color = palette.edgeLabelBackground;
-    canvas.drawRRect(RRect.fromRectAndRadius(chip, const Radius.circular(4)), bg);
-    painter.paint(canvas, Offset(chip.left + 5, chip.top + 3));
+    final Paint chipBorder = Paint()
+      ..color = palette.edgeColor.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRRect(chipRRect, bg);
+    canvas.drawRRect(chipRRect, chipBorder);
+    painter.paint(canvas, Offset(chip.left + 6, chip.top + 3.5));
   }
 
   @override

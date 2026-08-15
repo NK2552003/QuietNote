@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for every network call the app makes: cloud AI providers
+         (NVIDIA NIM, OpenRouter, etc.), backup/export, and any other HTTP
+         request. The debug/profile manifests already carry this (Flutter
+         adds it there for its own tooling), but it was missing from this,
+         the manifest that actually ships in release/profile builds — so
+         every outbound request silently failed as if there were no network
+         at all. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Permission required on Android 13+ to post notifications at runtime. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Needed when scheduling exact reminders on Android 12+ / 14+. -->

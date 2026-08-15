@@ -41,117 +41,284 @@ class RichCodeBlockBuilder extends MarkdownElementBuilder {
     if (code == null || code.tag != 'code') return null;
 
     final String cls = code.attributes['class'] ?? '';
-    final String lang = cls.replaceFirst('language-', '').trim();
+    final String rawLang = cls.replaceFirst('language-', '').trim();
     final String source = code.textContent;
     if (source.trim().isEmpty) return null;
 
-    if (lang == 'mermaid') {
+    if (rawLang == 'mermaid') {
       return _MermaidBlock(source: source.trim(), dark: dark);
     }
-    if (lang == 'chart') {
+    if (rawLang == 'chart') {
       return ChartBlock(spec: source.trim());
     }
-    return _CodeBlock(source: source.trimRight(), language: lang, dark: dark);
+    return _CodeBlock(
+      source: source.trimRight(),
+      language: _canonicalLanguage(rawLang),
+      displayLanguage: rawLang,
+      dark: dark,
+    );
   }
 }
 
-/// A syntax-highlighted, copyable fenced code block.
-class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({required this.source, required this.language, required this.dark});
+/// Maps the shorthand/alias people actually type after a fence (```html,
+/// ```js, ```sh, ...) to the grammar name the `highlight` package registers
+/// it under, so every common alias — not just the canonical name — lights
+/// up correctly. This is what makes ```html fenced blocks highlight like
+/// GitHub renders them (tags, attributes, embedded script/style) instead of
+/// falling back to plain text.
+String _canonicalLanguage(String lang) {
+  const Map<String, String> aliases = <String, String>{
+    'html': 'xml',
+    'htm': 'xml',
+    'xhtml': 'xml',
+    'svg': 'xml',
+    'vue': 'xml',
+    'sh': 'bash',
+    'shell': 'bash',
+    'zsh': 'bash',
+    'js': 'javascript',
+    'mjs': 'javascript',
+    'cjs': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    'py': 'python',
+    'py3': 'python',
+    'rb': 'ruby',
+    'kt': 'kotlin',
+    'kts': 'kotlin',
+    'cs': 'csharp',
+    'c++': 'cpp',
+    'cc': 'cpp',
+    'h': 'cpp',
+    'hpp': 'cpp',
+    'yml': 'yaml',
+    'md': 'markdown',
+    'ps1': 'powershell',
+    'dockerfile': 'dockerfile',
+    'plaintext': '',
+    'text': '',
+    'txt': '',
+  };
+  final String key = lang.toLowerCase();
+  return aliases[key] ?? key;
+}
 
-  final String source;
-  final String language;
-  final bool dark;
+/// Shared header chrome for every fenced block (code, mermaid): a themed
+/// container with a rounded top strip holding a label chip + icon on the
+/// left and up to a few icon actions on the right, a hairline divider, then
+/// whatever [body] renders below it. Code blocks and flowchart blocks share
+/// this exact frame so they read as one visual family that follows the
+/// app's live theme (colors, radii) rather than fixed hex values.
+class _FencedBlockChrome extends StatelessWidget {
+  const _FencedBlockChrome({
+    required this.icon,
+    required this.label,
+    required this.actions,
+    required this.body,
+    this.bodyPadding = EdgeInsets.zero,
+  });
+
+  final IconData icon;
+  final String label;
+  final List<Widget> actions;
+  final Widget body;
+  final EdgeInsets bodyPadding;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.uiColors;
+    final radius = context.uiRadii.lg;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 8),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1C1C1E) : const Color(0xFFF6F5F3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: dark ? const Color(0xFF33322F) : const Color(0xFFE4E1DB),
-        ),
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
+          Container(
+            color: colors.surfaceMuted,
+            padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
             child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    language.isEmpty ? 'code' : language,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                      color: colors.foregroundSubtle,
-                    ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(context.uiRadii.pill),
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 12, color: colors.foregroundMuted),
+                      const SizedBox(width: 5),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                          color: colors.foregroundMuted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.copy_outlined, size: 16),
-                  color: colors.foregroundMuted,
-                  splashRadius: 16,
-                  tooltip: 'Copy code',
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: source));
-                    if (context.mounted) {
-                      UiToast.show(context, title: 'Copied', intent: UiIntent.success);
-                    }
-                  },
-                ),
+                const Spacer(),
+                ...actions,
               ],
             ),
           ),
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _highlighted(context),
-            ),
+          Container(height: 1, color: colors.border),
+          Container(
+            color: colors.surfaceMuted.withValues(alpha: 0.4),
+            padding: bodyPadding,
+            child: body,
           ),
         ],
       ),
     );
   }
+}
+
+/// A small icon-only action button matching the fenced-block header style
+/// (quiet by default, themed hover/press state, compact hit target).
+class _ChromeIconButton extends StatelessWidget {
+  const _ChromeIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.uiColors;
+    return IconButton(
+      icon: Icon(icon, size: 16),
+      color: color ?? colors.foregroundMuted,
+      splashRadius: 16,
+      visualDensity: VisualDensity.compact,
+      tooltip: tooltip,
+      onPressed: onPressed,
+    );
+  }
+}
+
+/// A syntax-highlighted, copyable fenced code block. Chrome (background,
+/// border, label chip) is driven entirely by the live [UiTheme] — including
+/// the person's chosen accent — rather than fixed colors, so it always
+/// matches the rest of the app; only the token colors inside the code come
+/// from a dedicated syntax theme, since those need their own fixed palette
+/// to stay readable and distinguishable regardless of the accent color.
+class _CodeBlock extends StatefulWidget {
+  const _CodeBlock({
+    required this.source,
+    required this.language,
+    required this.displayLanguage,
+    required this.dark,
+  });
+
+  final String source;
+  final String language;
+  final String displayLanguage;
+  final bool dark;
+
+  @override
+  State<_CodeBlock> createState() => _CodeBlockState();
+}
+
+class _CodeBlockState extends State<_CodeBlock> {
+  bool _copied = false;
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: widget.source));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    UiToast.show(context, title: 'Copied', intent: UiIntent.success);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.uiColors;
+    final String label = widget.displayLanguage.isEmpty
+        ? 'code'
+        : widget.displayLanguage.toLowerCase();
+    return _FencedBlockChrome(
+      icon: Icons.code_rounded,
+      label: label,
+      bodyPadding: EdgeInsets.zero,
+      actions: [
+        _ChromeIconButton(
+          icon: _copied ? Icons.check_rounded : Icons.copy_outlined,
+          tooltip: 'Copy code',
+          color: _copied ? colors.bullish : null,
+          onPressed: () => _copy(context),
+        ),
+      ],
+      body: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: _highlighted(context),
+        ),
+      ),
+    );
+  }
 
   Widget _highlighted(BuildContext context) {
-    const style = TextStyle(
+    final style = TextStyle(
       fontFamily: 'monospace',
       fontSize: 13,
-      height: 1.45,
+      height: 1.5,
+      color: context.uiColors.foreground,
     );
-    if (language.isEmpty) {
+    if (widget.language.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: SelectableText(
-          source,
-          style: style.copyWith(color: context.uiColors.foreground),
-        ),
+        child: SelectableText(widget.source, style: style),
       );
     }
     try {
+      // The bundled syntax theme supplies token colors only; its own
+      // background is stripped so the surrounding themed chrome (which
+      // follows the app's live theme/accent) shows through instead of a
+      // hardcoded editor-theme background that could clash with it.
+      final Map<String, TextStyle> base =
+          widget.dark ? atomOneDarkTheme : atomOneLightTheme;
+      final Map<String, TextStyle> transparent = <String, TextStyle>{
+        for (final entry in base.entries) entry.key: entry.value,
+        'root': (base['root'] ?? const TextStyle()).copyWith(
+          backgroundColor: Colors.transparent,
+        ),
+      };
       return HighlightView(
-        source,
-        language: language,
-        theme: dark ? atomOneDarkTheme : atomOneLightTheme,
+        widget.source,
+        language: widget.language,
+        theme: transparent,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         textStyle: style,
       );
     } catch (_) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: SelectableText(
-          source,
-          style: style.copyWith(color: context.uiColors.foreground),
-        ),
+        child: SelectableText(widget.source, style: style),
       );
     }
   }
@@ -204,102 +371,65 @@ class _MermaidBlockState extends State<_MermaidBlock> {
   @override
   Widget build(BuildContext context) {
     final colors = context.uiColors;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: widget.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF6F5F3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: widget.dark ? const Color(0xFF33322F) : const Color(0xFFE4E1DB),
+    return _FencedBlockChrome(
+      icon: Icons.account_tree_outlined,
+      label: 'flowchart',
+      bodyPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      actions: [
+        _exporting
+            ? const Padding(
+                padding: EdgeInsets.all(8),
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : _ChromeIconButton(
+                icon: Icons.download_outlined,
+                tooltip: 'Download as PNG',
+                onPressed: () => _download(context),
+              ),
+        _ChromeIconButton(
+          icon: Icons.fullscreen,
+          tooltip: 'View fullscreen',
+          onPressed: () => _openFullscreen(context),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 4, 0),
-            child: Row(
-              children: [
-                Icon(Icons.account_tree_outlined, size: 14, color: colors.foregroundSubtle),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Flowchart',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                      color: colors.foregroundSubtle,
-                    ),
-                  ),
-                ),
-                _exporting
-                    ? const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : IconButton(
-                        icon: const Icon(Icons.download_outlined, size: 16),
-                        color: colors.foregroundMuted,
-                        splashRadius: 16,
-                        tooltip: 'Download as PNG',
-                        onPressed: () => _download(context),
-                      ),
-                IconButton(
-                  icon: const Icon(Icons.fullscreen, size: 18),
-                  color: colors.foregroundMuted,
-                  splashRadius: 16,
-                  tooltip: 'View fullscreen',
-                  onPressed: () => _openFullscreen(context),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => _openFullscreen(context),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              // The capture boundary wraps the *full-width* box (not the
-              // diagram's natural-size render), so a downloaded PNG matches
-              // exactly what is on screen.
-              child: RepaintBoundary(
-                key: _boundaryKey,
-                child: Container(
+      ],
+      body: GestureDetector(
+        onTap: () => _openFullscreen(context),
+        // The capture boundary wraps the *full-width* box (not the
+        // diagram's natural-size render), so a downloaded PNG matches
+        // exactly what is on screen.
+        child: RepaintBoundary(
+          key: _boundaryKey,
+          child: Container(
+            width: double.infinity,
+            color: colors.surface,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 160),
+                // Mermaid lays out at the diagram's own natural size, so a
+                // narrow chart used to sit small and left-aligned.
+                // `FittedBox` with `fitWidth` hands the diagram unbounded
+                // constraints (natural size), then uniformly scales it to
+                // span the card's width, preserving aspect ratio.
+                child: SizedBox(
                   width: double.infinity,
-                  color: widget.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF6F5F3),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 160),
-                      // Mermaid lays out at the diagram's own natural size, so
-                      // a narrow chart used to sit small and left-aligned.
-                      // `FittedBox` with `fitWidth` hands the diagram unbounded
-                      // constraints (natural size), then uniformly scales it to
-                      // span the card's width, preserving aspect ratio.
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: FittedBox(
-                          fit: BoxFit.fitWidth,
-                          alignment: Alignment.topCenter,
-                          child: FlowchartView(
-                            source: widget.source,
-                            palette: FlowchartPalette.themed(context),
-                          ),
-                        ),
-                      ),
+                  child: FittedBox(
+                    fit: BoxFit.fitWidth,
+                    alignment: Alignment.topCenter,
+                    child: FlowchartView(
+                      source: widget.source,
+                      palette: FlowchartPalette.themed(context),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-
-        ],
+        ),
       ),
     );
   }
