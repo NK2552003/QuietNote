@@ -7,8 +7,6 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/database.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:markdown/markdown.dart' as md;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
@@ -16,7 +14,7 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:quietnote/core/widgets/markdown_mermaid.dart';
+import 'package:quietnote/core/markdown_kit/markdown_kit.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
 
 const List<UiToggleOption<String>> _moodOptions = [
@@ -42,6 +40,8 @@ class JournalEditorScreen extends ConsumerStatefulWidget {
 class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
+  final GlobalKey<RichMarkdownEditorFieldState> _editorKey =
+      GlobalKey<RichMarkdownEditorFieldState>();
   bool _isPreview = false;
   bool _isLoading = false;
   bool _isSaving = false;
@@ -195,33 +195,6 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
     }
   }
 
-  void _insertMarkdown(String prefix, String suffix) {
-    final text = _contentController.text;
-    final selection = _contentController.selection;
-
-    if (!selection.isValid) {
-      _contentController.text = '$text$prefix$suffix';
-      _contentController.selection = TextSelection.collapsed(
-        offset: _contentController.text.length - suffix.length,
-      );
-      return;
-    }
-
-    final selectedText = selection.textInside(text);
-    final newText = text.replaceRange(
-      selection.start,
-      selection.end,
-      '$prefix$selectedText$suffix',
-    );
-
-    _contentController.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(
-        offset: selection.start + prefix.length + selectedText.length,
-      ),
-    );
-  }
-
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -251,7 +224,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
           ),
         );
 
-    _insertMarkdown('![image](local-image://$attachmentId)', '');
+    _editorKey.currentState?.insertBlock('![image](local-image://$attachmentId)\n');
     setState(() {});
   }
 
@@ -275,7 +248,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
 
     if (ext == 'txt' || ext == 'md') {
       final String content = await file.readAsString();
-      _insertMarkdown(content, '');
+      _editorKey.currentState?.insertBlock(content);
       setState(() {});
       return;
     }
@@ -291,9 +264,8 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
     }
 
     if (extracted.isNotEmpty) {
-      _insertMarkdown(
+      _editorKey.currentState?.insertBlock(
         '\n\n---\n*Imported from: $filename*\n\n$extracted',
-        '',
       );
       setState(() {});
       return;
@@ -319,7 +291,7 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
             filePath: savedFile.path,
           ),
         );
-    _insertMarkdown('[📄 $filename](local-file://$attachmentId)', '');
+    _editorKey.currentState?.insertBlock('[📄 $filename](local-file://$attachmentId)\n');
     setState(() {});
     if (mounted) {
       UiToast.show(
@@ -390,7 +362,66 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
         if (didPop) return;
         await _handleBack();
       },
-      child: _buildScaffold(context, wordCount),
+      child: Stack(
+        children: [
+          _buildScaffold(context, wordCount),
+          // Formatting toolbar floats just above the keyboard, like an
+          // input accessory view, instead of living inline above the text
+          // field — it stays reachable no matter how far the entry has
+          // scrolled.
+          if (!_isPreview && !_isLoading)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AnimatedPadding(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: SafeArea(
+                  top: false,
+                  child: MarkdownEditorToolbar(
+                    editorKey: _editorKey,
+                    onPickImage: _pickImage,
+                    onPickDocument: _pickDocument,
+                    onToggleVoice: _toggleVoiceInput,
+                    listening: _listening,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _resolveImage(BuildContext context, Uri uri) {
+    if (uri.scheme != 'local-image') return Image.network(uri.toString());
+    final attachmentId = uri.host;
+    return FutureBuilder<Attachment?>(
+      future: (ref
+              .read(databaseProvider)
+              .select(ref.read(databaseProvider).attachments)
+            ..where((a) => a.id.equals(attachmentId)))
+          .getSingleOrNull(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 100,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasData && snapshot.data != null) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(File(snapshot.data!.filePath)),
+          );
+        }
+        return const SizedBox(
+          height: 100,
+          child: Center(child: Icon(Icons.broken_image)),
+        );
+      },
     );
   }
 
@@ -464,243 +495,23 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
                 ),
                 const SizedBox(height: 16),
                 if (_isPreview)
-                  MarkdownBody(
-                    extensionSet: md.ExtensionSet.gitHubFlavored,
-                    data: _contentController.text.isEmpty
-                        ? '*Nothing written yet.*'
-                        : _contentController.text,
-                    selectable: true,
-                    builders: <String, MarkdownElementBuilder>{
-                      'pre': MermaidCodeBuilder(
-                        dark: context.ui.brightness == Brightness.dark,
-                      ),
-                    },
-                    sizedImageBuilder: (config) {
-                      if (config.uri.scheme == 'local-image') {
-                        final attachmentId = config.uri.host;
-                        return FutureBuilder<Attachment?>(
-                          future:
-                              (ref
-                                      .read(databaseProvider)
-                                      .select(
-                                        ref.read(databaseProvider).attachments,
-                                      )
-                                    ..where((a) => a.id.equals(attachmentId)))
-                                  .getSingleOrNull(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const SizedBox(
-                                height: 100,
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
-                            if (snapshot.hasData && snapshot.data != null) {
-                              return ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.file(
-                                  File(snapshot.data!.filePath),
-                                ),
-                              );
-                            }
-                            return const SizedBox(
-                              height: 100,
-                              child: Center(child: Icon(Icons.broken_image)),
-                            );
-                          },
-                        );
-                      }
-                      return Image.network(config.uri.toString());
-                    },
-                    styleSheet: MarkdownStyleSheet(
-                      p: context.uiText.body,
-                      h1: context.uiText.heading.copyWith(fontSize: 26),
-                      h2: context.uiText.heading.copyWith(fontSize: 22),
-                      h3: context.uiText.heading.copyWith(fontSize: 18),
-                      blockquote: context.uiText.body.copyWith(
-                        color: context.uiColors.foregroundMuted,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      blockquoteDecoration: BoxDecoration(
-                        color: context.uiColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border(
-                          left: BorderSide(
-                            color: context.uiColors.border,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                      blockquotePadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      code: context.uiText.numeric,
-                      codeblockDecoration: BoxDecoration(
-                        color: context.uiColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      horizontalRuleDecoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: context.uiColors.border),
-                        ),
-                      ),
-                      listBullet: context.uiText.body,
-                      tableBorder: TableBorder.all(
-                        color: context.uiColors.border,
-                      ),
-                      a: context.uiText.body.copyWith(
-                        color: context.uiColors.primary,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
+                  RichMarkdownPreview(
+                    data: _contentController.text,
+                    imageResolver: _resolveImage,
                   )
                 else ...[
-                  Container(
-                    padding: EdgeInsets.symmetric(vertical: context.sz(4)),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: context.uiColors.border),
-                      ),
-                    ),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _ToolbarButton(
-                            icon: Icons.title,
-                            hint: 'Heading',
-                            onTap: () => _insertMarkdown('## ', ''),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.format_bold,
-                            hint: 'Bold',
-                            onTap: () => _insertMarkdown('**', '**'),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.format_italic,
-                            hint: 'Italic',
-                            onTap: () => _insertMarkdown('*', '*'),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.format_strikethrough,
-                            hint: 'Strikethrough',
-                            onTap: () => _insertMarkdown('~~', '~~'),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.format_quote,
-                            hint: 'Quote',
-                            onTap: () => _insertMarkdown('> ', ''),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 20,
-                            color: context.uiColors.border,
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.image_outlined,
-                            hint: 'Add photo',
-                            onTap: _pickImage,
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.upload_file_outlined,
-                            hint: 'Import document',
-                            onTap: _pickDocument,
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.link,
-                            hint: 'Link',
-                            onTap: () => _insertMarkdown('[', '](url)'),
-                          ),
-                          _ToolbarButton(
-                            icon: _listening
-                                ? Icons.stop_circle_outlined
-                                : Icons.mic_none_rounded,
-                            hint: _listening
-                                ? 'Stop dictation'
-                                : 'Dictate with voice',
-                            onTap: _toggleVoiceInput,
-                          ),
-                          Container(
-                            width: 1,
-                            height: 20,
-                            color: context.uiColors.border,
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.code,
-                            hint: 'Inline code',
-                            onTap: () => _insertMarkdown('`', '`'),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.data_object,
-                            hint: 'Mermaid diagram',
-                            onTap: () => _insertMarkdown(
-                              '\n```mermaid\ngraph TD;\n    A-->B;\n```\n',
-                              '',
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 20,
-                            color: context.uiColors.border,
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.format_list_bulleted,
-                            hint: 'Bulleted list',
-                            onTap: () => _insertMarkdown('- ', ''),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.format_list_numbered,
-                            hint: 'Numbered list',
-                            onTap: () => _insertMarkdown('1. ', ''),
-                          ),
-                          _ToolbarButton(
-                            icon: Icons.check_box_outlined,
-                            hint: 'Checklist item',
-                            onTap: () => _insertMarkdown('- [ ] ', ''),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
+                  RichMarkdownEditorField(
+                    key: _editorKey,
                     controller: _contentController,
-                    maxLines: null,
-                    style: context.uiText.body,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration.collapsed(
-                      hintText: 'Dear journal...',
-                      hintStyle: context.uiText.body.copyWith(
-                        color: context.uiColors.foregroundMuted,
-                      ),
-                    ),
+                    hintText: 'Dear journal\u2026',
+                    onChanged: () => setState(() {}),
                   ),
+                  // Clearance so the last lines of text aren't hidden behind
+                  // the floating formatting toolbar.
+                  const SizedBox(height: 64),
                 ],
               ],
             ),
-    );
-  }
-}
-
-class _ToolbarButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? hint;
-  const _ToolbarButton({required this.icon, required this.onTap, this.hint});
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon, size: 20, color: context.uiColors.foregroundMuted),
-      onPressed: onTap,
-      splashRadius: 20,
-      tooltip: hint,
     );
   }
 }
