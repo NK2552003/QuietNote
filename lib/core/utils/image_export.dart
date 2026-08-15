@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
@@ -23,18 +24,22 @@ class PngExporter {
     if (renderObject is! RenderRepaintBoundary) return null;
 
     final ui.Image image = await renderObject.toImage(pixelRatio: pixelRatio);
-    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData == null) return null;
+    try {
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
 
-    final Directory dir = await getApplicationDocumentsDirectory();
-    final String safeName = filename.trim().isEmpty
-        ? 'diagram'
-        : filename.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final String path = p.join(dir.path, 'exports', '$safeName.png');
-    final File file = File(path);
-    await file.parent.create(recursive: true);
-    await file.writeAsBytes(byteData.buffer.asUint8List());
-    return file;
+      final Directory dir = await getApplicationDocumentsDirectory();
+      final String safeName = filename.trim().isEmpty
+          ? 'diagram'
+          : filename.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final String path = p.join(dir.path, 'exports', '$safeName.png');
+      final File file = File(path);
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+      return file;
+    } finally {
+      image.dispose();
+    }
   }
 
   static Future<bool> exportAndShare({
@@ -43,9 +48,11 @@ class PngExporter {
   }) async {
     final File? file = await export(boundaryKey: boundaryKey, filename: filename);
     if (file == null) return false;
-    await Share.shareXFiles(
-      <XFile>[XFile(file.path, mimeType: 'image/png')],
-      text: filename,
+    await SharePlus.instance.share(
+      ShareParams(
+        files: <XFile>[XFile(file.path, mimeType: 'image/png')],
+        text: filename,
+      ),
     );
     return true;
   }
