@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/flutter-ui/flutter_ui.dart';
 import 'core/focus/floating_bubble_service.dart';
 import 'core/navigation/app_routes.dart';
+import 'core/security/app_lock_controller.dart';
+import 'core/security/app_lock_gate.dart';
 import 'core/settings/app_settings.dart';
 import 'core/settings/settings_repository.dart';
 import 'core/settings/theme_builder.dart';
@@ -69,12 +71,18 @@ class _HabitFlowAppState extends ConsumerState<HabitFlowApp> {
     _lifecycleListener = AppLifecycleListener(
       onResume: () {
         FloatingBubblePlatformService().notifyAppForeground();
+        ref.read(appLockProvider.notifier).onAppResumed();
+      },
+      onInactive: () {
+        ref.read(appLockProvider.notifier).onAppPaused();
       },
       onPause: () {
         FloatingBubblePlatformService().notifyAppBackground();
+        ref.read(appLockProvider.notifier).onAppPaused();
       },
       onHide: () {
         FloatingBubblePlatformService().notifyAppBackground();
+        ref.read(appLockProvider.notifier).onAppPaused();
       },
     );
   }
@@ -112,13 +120,13 @@ class _HabitFlowAppState extends ConsumerState<HabitFlowApp> {
         darkTheme: buildUiTheme(brightness: Brightness.dark, settings: settings)
             .toThemeData(),
         themeMode: settings.themeMode,
-        // UiToast.show(...) looks up the nearest UiToastScope ancestor.
-        // Wrapping it here (above the Navigator, inside MaterialApp's own
-        // `builder`) means every route — including AI Capture, which is the
-        // first screen to actually call UiToast.show — can surface toasts.
-        // Without this wrap, UiToast.show throws immediately.
-        builder: (context, child) => UiToastScope(child: child ?? const SizedBox.shrink()),
+        // AppLockGate protects the app whenever biometric lock is enabled.
+        // UiToastScope allows toasts across all screens.
+        builder: (context, child) => AppLockGate(
+          child: UiToastScope(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }
 }
+

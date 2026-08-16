@@ -27,6 +27,7 @@ import '../../features/settings/settings_appearance_screen.dart';
 import '../../features/settings/settings_notifications_screen.dart';
 import '../../features/settings/settings_ai_screen.dart';
 import '../../features/settings/settings_data_screen.dart';
+import '../../features/settings/settings_security_screen.dart';
 import '../../features/settings/settings_about_screen.dart';
 import '../../features/settings/profile_screen.dart';
 import '../../features/ai/ai_screen.dart';
@@ -157,6 +158,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/data',
       builder: (context, state) => const SettingsDataScreen(),
+    ),
+    GoRoute(
+      path: '/settings/security',
+      builder: (context, state) => const SettingsSecurityScreen(),
     ),
     GoRoute(
       path: '/settings/about',

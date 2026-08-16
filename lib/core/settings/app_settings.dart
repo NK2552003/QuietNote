@@ -118,11 +118,20 @@ class AppSettings {
     this.aiApiModel = '',
     this.aiApiKey = '',
     this.aiApiBaseUrl = '',
+    this.appLockEnabled = false,
+    this.appLockBiometricsEnabled = true,
+    this.appLockTimeoutSeconds = 0,
+    this.appLockCustomPin = '',
   });
 
   final ThemeMode themeMode;
   final UiAccent accent;
   final UiTextSize textSize;
+
+  final bool appLockEnabled;
+  final bool appLockBiometricsEnabled;
+  final int appLockTimeoutSeconds;
+  final String appLockCustomPin;
 
   final bool notificationsEnabled;
   final bool habitReminders;
@@ -250,6 +259,10 @@ class AppSettings {
     String? aiApiBaseUrl,
     String? aiApiModel,
     String? aiApiKey,
+    bool? appLockEnabled,
+    bool? appLockBiometricsEnabled,
+    int? appLockTimeoutSeconds,
+    String? appLockCustomPin,
   }) => AppSettings(
     themeMode: themeMode ?? this.themeMode,
     accent: accent ?? this.accent,
@@ -301,6 +314,12 @@ class AppSettings {
     aiApiBaseUrl: aiApiBaseUrl ?? this.aiApiBaseUrl,
     aiApiModel: aiApiModel ?? this.aiApiModel,
     aiApiKey: aiApiKey ?? this.aiApiKey,
+    appLockEnabled: appLockEnabled ?? this.appLockEnabled,
+    appLockBiometricsEnabled:
+        appLockBiometricsEnabled ?? this.appLockBiometricsEnabled,
+    appLockTimeoutSeconds:
+        appLockTimeoutSeconds ?? this.appLockTimeoutSeconds,
+    appLockCustomPin: appLockCustomPin ?? this.appLockCustomPin,
   );
 
   Map<String, String> toMap() => <String, String>{
@@ -343,6 +362,10 @@ class AppSettings {
     'aiApiBaseUrl': aiApiBaseUrl,
     'aiApiModel': aiApiModel,
     'aiApiKey': aiApiKey,
+    'appLockEnabled': '$appLockEnabled',
+    'appLockBiometricsEnabled': '$appLockBiometricsEnabled',
+    'appLockTimeoutSeconds': '$appLockTimeoutSeconds',
+    'appLockCustomPin': appLockCustomPin,
   };
 
   static AppSettings fromMap(Map<String, String> map) {
@@ -432,6 +455,10 @@ class AppSettings {
       aiApiBaseUrl: map['aiApiBaseUrl'] ?? '',
       aiApiModel: map['aiApiModel'] ?? '',
       aiApiKey: map['aiApiKey'] ?? '',
+      appLockEnabled: flag('appLockEnabled', false),
+      appLockBiometricsEnabled: flag('appLockBiometricsEnabled', true),
+      appLockTimeoutSeconds: number('appLockTimeoutSeconds', 0),
+      appLockCustomPin: map['appLockCustomPin'] ?? '',
     );
   }
 }

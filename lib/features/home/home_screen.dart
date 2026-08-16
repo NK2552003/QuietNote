@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/calendar_repository.dart';
 import 'package:quietnote/core/database/repositories/course_repository.dart';
@@ -112,9 +113,8 @@ class HomeScreen extends ConsumerWidget {
 
     return UiPage(
       header: UiHeader(
-        title: greetingText,
-        subtitle:
-            '${DateFormat('EEEE, MMMM d').format(selectedDay)} · Daily momentum & study hub',
+        leading: const QuietNoteMark(size: 28),
+        title: 'QuietNote',
         actions: [
           UiIconButton(
             icon: Icons.search_rounded,
@@ -131,7 +131,35 @@ class HomeScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Interactive 7-Day Week Strip
+          // 1. Welcome Greeting & Date Subtitle in Home Screen Display
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  greetingText,
+                  style: context.uiText.title.copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: context.uiColors.foreground,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${DateFormat('EEEE, MMMM d').format(selectedDay)} · Daily momentum & study hub',
+                  style: context.uiText.caption.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: context.uiColors.foregroundMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 2. Interactive 7-Day Week Strip
           _DateStrip(
             selected: selectedDay,
             onSelect: (d) {
