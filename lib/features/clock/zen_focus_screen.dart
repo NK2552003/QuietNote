@@ -449,7 +449,7 @@ class _ZenFocusScreenState extends ConsumerState<ZenFocusScreen>
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: isBreak
-                                        ? Colors.amber.shade800.withValues(alpha: 0.9)
+                                        ? const Color(0xFF6366F1)
                                         : Colors.redAccent.withValues(alpha: 0.85),
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(
@@ -461,12 +461,27 @@ class _ZenFocusScreenState extends ConsumerState<ZenFocusScreen>
                                   icon: Icon(
                                       isBreak ? Icons.play_arrow_rounded : Icons.stop_circle_outlined,
                                       size: 18),
-                                  label: Text(isBreak ? 'End Break' : 'End Focus'),
-                                  onPressed: () {
+                                  label: Text(isBreak ? 'Resume Focus' : 'End Focus'),
+                                  onPressed: () async {
                                     HapticFeedback.mediumImpact();
-                                    widget.onCancel();
+                                    if (isBreak) {
+                                      await FocusTimerService().skipBreakAndStartWork(ref, context: context);
+                                    } else {
+                                      widget.onCancel();
+                                    }
                                   },
                                 ),
+                                if (isBreak) ...[
+                                  const SizedBox(width: 10),
+                                  IconButton(
+                                    tooltip: 'End focus session',
+                                    icon: const Icon(Icons.stop_circle_outlined, color: Colors.white70),
+                                    onPressed: () {
+                                      HapticFeedback.mediumImpact();
+                                      widget.onCancel();
+                                    },
+                                  ),
+                                ],
                               ],
                             ),
                             const SizedBox(height: 12),

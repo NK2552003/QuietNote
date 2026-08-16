@@ -273,6 +273,63 @@ class FocusTimerService {
     }
   }
 
+  /// Ends break early and starts the next work cycle immediately.
+  Future<void> skipBreakAndStartWork(
+    WidgetRef ref, {
+    BuildContext? context,
+  }) async {
+    await AmbientAudioService().stopAlarm();
+    final settings = ref.read(settingsProvider).value ?? const AppSettings();
+    final activeSession = ref.read(activeFocusSessionProvider).value;
+    final preset = focusPresetFromId(activeSession?.presetId);
+    final now = DateTime.now();
+
+    await ref.read(focusSessionRepositoryProvider).incrementCycle();
+
+    final workMinutes = (preset != null && preset.config != null)
+        ? preset.config!.work
+        : (settings.focusSessionIntervalMinutes > 0
+            ? settings.focusSessionIntervalMinutes
+            : 25);
+    final nextWorkEnd = now.add(Duration(minutes: workMinutes));
+
+    await ref.read(focusSessionRepositoryProvider).extendActive(endsAt: nextWorkEnd);
+
+    await ref.read(settingsProvider.notifier).update(
+          (s) => s.copyWith(
+            focusSessionEndsAt: nextWorkEnd,
+            focusSessionStartedAt: now,
+            focusSessionPhase: 'work',
+            focusSessionIntervalMinutes: workMinutes,
+          ),
+        );
+
+    unawaited(NotificationService().showFocusTimerStatus(
+      nextWorkEnd,
+      phase: 'work',
+      presetLabel: preset?.chipLabel ?? '$workMinutes min',
+    ));
+
+    if (settings.floatingFocusBubbleEnabled) {
+      unawaited(FloatingBubblePlatformService().updateBubble(
+        endsAt: nextWorkEnd,
+        totalSeconds: workMinutes * 60,
+        phase: 'work',
+        label: preset?.chipLabel ?? '$workMinutes min',
+      ));
+    }
+
+    if (context != null && context.mounted) {
+      UiToast.show(
+        context,
+        title: 'Focus cycle started ($workMinutes min)',
+        message: 'Break ended. Ready for deep concentration!',
+        intent: UiIntent.primary,
+        icon: Icons.timer_outlined,
+      );
+    }
+  }
+
   /// Ends the active session, updating DB history and clearing runtime triggers.
   Future<void> finishSession(
     WidgetRef ref, {

@@ -101,8 +101,16 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   }
 
   Future<void> _showCustomDurationDialog() async {
-    final workCtrl = TextEditingController(text: '$_minutes');
-    final breakCtrl = TextEditingController(text: '$_customBreakMinutes');
+    final settings = ref.read(settingsProvider).value ?? const AppSettings();
+    final initialWork = _preset == FocusPreset.custom
+        ? _minutes
+        : (settings.focusSessionIntervalMinutes > 0 ? settings.focusSessionIntervalMinutes : _minutes);
+    final initialBreak = _preset == FocusPreset.custom
+        ? _customBreakMinutes
+        : (settings.focusSessionBreakMinutes > 0 ? settings.focusSessionBreakMinutes : _customBreakMinutes);
+
+    final workCtrl = TextEditingController(text: '$initialWork');
+    final breakCtrl = TextEditingController(text: '$initialBreak');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -138,7 +146,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
               decoration: const InputDecoration(
                 labelText: 'Break Duration (minutes, 0 for none)',
                 hintText: 'e.g. 5',
-                prefixIcon: Icon(Icons.coffee_outlined),
+                prefixIcon: Icon(Icons.local_cafe_outlined),
               ),
             ),
           ],
@@ -160,14 +168,20 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       final work = int.tryParse(workCtrl.text.trim()) ?? _minutes;
       final brk = int.tryParse(breakCtrl.text.trim()) ?? _customBreakMinutes;
       if (work > 0) {
+        final clampedWork = work.clamp(1, 300);
+        final clampedBreak = brk.clamp(0, 120);
         setState(() {
-          _minutes = work.clamp(1, 300);
-          _customBreakMinutes = brk.clamp(0, 120);
+          _minutes = clampedWork;
+          _customBreakMinutes = clampedBreak;
           _preset = FocusPreset.custom;
         });
-        await ref
-            .read(settingsProvider.notifier)
-            .update((s) => s.copyWith(lastUsedPresetId: FocusPreset.custom.name));
+        await ref.read(settingsProvider.notifier).update(
+              (s) => s.copyWith(
+                lastUsedPresetId: FocusPreset.custom.name,
+                focusSessionIntervalMinutes: clampedWork,
+                focusSessionBreakMinutes: clampedBreak,
+              ),
+            );
       }
     }
   }
@@ -225,12 +239,23 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     );
   }
 
-  Future<void> _startTimer() async => _startFocus(_minutes);
+  Future<void> _startTimer() async {
+    final settings = ref.read(settingsProvider).value ?? const AppSettings();
+    final preset = _selectedPreset(settings);
+    final int workMins = (preset != null && preset != FocusPreset.custom && preset.config != null)
+        ? preset.config!.work
+        : _minutes;
+    await _startFocus(workMins);
+  }
 
   Future<void> _startFocus(int minutes) async {
-    final preset = _preset;
+    final settings = ref.read(settingsProvider).value ?? const AppSettings();
+    final preset = _preset ?? _selectedPreset(settings);
+    final int effectiveMinutes = (preset == FocusPreset.custom || preset == null)
+        ? (minutes > 0 ? minutes : (_minutes > 0 ? _minutes : 25))
+        : (preset.config?.work ?? minutes);
     final int breakMinutes = (preset == null || preset == FocusPreset.custom)
-        ? _customBreakMinutes
+        ? (settings.focusSessionBreakMinutes > 0 ? settings.focusSessionBreakMinutes : _customBreakMinutes)
         : (preset.config?.brk ?? _customBreakMinutes);
     setState(() => _scheduling = true);
 
@@ -514,6 +539,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
               phase: settings.focusSessionPhase,
               cyclesCompleted: activeSession?.cyclesCompleted ?? 0,
               presetLabel: focusPresetFromId(activeSession?.presetId)?.chipLabel,
+              onResumeWork: () => FocusTimerService().skipBreakAndStartWork(ref, context: context),
             ),
           ],
           const SizedBox(height: 18),
@@ -1102,6 +1128,7 @@ class _FocusLiveCard extends StatelessWidget {
     required this.onCancel,
     this.onExtend,
     this.onZen,
+    this.onResumeWork,
     required this.phase,
     required this.cyclesCompleted,
     this.presetLabel,
@@ -1112,6 +1139,7 @@ class _FocusLiveCard extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback? onExtend;
   final VoidCallback? onZen;
+  final VoidCallback? onResumeWork;
   final String phase;
   final int cyclesCompleted;
   final String? presetLabel;
@@ -1204,6 +1232,14 @@ class _FocusLiveCard extends StatelessWidget {
               ],
             ),
           ),
+          if (isBreak && onResumeWork != null) ...[
+            UiIconButton(
+              icon: Icons.play_arrow_rounded,
+              tooltip: 'Resume Focus & Skip Break',
+              onPressed: onResumeWork,
+            ),
+            const SizedBox(width: 2),
+          ],
           if (onExtend != null) ...[
             UiIconButton(
               icon: Icons.more_time_rounded,
