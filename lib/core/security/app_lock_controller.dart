@@ -15,7 +15,7 @@ class AppLockState {
     this.isAuthenticating = false,
     this.pausedAt,
     this.errorMessage,
-    this.showPinFallback = false,
+    this.deviceSupported = true,
   });
 
   final bool isLocked;
@@ -23,7 +23,7 @@ class AppLockState {
   final bool isAuthenticating;
   final DateTime? pausedAt;
   final String? errorMessage;
-  final bool showPinFallback;
+  final bool deviceSupported;
 
   AppLockState copyWith({
     bool? isLocked,
@@ -33,7 +33,7 @@ class AppLockState {
     bool clearPausedAt = false,
     String? errorMessage,
     bool clearError = false,
-    bool? showPinFallback,
+    bool? deviceSupported,
   }) {
     return AppLockState(
       isLocked: isLocked ?? this.isLocked,
@@ -42,7 +42,7 @@ class AppLockState {
       isAuthenticating: isAuthenticating ?? this.isAuthenticating,
       pausedAt: clearPausedAt ? null : (pausedAt ?? this.pausedAt),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      showPinFallback: showPinFallback ?? this.showPinFallback,
+      deviceSupported: deviceSupported ?? this.deviceSupported,
     );
   }
 }
@@ -55,7 +55,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   final Ref ref;
 
   void _init() {
-    // Listen to settings changes and sync initial lock state
+    // Listen to settings changes and sync lock state
     ref.listen<AsyncValue<AppSettings>>(
       settingsProvider,
       (previous, next) {
@@ -70,11 +70,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
           } else {
             // App lock enabled: if not unlocked yet this session, lock it
             if (!state.hasUnlockedThisSession) {
-              final bool hasPin = settings.appLockCustomPin.trim().isNotEmpty;
-              state = state.copyWith(
-                isLocked: true,
-                showPinFallback: !settings.appLockBiometricsEnabled && hasPin,
-              );
+              state = state.copyWith(isLocked: true);
             }
           }
         }
@@ -84,14 +80,12 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   }
 
   void lock() {
-    final settings = ref.read(settingsProvider).value ?? const AppSettings();
-    final bool hasPin = settings.appLockCustomPin.trim().isNotEmpty;
     state = state.copyWith(
       isLocked: true,
       hasUnlockedThisSession: false,
       clearError: true,
       clearPausedAt: true,
-      showPinFallback: !settings.appLockBiometricsEnabled && hasPin,
+      isAuthenticating: false,
     );
   }
 
@@ -103,19 +97,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       isAuthenticating: false,
       clearError: true,
       clearPausedAt: true,
-      showPinFallback: false,
     );
-  }
-
-  void togglePinFallback(bool show) {
-    state = state.copyWith(showPinFallback: show, clearError: true);
-  }
-
-  bool isPinCorrect(String enteredPin) {
-    final settings = ref.read(settingsProvider).value ?? const AppSettings();
-    final savedPin = settings.appLockCustomPin.trim();
-    if (savedPin.isEmpty) return false;
-    return enteredPin.trim() == savedPin;
   }
 
   void setErrorMessage(String message) {
@@ -126,18 +108,19 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     state = state.copyWith(clearError: true);
   }
 
+  /// Triggers native Android/iOS biometric & device screen lock (PIN/Pattern/Password) prompt.
   Future<bool> authenticateBiometric({
     String reason = 'Unlock QuietNote',
     bool autoUnlock = true,
   }) async {
     if (state.isAuthenticating) return false;
     state = state.copyWith(isAuthenticating: true, clearError: true);
+
     try {
       final biometric = ref.read(biometricServiceProvider);
-      final BiometricAuthResult result =
-          await biometric.authenticateDetailed(
+      final BiometricAuthResult result = await biometric.authenticateDetailed(
         localizedReason: reason,
-        biometricOnly: false,
+        biometricOnly: false, // Allows native Android PIN/Pattern/Password & Biometrics
       );
 
       if (result.success) {
@@ -147,14 +130,10 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
         }
         return true;
       } else if (result.notEnrolled || result.notAvailable) {
-        final settings =
-            ref.read(settingsProvider).value ?? const AppSettings();
         state = state.copyWith(
           isAuthenticating: false,
-          showPinFallback: settings.appLockCustomPin.isNotEmpty,
-          errorMessage: settings.appLockCustomPin.isNotEmpty
-              ? 'Biometrics not configured on device. Enter your PIN.'
-              : 'Biometrics not enrolled. Set a fallback PIN in Settings.',
+          errorMessage:
+              'No screen lock or biometric enrolled in device settings.',
         );
         return false;
       } else if (result.userCanceled) {
@@ -177,30 +156,8 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     }
   }
 
-  bool verifyPin(String enteredPin) {
-    final settings = ref.read(settingsProvider).value ?? const AppSettings();
-    final savedPin = settings.appLockCustomPin.trim();
-
-    if (savedPin.isEmpty) {
-      state = state.copyWith(
-        errorMessage: 'No fallback PIN is configured. Use biometric unlock.',
-      );
-      HapticFeedback.vibrate();
-      return false;
-    }
-
-    if (enteredPin.trim() == savedPin) {
-      unlock();
-      return true;
-    } else {
-      HapticFeedback.vibrate();
-      state = state.copyWith(errorMessage: 'Incorrect PIN. Please try again.');
-      return false;
-    }
-  }
-
   void onAppPaused() {
-    // When biometric prompt or system dialog opens, don't treat as user leaving app
+    // When biometric prompt or system dialog opens, do NOT treat as user leaving app.
     if (state.isAuthenticating) return;
     if (state.pausedAt == null) {
       state = state.copyWith(pausedAt: DateTime.now());
@@ -216,13 +173,16 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       return;
     }
 
+    // When returning from system biometric dialog, do not re-lock.
     if (state.isAuthenticating) {
       return;
     }
 
-    // If never unlocked this session, lock immediately
+    // If never unlocked this session, keep locked
     if (!state.hasUnlockedThisSession) {
-      lock();
+      if (!state.isLocked) {
+        lock();
+      }
       return;
     }
 

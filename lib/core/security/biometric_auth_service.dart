@@ -24,12 +24,16 @@ class BiometricAuthResult {
       BiometricAuthResult(success: true);
 }
 
-/// Device biometric hardware query and authentication service.
+/// Device biometric & native screen lock query and authentication service.
 class BiometricAuthService {
   BiometricAuthService({LocalAuthentication? auth})
       : _auth = auth ?? LocalAuthentication();
 
   final LocalAuthentication _auth;
+  bool _isAuthRunning = false;
+
+  /// Whether an authentication prompt is currently open.
+  bool get isAuthRunning => _isAuthRunning;
 
   /// Whether the device hardware supports biometrics or device passcode.
   Future<bool> isDeviceSupported() async {
@@ -71,22 +75,34 @@ class BiometricAuthService {
     }
   }
 
+  /// Checks whether any authentication method (biometric or device PIN/pattern/password)
+  /// is supported and configured on this device.
+  Future<bool> canAuthenticate() async {
+    try {
+      final bool isSupported = await _auth.isDeviceSupported();
+      final bool canCheck = await _auth.canCheckBiometrics;
+      return isSupported || canCheck;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Human-readable label for available biometrics on this device.
   Future<String> getBiometricLabel() async {
     final List<BiometricType> types = await getAvailableBiometrics();
     if (types.contains(BiometricType.face)) {
       return 'Face Unlock / Biometrics';
     } else if (types.contains(BiometricType.fingerprint)) {
-      return 'Fingerprint';
+      return 'Fingerprint / Biometrics';
     } else if (types.contains(BiometricType.iris)) {
       return 'Iris Scanner';
     } else if (types.isNotEmpty) {
       return 'Biometrics';
     }
-    return 'Device Credentials / Passcode';
+    return 'Device Screen Lock / Passcode';
   }
 
-  /// Authenticates using biometrics or device PIN/passcode.
+  /// Authenticates using biometrics or native device screen lock (PIN/Pattern/Password).
   Future<bool> authenticate({
     String localizedReason = 'Authenticate to access QuietNote',
     bool biometricOnly = false,
@@ -99,10 +115,19 @@ class BiometricAuthService {
   }
 
   /// Authenticates with a granular [BiometricAuthResult] for detailed error handling.
+  /// Prevents concurrent or overlapping authentication dialogs.
   Future<BiometricAuthResult> authenticateDetailed({
-    String localizedReason = 'Authenticate to access QuietNote',
+    String localizedReason = 'Unlock QuietNote with biometrics or screen lock',
     bool biometricOnly = false,
   }) async {
+    if (_isAuthRunning) {
+      return const BiometricAuthResult(
+        success: false,
+        errorMessage: 'Authentication is already in progress.',
+      );
+    }
+
+    _isAuthRunning = true;
     try {
       final bool canCheck = await _auth.canCheckBiometrics;
       final bool isSupported = await _auth.isDeviceSupported();
@@ -111,7 +136,7 @@ class BiometricAuthService {
         return const BiometricAuthResult(
           success: false,
           notAvailable: true,
-          errorMessage: 'Biometrics not supported on this device.',
+          errorMessage: 'Device authentication is not available on this device.',
         );
       }
 
@@ -131,7 +156,7 @@ class BiometricAuthService {
         return const BiometricAuthResult(
           success: false,
           userCanceled: true,
-          errorMessage: 'Authentication was canceled or dismissed.',
+          errorMessage: 'Authentication canceled.',
         );
       }
     } on PlatformException catch (e) {
@@ -143,7 +168,8 @@ class BiometricAuthService {
           code.toLowerCase().contains('notavailable');
       final bool canceled = code == auth_error.permanentlyLockedOut ||
           code.toLowerCase().contains('cancel') ||
-          code.toLowerCase().contains('usercancel');
+          code.toLowerCase().contains('usercancel') ||
+          code.toLowerCase().contains('auth_in_progress');
 
       return BiometricAuthResult(
         success: false,
@@ -158,12 +184,15 @@ class BiometricAuthService {
         success: false,
         errorMessage: 'Biometric error: $e',
       );
+    } finally {
+      _isAuthRunning = false;
     }
   }
 
   /// Cancels active authentication if currently pending.
   Future<bool> stopAuthentication() async {
     try {
+      _isAuthRunning = false;
       return await _auth.stopAuthentication();
     } catch (_) {
       return false;

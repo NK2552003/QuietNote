@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/security/app_lock_controller.dart';
-import 'package:quietnote/core/security/pin_setup_sheet.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
 import 'package:quietnote/features/settings/widgets/settings_widgets.dart';
 
-/// Screen to configure biometric app lock, lock timeouts, and fallback PIN.
+/// Screen to configure biometric & device screen lock protection and timeouts.
 class SettingsSecurityScreen extends ConsumerStatefulWidget {
   const SettingsSecurityScreen({super.key});
 
@@ -18,7 +17,6 @@ class SettingsSecurityScreen extends ConsumerStatefulWidget {
 
 class _SettingsSecurityScreenState
     extends ConsumerState<SettingsSecurityScreen> {
-  bool _isBiometricsEnrolled = false;
   String _hardwareStatus = 'Checking hardware…';
 
   @override
@@ -36,55 +34,29 @@ class _SettingsSecurityScreenState
 
     if (!mounted) return;
     setState(() {
-      _isBiometricsEnrolled = supported && enrolled && biometrics.isNotEmpty;
-      if (!supported) {
-        _hardwareStatus = 'Biometrics not supported on this device';
-      } else if (biometrics.isEmpty || !enrolled) {
-        _hardwareStatus =
-            'Sensor available ($label) · No credentials enrolled in OS settings';
+      if (!supported && biometrics.isEmpty) {
+        _hardwareStatus = 'Device security / biometrics not supported';
+      } else if (biometrics.isNotEmpty && enrolled) {
+        _hardwareStatus = 'Biometrics enrolled ($label)';
       } else {
-        _hardwareStatus = 'Supported & Enrolled ($label)';
+        _hardwareStatus = 'Device Screen Lock / Passcode supported';
       }
     });
   }
 
   Future<void> _toggleAppLock(bool value) async {
-    if (!value) {
-      ref.read(settingsProvider.notifier).update(
-            (AppSettings s) => s.copyWith(appLockEnabled: false),
-          );
-      ref.read(appLockProvider.notifier).unlock();
-      if (mounted) {
-        UiToast.show(
-          context,
-          title: 'App Lock Disabled',
-          message: 'Authentication is no longer required to open QuietNote.',
-          intent: UiIntent.info,
-          icon: Icons.lock_open_rounded,
-        );
-      }
-      return;
-    }
-
-    // When enabling App Lock:
-    final settings = ref.read(settingsProvider).value ?? const AppSettings();
     final service = ref.read(biometricServiceProvider);
-    final supported = await service.isDeviceSupported();
-    final biometrics = await service.getAvailableBiometrics();
-    final enrolled = await service.isBiometricsEnrolled();
-    final bool canUseBiometrics = supported && enrolled && biometrics.isNotEmpty;
-    final String existingPin = settings.appLockCustomPin.trim();
 
-    if (canUseBiometrics) {
-      // Prompt biometric confirmation to test sensor
+    if (!value) {
+      // Require verification to disable app lock
       final result = await service.authenticateDetailed(
-        localizedReason: 'Confirm biometrics to enable App Lock',
+        localizedReason: 'Authenticate to disable App Lock',
       );
 
       if (result.success) {
         ref.read(settingsProvider.notifier).update(
               (AppSettings s) => s.copyWith(
-                appLockEnabled: true,
+                appLockEnabled: false,
                 appLockBiometricsEnabled: true,
               ),
             );
@@ -92,50 +64,35 @@ class _SettingsSecurityScreenState
         if (mounted) {
           UiToast.show(
             context,
-            title: 'App Lock Enabled',
-            message: 'QuietNote is now secured with biometrics.',
-            intent: UiIntent.success,
-            icon: Icons.lock_outline,
+            title: 'App Lock Disabled',
+            message: 'QuietNote is no longer protected by App Lock.',
+            intent: UiIntent.info,
+            icon: Icons.lock_open_rounded,
           );
         }
-        return;
       } else if (result.userCanceled) {
         if (mounted) {
           UiToast.show(
             context,
-            title: 'Setup Canceled',
-            message: 'App lock was not enabled.',
+            title: 'Canceled',
+            message: 'App lock remains enabled.',
             intent: UiIntent.info,
           );
         }
-        return;
       }
-
-      // If biometrics had an error or user preferred PIN:
-      if (existingPin.isNotEmpty) {
-        ref.read(settingsProvider.notifier).update(
-              (AppSettings s) => s.copyWith(appLockEnabled: true),
-            );
-        ref.read(appLockProvider.notifier).unlock();
-        if (mounted) {
-          UiToast.show(
-            context,
-            title: 'App Lock Enabled',
-            message: 'QuietNote is secured with your custom PIN.',
-            intent: UiIntent.success,
-            icon: Icons.lock_outline,
-          );
-        }
-        return;
-      }
+      return;
     }
 
-    // If device does not have biometrics enrolled (or biometrics not supported):
-    if (existingPin.isNotEmpty) {
+    // When enabling App Lock: verify with native device authentication
+    final result = await service.authenticateDetailed(
+      localizedReason: 'Authenticate to enable App Lock for QuietNote',
+    );
+
+    if (result.success) {
       ref.read(settingsProvider.notifier).update(
             (AppSettings s) => s.copyWith(
               appLockEnabled: true,
-              appLockBiometricsEnabled: false,
+              appLockBiometricsEnabled: true,
             ),
           );
       ref.read(appLockProvider.notifier).unlock();
@@ -143,45 +100,29 @@ class _SettingsSecurityScreenState
         UiToast.show(
           context,
           title: 'App Lock Enabled',
-          message: 'QuietNote is secured with your passcode PIN.',
+          message: 'QuietNote is secured with your device biometric & screen lock.',
           intent: UiIntent.success,
           icon: Icons.lock_outline,
         );
       }
-    } else {
-      // Prompt user to set up a 4-digit PIN first via PinSetupSheet
+    } else if (result.userCanceled) {
       if (mounted) {
-        final String? savedPin =
-            await _showPinSheet('', settings.accent.swatch);
-        if (savedPin != null && savedPin.isNotEmpty) {
-          ref.read(settingsProvider.notifier).update(
-                (AppSettings s) => s.copyWith(
-                  appLockEnabled: true,
-                  appLockBiometricsEnabled: false,
-                  appLockCustomPin: savedPin,
-                ),
-              );
-          ref.read(appLockProvider.notifier).unlock();
-          if (mounted) {
-            UiToast.show(
-              context,
-              title: 'App Lock Enabled',
-              message: 'QuietNote is secured with your 4-digit PIN.',
-              intent: UiIntent.success,
-              icon: Icons.lock_outline,
-            );
-          }
-        } else {
-          if (mounted) {
-            UiToast.show(
-              context,
-              title: 'PIN Required',
-              message:
-                  'A 4-digit PIN is required to enable App Lock without biometrics.',
-              intent: UiIntent.info,
-            );
-          }
-        }
+        UiToast.show(
+          context,
+          title: 'Setup Canceled',
+          message: 'App lock was not enabled.',
+          intent: UiIntent.info,
+        );
+      }
+    } else {
+      if (mounted) {
+        UiToast.show(
+          context,
+          title: 'Authentication Required',
+          message: result.errorMessage ??
+              'Please set up a screen lock (PIN, Pattern, or Fingerprint) in device settings.',
+          intent: UiIntent.danger,
+        );
       }
     }
   }
@@ -255,29 +196,6 @@ class _SettingsSecurityScreenState
     }
   }
 
-  Future<String?> _showPinSheet(String currentPin, Color accentColor) async {
-    final String? newPin = await PinSetupSheet.show(
-      context,
-      currentPin: currentPin,
-      accentColor: accentColor,
-    );
-
-    if (newPin != null && mounted) {
-      ref.read(settingsProvider.notifier).update(
-            (AppSettings s) => s.copyWith(appLockCustomPin: newPin),
-          );
-      UiToast.show(
-        context,
-        title: newPin.isEmpty ? 'PIN Removed' : 'PIN Saved',
-        message: newPin.isEmpty
-            ? 'Passcode PIN has been cleared.'
-            : 'Your 4-digit PIN has been configured.',
-        intent: UiIntent.success,
-      );
-    }
-    return newPin;
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).value ?? const AppSettings();
@@ -301,9 +219,8 @@ class _SettingsSecurityScreenState
             SettingsSwitchTile(
               icon: Icons.security_rounded,
               title: 'Require App Lock',
-              description: _isBiometricsEnrolled
-                  ? 'Unlock with biometrics or PIN passcode'
-                  : 'Unlock with 4-digit PIN passcode',
+              description:
+                  'Protect QuietNote with device fingerprint, face unlock, or screen lock',
               value: settings.appLockEnabled,
               onChanged: _toggleAppLock,
             ),
@@ -316,42 +233,17 @@ class _SettingsSecurityScreenState
                 onTap: () =>
                     _showTimeoutPicker(settings.appLockTimeoutSeconds),
               ),
-              if (_isBiometricsEnrolled)
-                SettingsSwitchTile(
-                  icon: Icons.fingerprint_rounded,
-                  title: 'Biometric Unlock',
-                  description: 'Allow Face ID, fingerprint, or device credentials',
-                  value: settings.appLockBiometricsEnabled,
-                  onChanged: (v) {
-                    ref.read(settingsProvider.notifier).update(
-                          (AppSettings s) =>
-                              s.copyWith(appLockBiometricsEnabled: v),
-                        );
-                  },
-                ),
-              SettingsTile(
-                icon: Icons.pin_outlined,
-                title: 'Passcode PIN',
-                description: settings.appLockCustomPin.isEmpty
-                    ? 'None set (4-digit numeric passcode)'
-                    : '4-digit PIN configured',
-                value: settings.appLockCustomPin.isEmpty ? 'Set' : 'Edit',
-                onTap: () => _showPinSheet(
-                  settings.appLockCustomPin,
-                  settings.accent.swatch,
-                ),
-              ),
             ],
           ],
         ),
 
         // ── Device Biometric Status ──
         SettingsSection(
-          title: 'Device Hardware',
+          title: 'Device Hardware & Security',
           children: <Widget>[
             SettingsTile(
               icon: Icons.perm_device_information_rounded,
-              title: 'Biometric Sensor Status',
+              title: 'Security Status',
               description: _hardwareStatus,
               showChevron: false,
             ),
@@ -360,13 +252,13 @@ class _SettingsSecurityScreenState
 
         // ── Privacy Assurance ──
         const SettingsSection(
-          title: 'Privacy & Security Guard',
+          title: 'Privacy & Hardware Security',
           children: <Widget>[
             SettingsTile(
               icon: Icons.shield_outlined,
               title: '100% On-Device Protection',
               description:
-                  'Biometric authentication and PIN encryption are handled on-device. QuietNote never transmits or stores raw biometrics.',
+                  'QuietNote leverages your device’s secure hardware (BiometricPrompt / Secure Enclave). Authentication is always verified locally by the operating system.',
               showChevron: false,
             ),
           ],
