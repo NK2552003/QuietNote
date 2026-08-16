@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/markdown_kit/code_block.dart';
+import 'package:quietnote/core/markdown_kit/html_block.dart';
 import 'package:quietnote/core/markdown_kit/inline_balance.dart';
 import 'package:quietnote/core/markdown_kit/markdown_outline.dart';
 import 'package:quietnote/core/markdown_kit/math_syntax.dart';
@@ -49,12 +50,20 @@ class RichMarkdownPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool dark = context.ui.brightness == Brightness.dark;
     final String raw = data.trim().isEmpty ? emptyPlaceholder : data;
-    final String source = normalizeHeadingBoundaries(neutralizeDanglingCustomMarkers(raw));
+    // Raw HTML is pulled out (and replaced with inert placeholder tokens)
+    // before any of the markdown-specific normalization passes below run,
+    // so a `$`/`==` inside an HTML attribute or an `<img>`'s `alt` text is
+    // never mistaken for a dangling math/highlight marker. See
+    // html_block.dart for how the placeholders are turned back into
+    // widgets via the 'html_node' builder registered in [_markdownBody].
+    final Map<String, HtmlNode> htmlRegistry = <String, HtmlNode>{};
+    final String htmlProcessed = renderSafeHtml(raw, htmlRegistry);
+    final String source = normalizeHeadingBoundaries(neutralizeDanglingCustomMarkers(htmlProcessed));
     final MarkdownStyleSheet styleSheet = buildStyleSheet(context);
 
     final MarkdownOutlineController? outline = outlineController;
     if (outline == null) {
-      return _body(context, source, styleSheet, dark);
+      return _body(context, source, styleSheet, dark, htmlRegistry);
     }
 
     // Headings are rendered by flutter_markdown's own h1–h6 path (never by a
@@ -74,7 +83,7 @@ class RichMarkdownPreview extends StatelessWidget {
     final List<Widget> children = <Widget>[];
     for (int i = 0; i < sections.length; i++) {
       final _MarkdownSection section = sections[i];
-      Widget child = _body(context, section.markdown, styleSheet, dark);
+      Widget child = _body(context, section.markdown, styleSheet, dark, htmlRegistry);
 
       final String? title = section.title;
       if (title != null && section.level != null) {
@@ -113,6 +122,7 @@ class RichMarkdownPreview extends StatelessWidget {
     String source,
     MarkdownStyleSheet styleSheet,
     bool dark,
+    Map<String, HtmlNode> htmlRegistry,
   ) {
     // GFM tables are pulled out of the markdown before it ever reaches
     // `MarkdownBody` and rendered by [ScrollableTableBuilder.buildTable]
@@ -138,14 +148,14 @@ class RichMarkdownPreview extends StatelessWidget {
       // Either not a table piece, or it didn't actually parse as one (an
       // over-eager match on ordinary text with pipes in it, say) — fall
       // back to rendering it as plain markdown so nothing is ever lost.
-      child ??= _markdownBody(context, piece.text, styleSheet, dark, tableBuilder);
+      child ??= _markdownBody(context, piece.text, styleSheet, dark, tableBuilder, htmlRegistry);
 
       if (children.isNotEmpty) children.add(SizedBox(height: spacing));
       children.add(child);
     }
 
     if (children.isEmpty) {
-      return _markdownBody(context, source, styleSheet, dark, tableBuilder);
+      return _markdownBody(context, source, styleSheet, dark, tableBuilder, htmlRegistry);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -160,6 +170,7 @@ class RichMarkdownPreview extends StatelessWidget {
     MarkdownStyleSheet styleSheet,
     bool dark,
     ScrollableTableBuilder tableBuilder,
+    Map<String, HtmlNode> htmlRegistry,
   ) {
     return MarkdownBody(
       extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -170,12 +181,23 @@ class RichMarkdownPreview extends StatelessWidget {
         MathBlockSyntax(),
         MathInlineSyntax(),
         HighlightMarkSyntax(),
+        HtmlPlaceholderSyntax(),
       ],
       builders: <String, MarkdownElementBuilder>{
         'pre': RichCodeBlockBuilder(dark: dark),
         'math_inline': MathInlineBuilder(),
         'math_block': MathBlockBuilder(),
         'mark': HighlightMarkBuilder(dark: dark),
+        // Composes with the builders above exactly the same way — see
+        // html_block.dart for the safe-HTML-subset parsing this renders.
+        'html_node': HtmlInlineBuilder(
+          registry: htmlRegistry,
+          styleSheet: styleSheet,
+          dark: dark,
+          tableBuilder: tableBuilder,
+          selectable: selectable,
+          resolveImage: imageResolver == null ? null : (Uri uri) => imageResolver!(context, uri),
+        ),
         // Kept registered as a harmless fallback for any table that isn't
         // caught by [extractTableBlocks] above (belt and braces — the
         // extraction is line-based and deliberately conservative, so an

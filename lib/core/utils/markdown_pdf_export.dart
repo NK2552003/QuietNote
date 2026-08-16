@@ -97,7 +97,7 @@ class MarkdownPdfExporter {
               alignment: pw.Alignment.centerLeft,
               margin: const pw.EdgeInsets.only(bottom: 16),
               padding: const pw.EdgeInsets.only(bottom: 6),
-              decoration: pw.BoxDecoration(
+              decoration: const pw.BoxDecoration(
                 border: pw.Border(
                   bottom: pw.BorderSide(
                     color: _PdfPalette.hairline,
@@ -517,7 +517,7 @@ class _PdfMarkdownBuilder {
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.fromLTRB(12, 8, 12, 8),
-          decoration: pw.BoxDecoration(
+          decoration: const pw.BoxDecoration(
             color: _PdfPalette.codeBackground,
             border: pw.Border(
               left: pw.BorderSide(color: _PdfPalette.hairline, width: 3),
@@ -673,7 +673,7 @@ class _PdfMarkdownBuilder {
               // scales down (preserving aspect ratio) instead of forcing
               // an impossible layout.
               child: pw.ConstrainedBox(
-                constraints: pw.BoxConstraints(
+                constraints: const pw.BoxConstraints(
                   maxWidth: _contentWidth - 18,
                   maxHeight: _contentHeight - 60,
                 ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:markdown/markdown.dart' as md;
+import 'package:quietnote/core/markdown_kit/html_block.dart';
 import 'package:quietnote/core/markdown_kit/math_syntax.dart';
 
 /// Mirrors `flutter_markdown`'s internal block/inline bookkeeping closely
@@ -32,7 +33,7 @@ import 'package:quietnote/core/markdown_kit/math_syntax.dart';
 /// inline span to close out on. Any unexpected failure here answers
 /// `true`: the flush paragraph is invisible, so over-applying it is always
 /// safer than missing a crash.
-bool markdownLeaksInlineStack(String source, {Set<String> blockBuilderTags = const <String>{'pre'}, Set<String> builderTags = const <String>{'pre', 'math_inline', 'math_block', 'mark'}}) {
+bool markdownLeaksInlineStack(String source, {Set<String> blockBuilderTags = const <String>{'pre'}, Set<String> builderTags = const <String>{'pre', 'math_inline', 'math_block', 'mark', 'html_node'}}) {
   try {
     final md.Document document = md.Document(
       extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -40,6 +41,7 @@ bool markdownLeaksInlineStack(String source, {Set<String> blockBuilderTags = con
         MathBlockSyntax(),
         MathInlineSyntax(),
         HighlightMarkSyntax(),
+        HtmlPlaceholderSyntax(),
       ],
       encodeHtml: false,
     );

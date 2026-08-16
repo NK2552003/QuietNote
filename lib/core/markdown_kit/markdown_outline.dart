@@ -77,12 +77,7 @@ class MarkdownOutlineFab extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         if (controller.headings.isEmpty) return const SizedBox.shrink();
-        return FloatingActionButton(
-          heroTag: 'markdown-outline-fab',
-          tooltip: 'Jump to section',
-          onPressed: () => _openOutline(context),
-          child: const Icon(Icons.format_list_bulleted),
-        );
+        return _OutlineFabButton(onTap: () => _openOutline(context));
       },
     );
   }
@@ -154,6 +149,82 @@ class MarkdownOutlineFab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The actual floating button [MarkdownOutlineFab] shows. Deliberately
+/// *not* a Material [FloatingActionButton] — that renders as a solid,
+/// fully-opaque circle, which reads as a different design system next to
+/// the frosted glass capsule [UiNavShell] uses for its own bottom dock.
+/// This reuses that exact chrome (translucent blurred surface, hairline
+/// border, soft drop shadow, dark/light-aware tints) so a preview screen's
+/// floating button and the app's nav dock read as the same design family.
+/// Icon-only (no label/underline) so it reads as a single glanceable
+/// action, matching the dock's own icon-only tab buttons.
+class _OutlineFabButton extends StatelessWidget {
+  const _OutlineFabButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.ui;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color activeFg = isDark ? Colors.white : theme.colors.primary;
+
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 18,
+            spreadRadius: 0,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isDark
+                ? const Color(0xDC1A1817)
+                : theme.colors.surface.withValues(alpha: 0.85),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 1.2,
+            ),
+          ),
+          child: UiInteractive(
+            onTap: onTap,
+            tooltip: 'Jump to section',
+            semanticLabel: 'Jump to section',
+            builder: (context, state) {
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                curve: Curves.fastOutSlowIn,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: state.hovered
+                      ? (isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : theme.colors.primary.withValues(alpha: 0.06))
+                      : Colors.transparent,
+                ),
+                child: Center(
+                  child: Icon(Icons.format_list_bulleted_rounded, size: 22, color: activeFg),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }

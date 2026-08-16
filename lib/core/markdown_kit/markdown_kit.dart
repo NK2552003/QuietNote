@@ -2,6 +2,7 @@ library;
 
 export 'chart_block.dart';
 export 'code_block.dart';
+export 'html_block.dart';
 export 'inline_balance.dart';
 export 'markdown_editor_field.dart';
 export 'markdown_editor_toolbar.dart';

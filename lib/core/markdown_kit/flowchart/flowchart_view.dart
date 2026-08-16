@@ -330,7 +330,7 @@ class _FlowchartPainter extends CustomPainter {
         canvas.drawRRect(r, fill);
         canvas.drawRRect(r, border);
         if (node.shape == FlowNodeShape.subroutine) {
-          final double inset = 5;
+          const double inset = 5;
           final Paint bar = Paint()
             ..color = palette.nodeBorder
             ..style = PaintingStyle.stroke
