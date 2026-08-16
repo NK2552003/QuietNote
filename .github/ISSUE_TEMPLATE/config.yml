@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions & Questions
+    url: https://github.com/NK2552003/QuietNote/discussions
+    about: Ask questions, share workflows, and discuss ideas with the community.
+  - name: Security Vulnerability Reporting
+    url: https://github.com/NK2552003/QuietNote/security/policy
+    about: Privately report a security vulnerability.

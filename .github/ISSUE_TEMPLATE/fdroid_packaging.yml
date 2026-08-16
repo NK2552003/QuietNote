@@ -1,0 +1,33 @@
+name: F-Droid / Packaging Issue
+description: Report an issue regarding F-Droid build recipes, reproducible builds, or release packaging
+title: "[PACKAGING]: "
+labels: ["f-droid", "packaging"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for reporting F-Droid build server errors, metadata discrepancies, or packaging questions.
+
+  - type: textarea
+    id: issue_description
+    attributes:
+      label: Packaging Issue Description
+      description: Describe the packaging or build failure.
+    validations:
+      required: true
+
+  - type: input
+    id: target_version
+    attributes:
+      label: Target Version Tag
+      placeholder: e.g. v1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: build_log
+    attributes:
+      label: F-Droid / Gradle Build Log
+      description: Paste relevant build logs from `fdroid build` or CI.
+    validations:
+      required: true

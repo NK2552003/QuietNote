@@ -1,0 +1,100 @@
+name: Bug Report
+description: Create a report to help us improve QuietNote
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Tap on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature_area
+    attributes:
+      label: Affected Feature
+      description: Select which of the 11 core features is affected.
+      options:
+        - Study Notes & Markdown
+        - To-dos & Tasks
+        - Habit Streaks
+        - Daily Routines
+        - Evening Journal
+        - Flashcards & Spaced Repetition
+        - Courses & Lectures
+        - Goal Milestones
+        - Zen Focus & Pomodoro
+        - Calendar & Events
+        - Focus Clock & Alarms
+        - Navigation Dock / UI
+        - Biometric App Lock
+        - Backup & Data Export
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: device_info
+    attributes:
+      label: Device & OS
+      description: What device and Android version are you using?
+      placeholder: e.g. Google Pixel 8, Android 14 / Samsung Galaxy S23, Android 13
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: QuietNote Version
+      description: Version of QuietNote installed (found in Settings -> About).
+      placeholder: e.g. 1.0.0 (Build 1)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_source
+    attributes:
+      label: Installation Source
+      description: Where did you download the app from?
+      options:
+        - F-Droid
+        - GitHub Release (Split APK)
+        - GitHub Release (Universal APK)
+        - Built from Source
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs_screenshots
+    attributes:
+      label: Screenshots & Logs (Optional)
+      description: Drag and drop screenshots or paste stack traces/logs if available.

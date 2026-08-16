@@ -1,0 +1,57 @@
+name: Feature Request
+description: Suggest an idea or enhancement for QuietNote
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new idea for QuietNote!
+        Remember: QuietNote is built on an offline-first, privacy-first philosophy (no accounts, no cloud tracking).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is.
+      placeholder: I'm always frustrated when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe what you would like to happen and how it fits with QuietNote's offline, calm workflow.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target_feature
+    attributes:
+      label: Target Feature Area
+      description: Which area does this enhancement belong to?
+      options:
+        - Study Notes & Markdown Studio
+        - To-dos & Tasks
+        - Habit Streaks
+        - Daily Routines
+        - Evening Journal
+        - Flashcards & Spaced Repetition
+        - Courses & Lectures
+        - Goal Milestones
+        - Zen Focus & Pomodoro
+        - Calendar & Timeline
+        - Focus Clock & Alarms
+        - Navigation Dock / Customization
+        - Biometric App Lock & Security
+        - Backup & Data Export
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: Any alternative solutions or features you've considered.
