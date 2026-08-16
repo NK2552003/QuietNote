@@ -72,6 +72,106 @@ extension UiTextSizeX on UiTextSize {
   }
 }
 
+/// Sizing choices for the floating bottom navigation dock.
+enum UiDockSize { compact, standard, spacious }
+
+extension UiDockSizeX on UiDockSize {
+  String get label {
+    switch (this) {
+      case UiDockSize.compact:
+        return 'Compact';
+      case UiDockSize.standard:
+        return 'Standard';
+      case UiDockSize.spacious:
+        return 'Spacious';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case UiDockSize.compact:
+        return 'Sleek & minimal (48dp)';
+      case UiDockSize.standard:
+        return 'Balanced & comfortable (54dp)';
+      case UiDockSize.spacious:
+        return 'Large touch targets (60dp)';
+    }
+  }
+
+  double get height {
+    switch (this) {
+      case UiDockSize.compact:
+        return 48.0;
+      case UiDockSize.standard:
+        return 54.0;
+      case UiDockSize.spacious:
+        return 60.0;
+    }
+  }
+
+  double get width {
+    switch (this) {
+      case UiDockSize.compact:
+        return 260.0;
+      case UiDockSize.standard:
+        return 296.0;
+      case UiDockSize.spacious:
+        return 336.0;
+    }
+  }
+
+  double get iconSize {
+    switch (this) {
+      case UiDockSize.compact:
+        return 20.0;
+      case UiDockSize.standard:
+        return 22.0;
+      case UiDockSize.spacious:
+        return 24.0;
+    }
+  }
+
+  double get borderRadius => height / 2;
+}
+
+/// Horizontal alignment choices for the floating bottom navigation dock.
+enum UiDockPosition { left, center, right }
+
+extension UiDockPositionX on UiDockPosition {
+  String get label {
+    switch (this) {
+      case UiDockPosition.left:
+        return 'Left';
+      case UiDockPosition.center:
+        return 'Center';
+      case UiDockPosition.right:
+        return 'Right';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case UiDockPosition.left:
+        return 'Left thumb ergonomic';
+      case UiDockPosition.center:
+        return 'Centered floating pill';
+      case UiDockPosition.right:
+        return 'Right thumb ergonomic';
+    }
+  }
+
+  Alignment get alignment {
+    switch (this) {
+      case UiDockPosition.left:
+        return Alignment.bottomLeft;
+      case UiDockPosition.center:
+        return Alignment.bottomCenter;
+      case UiDockPosition.right:
+        return Alignment.bottomRight;
+    }
+  }
+}
+
 /// Every user-facing preference in the app. Persisted as key/value rows in
 /// the existing SQLite database (table `app_settings`), so nothing else in
 /// the schema changes and no generated Drift code needs regenerating.
@@ -122,11 +222,15 @@ class AppSettings {
     this.appLockBiometricsEnabled = true,
     this.appLockTimeoutSeconds = 0,
     this.appLockCustomPin = '',
+    this.dockSize = UiDockSize.standard,
+    this.dockPosition = UiDockPosition.center,
   });
 
   final ThemeMode themeMode;
   final UiAccent accent;
   final UiTextSize textSize;
+  final UiDockSize dockSize;
+  final UiDockPosition dockPosition;
 
   final bool appLockEnabled;
   final bool appLockBiometricsEnabled;
@@ -222,6 +326,8 @@ class AppSettings {
     ThemeMode? themeMode,
     UiAccent? accent,
     UiTextSize? textSize,
+    UiDockSize? dockSize,
+    UiDockPosition? dockPosition,
     bool? notificationsEnabled,
     bool? habitReminders,
     bool? taskReminders,
@@ -320,12 +426,16 @@ class AppSettings {
     appLockTimeoutSeconds:
         appLockTimeoutSeconds ?? this.appLockTimeoutSeconds,
     appLockCustomPin: appLockCustomPin ?? this.appLockCustomPin,
+    dockSize: dockSize ?? this.dockSize,
+    dockPosition: dockPosition ?? this.dockPosition,
   );
 
   Map<String, String> toMap() => <String, String>{
     'themeMode': themeMode.name,
     'accent': accent.name,
     'textSize': textSize.name,
+    'dockSize': dockSize.name,
+    'dockPosition': dockPosition.name,
     'notificationsEnabled': '$notificationsEnabled',
     'habitReminders': '$habitReminders',
     'taskReminders': '$taskReminders',
@@ -459,6 +569,16 @@ class AppSettings {
       appLockBiometricsEnabled: flag('appLockBiometricsEnabled', true),
       appLockTimeoutSeconds: number('appLockTimeoutSeconds', 0),
       appLockCustomPin: map['appLockCustomPin'] ?? '',
+      dockSize: pickEnum(
+        UiDockSize.values,
+        map['dockSize'],
+        UiDockSize.standard,
+      ),
+      dockPosition: pickEnum(
+        UiDockPosition.values,
+        map['dockPosition'],
+        UiDockPosition.center,
+      ),
     );
   }
 }

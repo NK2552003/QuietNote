@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.quietnote"
+    namespace = "io.github.nk2552003.quietnote"
     // Permission handler Android requires compileSdk >= 37.
     compileSdk = 37
     ndkVersion = flutter.ndkVersion
@@ -17,8 +17,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.quietnote"
+        applicationId = "io.github.nk2552003.quietnote"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

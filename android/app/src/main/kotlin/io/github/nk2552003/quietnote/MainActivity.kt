@@ -1,4 +1,4 @@
-package com.example.quietnote
+package io.github.nk2552003.quietnote
 
 import android.content.Intent
 import android.net.Uri

@@ -228,19 +228,6 @@ class UiToast extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: onDismiss,
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.all(4.0),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: fgMuted,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

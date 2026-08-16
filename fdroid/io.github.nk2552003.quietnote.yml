@@ -1,0 +1,50 @@
+Categories:
+  - Writing
+  - Time
+  - Office
+License: Apache-2.0
+AuthorName: NK2552003
+WebSite: https://github.com/NK2552003/QuietNote
+SourceCode: https://github.com/NK2552003/QuietNote
+IssueTracker: https://github.com/NK2552003/QuietNote/issues
+Changelog: https://github.com/NK2552003/QuietNote/releases
+
+Summary: Private offline notes, tasks, habits, reminders, and focus tools
+Description: |
+  QuietNote is a modern, privacy-focused, offline-first personal productivity space
+  designed for deep work, study, and daily organization.
+
+  All your data stays safely on your device. QuietNote has zero tracking, zero
+  analytics, zero external telemetry, and works completely offline.
+
+  <b>Key Features:</b>
+  * <b>Rich Notes & Markdown:</b> Fast distraction-free writing, Markdown formatting, LaTeX math formulas, syntax-highlighted code blocks, tables, and tags.
+  * <b>Task Lists & Subtasks:</b> Organize daily todos, priorities, due dates, and reminders with effortless checkbox workflows.
+  * <b>Habits & Daily Routines:</b> Build lasting habits, track streaks, and structure morning/evening routines with audio cues.
+  * <b>Visual Calendar & Agendas:</b> Manage daily timelines, course schedules, exams, and milestones in one unified view.
+  * <b>Flashcards & Spaced Repetition:</b> Create flashcard decks for exam revision with active recall and self-assessment scoring.
+  * <b>Zen Focus & Study Timers:</b> Pomodoro, 50/10, Deep Work, and custom intervals with an optional floating edge pill timer over other apps.
+  * <b>Customizable Navigation Dock:</b> Personalize the floating bottom dock with Compact, Standard, or Spacious sizing and Left, Center, or Right hand alignment.
+  * <b>Biometric App Lock:</b> Protect your notes and sensitive thoughts with native fingerprint, face unlock, or device screen lock.
+  * <b>Daily Journal:</b> Capture reflections, gratitude, and daily highlights with private, encrypted local storage.
+  * <b>Local Backup & Export:</b> Full JSON database export, Markdown document exports, and PDF generation with bundled typography.
+
+RepoType: git
+Repo: https://github.com/NK2552003/QuietNote.git
+
+Builds:
+  - versionName: '1.0.0'
+    versionCode: 1
+    commit: v1.0.0
+    flutter: yes
+    build:
+      - $$FLUTTER$$ build apk --split-per-abi
+    output:
+      - build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+      - build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+      - build/app/outputs/flutter-apk/app-x86_64-release.apk
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: '1.0.0'
+CurrentVersionCode: 1

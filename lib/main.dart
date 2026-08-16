@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/flutter-ui/flutter_ui.dart';
@@ -12,6 +12,19 @@ import 'core/settings/theme_builder.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Catch synchronous Flutter framework errors
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('QuietNote UI error: ${details.exceptionAsString()}');
+  };
+
+  // Catch asynchronous and isolate errors without zone mismatch
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('QuietNote async error: $error\n$stack');
+    return true;
+  };
+
   // By default Flutter shows a *blank grey box* (not the red debug screen)
   // for any widget that throws during build in profile/release mode, and
   // prints nothing useful for isolate-level failures (e.g. a database
@@ -48,11 +61,7 @@ void main() {
     );
   };
 
-  runZonedGuarded(() {
-    runApp(const ProviderScope(child: HabitFlowApp()));
-  }, (error, stack) {
-    debugPrint('QuietNote uncaught error: $error\n$stack');
-  });
+  runApp(const ProviderScope(child: HabitFlowApp()));
 }
 
 class HabitFlowApp extends ConsumerStatefulWidget {

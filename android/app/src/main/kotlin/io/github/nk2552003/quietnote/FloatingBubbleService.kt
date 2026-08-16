@@ -1,4 +1,4 @@
-package com.example.quietnote
+package io.github.nk2552003.quietnote
 
 import android.animation.ValueAnimator
 import android.app.Service

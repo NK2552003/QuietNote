@@ -269,6 +269,111 @@ class SettingsAboutScreen extends ConsumerWidget {
     );
   }
 
+  void _showChangelogDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final theme = ctx.ui;
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor:
+              isDark ? const Color(0xFF1E1E1E) : theme.colors.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.history_rounded,
+                  color: theme.colors.primary, size: 24),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'What\'s New · Changelog',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Version $_appVersion (Build $_buildNumber)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: theme.colors.primary,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white12 : Colors.black12,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'F-Droid Release',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const _ChangelogItem(
+                  icon: Icons.shield_rounded,
+                  title: '100% Privacy & Biometric Security',
+                  body:
+                      'Complete offline-first architecture with zero tracking and native fingerprint/face/screen lock.',
+                ),
+                const _ChangelogItem(
+                  icon: Icons.dock_rounded,
+                  title: 'Customizable Navigation Dock',
+                  body:
+                      'Calibrated sizing (Compact, Standard, Spacious) and ergonomic hand positioning (Left, Center, Right).',
+                ),
+                const _ChangelogItem(
+                  icon: Icons.timer_rounded,
+                  title: 'Zen Focus & Study Suite',
+                  body:
+                      'Custom interval focus timers with ambient bells and optional dynamic island edge pill overlay.',
+                ),
+                const _ChangelogItem(
+                  icon: Icons.edit_note_rounded,
+                  title: 'Rich Markdown Notes',
+                  body:
+                      'Distraction-free editor with LaTeX math formulas, 150+ code language syntax highlighting, and PDF export.',
+                ),
+                const _ChangelogItem(
+                  icon: Icons.check_circle_outline_rounded,
+                  title: 'Tasks, Habits & Routines',
+                  body:
+                      'Daily task priorities, subtasks, habit streak tracker, and morning/evening structured routines.',
+                ),
+                const _ChangelogItem(
+                  icon: Icons.school_rounded,
+                  title: 'Courses, Flashcards & Agendas',
+                  body:
+                      'Spaced repetition flashcards with active recall ratings, course schedules, and calendar timeline.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.ui;
@@ -306,6 +411,14 @@ class SettingsAboutScreen extends ConsumerWidget {
               Text(
                 'A private, offline-first study suite and personal productivity system designed for calm focus, knowledge organization, and structured mastery.',
                 style: context.uiText.body.copyWith(height: 1.45),
+              ),
+              SizedBox(height: context.sp(theme.spacing.md)),
+              UiButton(
+                label: 'What\'s New in v$_appVersion',
+                variant: UiVariant.secondary,
+                size: UiSize.sm,
+                leadingIcon: Icons.history_rounded,
+                onPressed: () => _showChangelogDialog(context),
               ),
             ],
           ),
@@ -384,6 +497,12 @@ class SettingsAboutScreen extends ConsumerWidget {
         SettingsSection(
           title: 'Legal & Compliance',
           children: <Widget>[
+            SettingsTile(
+              icon: Icons.history_edu_rounded,
+              title: 'Changelog & Release Notes',
+              description: 'See all new features, improvements, and fixes in v$_appVersion.',
+              onTap: () => _showChangelogDialog(context),
+            ),
             SettingsTile(
               icon: Icons.gavel_outlined,
               title: 'Terms of Service',
@@ -494,4 +613,53 @@ class _PolicySection extends StatelessWidget {
     );
   }
 }
+
+class _ChangelogItem extends StatelessWidget {
+  const _ChangelogItem({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.ui;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 16, color: theme.colors.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: const TextStyle(
+                      fontSize: 12, height: 1.4, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
