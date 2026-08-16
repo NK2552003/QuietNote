@@ -37,6 +37,13 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    try {
+      ref.read(settingsProvider.notifier).update((AppSettings s) => s.copyWith(
+            aiApiBaseUrl: _baseUrlCtrl.text.trim(),
+            aiApiKey: _keyCtrl.text.trim(),
+            aiApiModel: _modelCtrl.text.trim(),
+          ));
+    } catch (_) {}
     _baseUrlCtrl.dispose();
     _keyCtrl.dispose();
     _modelCtrl.dispose();
@@ -56,7 +63,7 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
   /// doesn't cause a write (and the field never loses focus mid-edit).
   void _debouncedUpdate(AppSettings Function(AppSettings) transform) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
+    _debounce = Timer(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       ref.read(settingsProvider.notifier).update(transform);
     });
@@ -86,7 +93,7 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
       title: 'Import a local model?',
       description:
           'Pick the Gemma .task or .bin file you downloaded. It is copied into '
-          'the app and never leaves your device. This can take a minute.',
+          'app storage and never leaves your device.',
       confirmLabel: 'Choose file',
     );
     if (!go) return;
@@ -95,11 +102,14 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
+        withData: true,
       );
-      final String? path = result?.files.single.path;
-      if (path == null) return;
-      final bool ok =
-          await ref.read(aiEngineProvider.notifier).importModel(path);
+      if (result == null || result.files.isEmpty) return;
+      final PlatformFile picked = result.files.single;
+      final bool ok = await ref.read(aiEngineProvider.notifier).importModel(
+            picked.path ?? '',
+            picked.bytes,
+          );
       _reportLocalResult(ok, 'Model imported');
     } catch (e) {
       _toastError('Import failed', e);
@@ -121,7 +131,7 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
   Future<void> _loadBundled() async {
     final bool ok = await ref
         .read(aiEngineProvider.notifier)
-        .installBundledModel('assets/models/gemma-3n-E2B-it-int4.task');
+        .installBundledModel();
     _reportLocalResult(ok, 'Bundled model loaded');
   }
 
@@ -160,8 +170,8 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
     } else {
       UiToast.show(
         context,
-        title: 'That did not work',
-        message: detail.error ?? 'The model could not be loaded.',
+        title: 'Model could not be loaded',
+        message: detail.error ?? 'The model file is invalid or unsupported on this device.',
         intent: UiIntent.danger,
         icon: Icons.error_outline,
         duration: const Duration(seconds: 8),
@@ -172,13 +182,38 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
   // -------------------------------------------------------------------- api
 
   Future<void> _testConnection() async {
+    final String currentKey = _keyCtrl.text.trim();
+    final String currentModel = _modelCtrl.text.trim();
+    final String currentBaseUrl = _baseUrlCtrl.text.trim();
+    final CloudAiProviderPreset preset =
+        cloudAiProviderById(_settings.aiApiProviderId);
+
+    if (preset.requiresKey && currentKey.isEmpty) {
+      UiToast.show(
+        context,
+        title: 'API key required',
+        message: 'Please paste your API key for ${preset.label} first.',
+        intent: UiIntent.warning,
+      );
+      return;
+    }
+    if (currentModel.isEmpty) {
+      UiToast.show(
+        context,
+        title: 'Model ID required',
+        message: 'Please select or enter a model ID first.',
+        intent: UiIntent.warning,
+      );
+      return;
+    }
+
     setState(() => _testingConnection = true);
-    final AppSettings pending = _pendingSettings;
-    _updateNow((AppSettings s) => s.copyWith(
-          aiApiBaseUrl: pending.aiApiBaseUrl,
-          aiApiKey: pending.aiApiKey,
-          aiApiModel: pending.aiApiModel,
-        ));
+    final AppSettings pending = _settings.copyWith(
+      aiApiBaseUrl: currentBaseUrl,
+      aiApiKey: currentKey,
+      aiApiModel: currentModel,
+    );
+    _updateNow((AppSettings s) => pending);
     try {
       await ref.read(aiEngineProvider.notifier).testApiConnection(pending);
       if (mounted) {
@@ -186,8 +221,7 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
           context,
           title: 'Connected',
           message:
-              '${cloudAiProviderById(pending.aiApiProviderId).label} answered '
-              'successfully. AI is ready to use.',
+              '${preset.label} answered successfully. AI is ready to use.',
           intent: UiIntent.success,
           icon: Icons.check_circle_outline,
         );
@@ -200,18 +234,24 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
   }
 
   Future<void> _fetchModels() async {
+    final AppSettings pending = _pendingSettings;
+    _updateNow((AppSettings s) => s.copyWith(
+          aiApiBaseUrl: pending.aiApiBaseUrl,
+          aiApiKey: pending.aiApiKey,
+          aiApiModel: pending.aiApiModel,
+        ));
     setState(() => _loadingModels = true);
     try {
       final List<String> models = await ref
           .read(aiEngineProvider.notifier)
-          .listApiModels(_pendingSettings);
+          .listApiModels(pending);
       if (!mounted) return;
       setState(() => _fetchedModels = models);
       if (models.isEmpty) {
         UiToast.show(
           context,
           title: 'No models returned',
-          message: 'Type the model ID manually instead.',
+          message: 'The provider returned an empty list. You can type the model ID manually.',
           intent: UiIntent.warning,
         );
         return;
@@ -389,10 +429,18 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
                               ? next.suggestedFreeModels.first
                               : _modelCtrl.text.trim();
                       _modelCtrl.text = suggested;
+                      if (next.isCustom && _baseUrlCtrl.text.trim().isEmpty) {
+                        if (next.id == 'ollama') {
+                          _baseUrlCtrl.text = 'http://localhost:11434/v1';
+                        } else if (next.id == 'lmstudio') {
+                          _baseUrlCtrl.text = 'http://localhost:1234/v1';
+                        }
+                      }
                       _updateNow(
                         (AppSettings s) => s.copyWith(
                           aiApiProviderId: v,
                           aiApiModel: suggested,
+                          aiApiBaseUrl: _baseUrlCtrl.text.trim(),
                         ),
                       );
                     },
@@ -484,6 +532,28 @@ class _SettingsAiScreenState extends ConsumerState<SettingsAiScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              _FieldRow(
+                child: UiButton(
+                  label: 'Save API Configuration',
+                  variant: UiVariant.ghost,
+                  leadingIcon: Icons.save_outlined,
+                  onPressed: () {
+                    final AppSettings pending = _pendingSettings;
+                    _updateNow((AppSettings s) => s.copyWith(
+                          aiApiBaseUrl: pending.aiApiBaseUrl,
+                          aiApiKey: pending.aiApiKey,
+                          aiApiModel: pending.aiApiModel,
+                        ));
+                    UiToast.show(
+                      context,
+                      title: 'Settings saved',
+                      message: 'Your AI provider settings have been saved.',
+                      intent: UiIntent.success,
+                      icon: Icons.check_circle_outline,
+                    );
+                  },
                 ),
               ),
               if (_fetchedModels.isNotEmpty)

@@ -1,5 +1,6 @@
 library;
 
+export 'ai_selection_toolbar.dart';
 export 'chart_block.dart';
 export 'code_block.dart';
 export 'html_block.dart';
@@ -10,3 +11,4 @@ export 'markdown_outline.dart';
 export 'markdown_preview.dart';
 export 'math_syntax.dart';
 export 'scrollable_table.dart';
+

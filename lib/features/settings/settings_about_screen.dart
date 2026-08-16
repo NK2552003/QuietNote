@@ -15,7 +15,8 @@ class SettingsAboutScreen extends ConsumerWidget {
 
   static const String _appVersion = '1.0.0';
   static const String _buildNumber = '1';
-  static const String _supportEmail = 'nitishkumar2552003@gmail.com';
+  static const String _supportEmail = 'sid.kr.222003@gmail.com';
+  static const String _coffeeUrl = 'https://buymeacoffee.com/sidkr';
 
   void _showPrivacyPolicyDialog(BuildContext context) {
     showDialog<void>(
@@ -152,7 +153,7 @@ class SettingsAboutScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'QuietNote is actively maintained and developed. If you have questions, feedback, or encountered a bug, feel free to reach out directly:',
+                'QuietNote is actively maintained and developed. If you have questions, feedback, need support, or encountered a bug, feel free to reach out directly:',
                 style: TextStyle(fontSize: 14, height: 1.4),
               ),
               const SizedBox(height: 16),
@@ -185,6 +186,119 @@ class SettingsAboutScreen extends ConsumerWidget {
                           context,
                           title: 'Email copied',
                           message: 'Support email copied to clipboard.',
+                          intent: UiIntent.primary,
+                          icon: Icons.check_circle_outline,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showBuyMeACoffeeDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final theme = ctx.ui;
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : theme.colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.local_cafe_rounded, color: theme.colors.warning, size: 24),
+              const SizedBox(width: 10),
+              const Text('Buy Me a Coffee', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'QuietNote is completely free, 100% private, and ad-free. If it brings clarity and calm to your study or work, consider buying a coffee to support future updates and maintenance!',
+                style: TextStyle(fontSize: 14, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.coffee_outlined, size: 18),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: SelectableText(
+                        _coffeeUrl,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      tooltip: 'Copy link',
+                      onPressed: () {
+                        Clipboard.setData(const ClipboardData(text: _coffeeUrl));
+                        Navigator.of(ctx).pop();
+                        UiToast.show(
+                          context,
+                          title: 'Link copied',
+                          message: 'Buy Me a Coffee link copied to clipboard.',
+                          intent: UiIntent.primary,
+                          icon: Icons.check_circle_outline,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.mail_outline_rounded, size: 18),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: SelectableText(
+                        _supportEmail,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      tooltip: 'Copy email',
+                      onPressed: () {
+                        Clipboard.setData(const ClipboardData(text: _supportEmail));
+                        Navigator.of(ctx).pop();
+                        UiToast.show(
+                          context,
+                          title: 'Email copied',
+                          message: 'Developer email copied to clipboard.',
                           intent: UiIntent.primary,
                           icon: Icons.check_circle_outline,
                         );
@@ -264,6 +378,18 @@ class SettingsAboutScreen extends ConsumerWidget {
               title: 'Support & Inquiries',
               description: _supportEmail,
               onTap: () => _showSupportDialog(context),
+            ),
+            SettingsTile(
+              icon: Icons.favorite_outline_rounded,
+              title: 'Support Project',
+              description: 'Help support QuietNote development and feature roadmap.',
+              onTap: () => _showSupportDialog(context),
+            ),
+            SettingsTile(
+              icon: Icons.local_cafe_rounded,
+              title: 'Buy Me a Coffee',
+              description: 'Fuel future updates and show your appreciation.',
+              onTap: () => _showBuyMeACoffeeDialog(context),
             ),
             SettingsTile(
               icon: Icons.chat_bubble_outline_rounded,

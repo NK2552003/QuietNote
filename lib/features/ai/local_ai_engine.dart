@@ -179,6 +179,34 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
     _initializing = true;
     try {
       final dynamic manager = FlutterGemmaPlugin.instance.modelManager;
+
+      // 1. Check if user previously imported/downloaded a model in app storage
+      try {
+        final Directory appDir = await getApplicationDocumentsDirectory();
+        String? existingPath;
+        for (final String ext in const <String>['.task', '.bin', '.tflite', '.gguf']) {
+          final File f = File(p.join(appDir.path, 'quietnote_local_model$ext'));
+          if (await f.exists() && (await f.length()) > 1024 * 1024) {
+            existingPath = f.path;
+            break;
+          }
+        }
+
+        if (existingPath != null) {
+          try {
+            await manager.setModelPath(existingPath);
+            _setDetail(detail.copyWith(modelPath: existingPath));
+            await _createRuntime();
+            if (_localReady) return;
+          } catch (e) {
+            // If setting path failed, continue to fallback check
+          }
+        }
+      } catch (_) {
+        // Continue to plugin isModelInstalled check
+      }
+
+      // 2. Check plugin internal installed state
       bool installed = false;
       try {
         installed = await manager.isModelInstalled as bool;
@@ -201,9 +229,20 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
 
   Future<void> _createRuntime() async {
     await _disposeRuntime();
-    _model = await FlutterGemmaPlugin.instance.createModel(
-      modelType: ModelType.gemmaIt,
-    );
+    try {
+      _model = await FlutterGemmaPlugin.instance.createModel(
+        modelType: ModelType.gemmaIt,
+      );
+    } catch (_) {
+      try {
+        _model = await FlutterGemmaPlugin.instance.createModel(
+          modelType: ModelType.general,
+        );
+      } catch (e) {
+        _model = null;
+        rethrow;
+      }
+    }
     // A chat handle is optional: sessions are the primary path and are created
     // per request so context never leaks between unrelated captures.
     try {
@@ -232,8 +271,8 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
   }
 
   /// Copies a `.task`/`.bin` file the person picked into app storage and loads
-  /// it. Safe to call repeatedly.
-  Future<bool> importModel(String sourcePath) async {
+  /// it. Supports both file paths and byte streams (for scoped storage).
+  Future<bool> importModel(String sourcePath, [List<int>? sourceBytes]) async {
     state = AiEngineState.importing;
     _setDetail(
       detail.copyWith(
@@ -243,26 +282,39 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
       ),
     );
     try {
-      final File sourceFile = File(sourcePath);
-      if (!await sourceFile.exists()) {
-        throw StateError('That file no longer exists on this device.');
-      }
-      final int size = await sourceFile.length();
-      if (size < 1024 * 1024) {
-        throw StateError(
-          'That file is only ${(size / 1024).round()} KB — pick the Gemma '
-          '.task or .bin model file, not a placeholder.',
-        );
+      final Directory appDir = await getApplicationDocumentsDirectory();
+      String extension = '.task';
+      if (sourcePath.isNotEmpty) {
+        final ext = p.extension(sourcePath);
+        if (ext.isNotEmpty) extension = ext;
       }
 
-      final Directory appDir = await getApplicationDocumentsDirectory();
-      final String extension =
-          p.extension(sourcePath).isEmpty ? '.task' : p.extension(sourcePath);
       final String targetPath =
           p.join(appDir.path, 'quietnote_local_model$extension');
       final File target = File(targetPath);
       if (await target.exists()) await target.delete();
-      await sourceFile.copy(targetPath);
+
+      if (sourcePath.isNotEmpty && await File(sourcePath).exists()) {
+        final File sourceFile = File(sourcePath);
+        final int size = await sourceFile.length();
+        if (size < 1024 * 1024) {
+          throw StateError(
+            'That file is only ${(size / 1024).round()} KB — pick a valid Gemma '
+            '.task or .bin model file (typically 500MB - 2GB).',
+          );
+        }
+        await sourceFile.copy(targetPath);
+      } else if (sourceBytes != null && sourceBytes.isNotEmpty) {
+        if (sourceBytes.length < 1024 * 1024) {
+          throw StateError(
+            'That file is only ${(sourceBytes.length / 1024).round()} KB — pick a valid Gemma '
+            '.task or .bin model file (typically 500MB - 2GB).',
+          );
+        }
+        await target.writeAsBytes(sourceBytes);
+      } else {
+        throw StateError('The selected model file could not be read.');
+      }
 
       await _installPath(targetPath);
       return _localReady;
@@ -369,26 +421,39 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
 
   /// Loads a model that was shipped inside the app bundle (see
   /// `flutter_gemma: model_assets:` in pubspec.yaml).
-  Future<bool> installBundledModel(String assetName) async {
+  Future<bool> installBundledModel([String? customAsset]) async {
     state = AiEngineState.importing;
     _setDetail(
-      detail.copyWith(busyLabel: 'Loading bundled model…', clearError: true),
+      detail.copyWith(busyLabel: 'Checking bundled model…', clearError: true),
     );
-    try {
-      final dynamic manager = FlutterGemmaPlugin.instance.modelManager;
-      await manager.installModelFromAsset(assetName);
-      _setDetail(detail.copyWith(modelPath: assetName));
-      await _createRuntime();
-      _setDetail(detail.copyWith(clearBusy: true, clearProgress: true));
-      return _localReady;
-    } catch (e) {
-      _localReady = false;
-      _setDetail(detail.copyWith(clearBusy: true, clearProgress: true));
-      _refreshState(
-        error: 'No bundled model found in this build. ($e)',
-      );
-      return false;
+    final List<String> candidateAssets = <String>[
+      if (customAsset != null && customAsset.isNotEmpty) customAsset,
+      'assets/models/gemma-3n-E2B-it-int4.task',
+      'assets/models/functiongemma-270m-it.task',
+      'assets/models/model.bin',
+    ];
+
+    final dynamic manager = FlutterGemmaPlugin.instance.modelManager;
+    for (final String asset in candidateAssets) {
+      try {
+        await manager.installModelFromAsset(asset);
+        _setDetail(detail.copyWith(modelPath: asset));
+        await _createRuntime();
+        if (_localReady) {
+          _setDetail(detail.copyWith(clearBusy: true, clearProgress: true));
+          return true;
+        }
+      } catch (_) {
+        // try next candidate
+      }
     }
+
+    _localReady = false;
+    _setDetail(detail.copyWith(clearBusy: true, clearProgress: true));
+    _refreshState(
+      error: 'No bundled model file found in this build. You can import a downloaded Gemma .task or .bin model with "Import local model" or use a Cloud API key.',
+    );
+    return false;
   }
 
   Future<void> _installPath(String targetPath) async {
@@ -410,7 +475,7 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
     }
     try {
       final Directory appDir = await getApplicationDocumentsDirectory();
-      for (final String ext in const <String>['.task', '.bin', '.tflite']) {
+      for (final String ext in const <String>['.task', '.bin', '.tflite', '.gguf']) {
         final File f = File(p.join(appDir.path, 'quietnote_local_model$ext'));
         if (await f.exists()) await f.delete();
       }
@@ -445,11 +510,11 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
   /// One-shot check used by Settings > AI.
   Future<String> testApiConnection([AppSettings? override]) async {
     final String reply = await buildCloudClient(override).chat(
-      systemPrompt: 'Reply with the single word: ok',
-      userMessage: 'ok',
+      systemPrompt: 'You are an AI assistant. Answer with the single word: ok',
+      userMessage: 'Test connection',
       maxTokens: 16,
       temperature: 0,
-      timeout: const Duration(seconds: 30),
+      timeout: const Duration(seconds: 25),
     );
     _refreshState(clearError: true);
     return reply;
@@ -643,28 +708,32 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
     try {
       final String systemPrompt;
       final String userPrompt;
+      final int tokens =
+          customInstruction != null && customInstruction.isNotEmpty ? 2048 : 800;
 
       if (type == CaptureType.journal) {
         systemPrompt =
             'You are a thoughtful writing editor and journaling assistant. '
-            'Improve and enrich the provided journal text while keeping the authentic, reflective first-person voice and emotional depth. '
-            'Do not add Markdown headers or bullet points. Return ONLY the improved replacement text.';
+            'Improve, rewrite, or expand the provided journal text according to the user instruction while keeping the authentic, reflective first-person voice and emotional depth. '
+            'Return ONLY the replacement text without conversational preamble or meta-commentary.';
         userPrompt = customInstruction != null && customInstruction.isNotEmpty
-            ? 'Journal title: ${contextTitle ?? ""}\nInstruction: $customInstruction\n\nOriginal text:\n"$selectedText"'
-            : 'Journal title: ${contextTitle ?? ""}\n\nPlease improve and polish this journal excerpt while maintaining its personal voice:\n"$selectedText"';
+            ? 'Journal context: ${contextTitle ?? ""}\nInstruction: $customInstruction\n\nSelected text:\n"$selectedText"'
+            : 'Journal context: ${contextTitle ?? ""}\n\nPlease improve and polish this journal excerpt while maintaining its personal voice:\n"$selectedText"';
       } else {
         systemPrompt =
-            'You are an expert writing tutor and editor. Enhance clarity, flow, vocabulary, and formatting of the provided note text. '
-            'Maintain any valid Markdown formatting. Return ONLY the enhanced replacement text without meta-commentary.';
+            'You are an expert academic tutor and writing assistant. '
+            'Rewrite, expand, or format the provided text strictly according to the user instruction. '
+            'Maintain or generate clean, well-structured Markdown formatting when appropriate. '
+            'Return ONLY the replacement content without meta-commentary, introductory greetings, or conversational filler.';
         userPrompt = customInstruction != null && customInstruction.isNotEmpty
-            ? 'Note topic: ${contextTitle ?? ""}\nInstruction: $customInstruction\n\nOriginal text:\n"$selectedText"'
-            : 'Note topic: ${contextTitle ?? ""}\n\nPlease enhance and improve this note excerpt:\n"$selectedText"';
+            ? 'Note context: ${contextTitle ?? ""}\nInstruction: $customInstruction\n\nSelected text:\n"$selectedText"'
+            : 'Note context: ${contextTitle ?? ""}\n\nPlease enhance, clarify, and improve this note excerpt:\n"$selectedText"';
       }
 
       final String reply = await _generate(
         systemPrompt: systemPrompt,
         userMessage: userPrompt,
-        maxTokens: 800,
+        maxTokens: tokens,
         temperature: 0.4,
       );
       return reply.trim();
@@ -900,8 +969,11 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
     if (error is CloudAiException) return error.message;
     final String text = error.toString().replaceFirst('Exception: ', '');
     if (text.contains('MissingPluginException')) {
-      return 'On-device AI is not available in this build. Use an API key '
-          'instead, or run a full release build.';
+      return 'Native on-device AI runtime is not supported on this platform/device. '
+          'You can use any free Cloud API key (Gemini, Groq, NVIDIA) in Settings › AI.';
+    }
+    if (text.contains('PlatformException') || text.contains('Failed to load')) {
+      return 'Could not initialize the local model: $text. Please check that the file is a valid Gemma .task or .bin MediaPipe model.';
     }
     return text.replaceFirst('StateError: ', '');
   }

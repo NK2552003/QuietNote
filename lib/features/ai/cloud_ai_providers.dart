@@ -317,12 +317,13 @@ class CloudAiClient {
           .timeout(timeout);
     } on TimeoutException {
       throw CloudAiException(
-        'The provider took too long to answer. Check your connection and try '
-        'again, or pick a smaller model.',
+        'The provider took too long to answer. Check your internet connection, '
+        'or choose a faster model (such as gemini-2.0-flash or llama-3.1-8b-instant).',
       );
     } catch (e) {
+      if (e is CloudAiException) rethrow;
       throw CloudAiException(
-        'Could not reach the provider. Check your internet connection and the '
+        'Could not reach the provider. Check your internet connection and '
         'base URL. ($e)',
       );
     }

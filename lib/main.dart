@@ -9,6 +9,7 @@ import 'core/settings/settings_repository.dart';
 import 'core/settings/theme_builder.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   // By default Flutter shows a *blank grey box* (not the red debug screen)
   // for any widget that throws during build in profile/release mode, and
   // prints nothing useful for isolate-level failures (e.g. a database

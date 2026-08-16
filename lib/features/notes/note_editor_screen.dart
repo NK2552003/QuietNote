@@ -358,7 +358,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   // ── AI Refactor ──────────────────────────────────────────────────────────
 
-  Future<void> _aiRefactorSelected() async {
+  Future<void> _aiRefactorSelected({String? customPrompt}) async {
     final sel = _selectedTextRange;
     if (sel == null || _aiRefactoring) return;
     final fullText = _contentController.text;
@@ -384,10 +384,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         contextTitle: _titleController.text.trim().isNotEmpty
             ? _titleController.text.trim()
             : null,
+        customInstruction: customPrompt,
       );
       if (!mounted || enhanced.isEmpty) return;
 
-      // Replace selected text with enhanced version
+      // Replace selected text with enhanced/generated version
       final newText = fullText.replaceRange(sel.start, sel.end, enhanced);
       _contentController.value = TextEditingValue(
         text: newText,
@@ -397,15 +398,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
       UiToast.show(
         context,
-        title: 'AI Enhanced',
-        message: 'Selected text has been improved.',
+        title: customPrompt != null ? 'AI Transformed' : 'AI Enhanced',
+        message: customPrompt != null
+            ? 'Selection replaced with AI generated content.'
+            : 'Selected text has been improved.',
         intent: UiIntent.success,
       );
     } catch (e) {
       if (mounted) {
         UiToast.show(
           context,
-          title: 'AI Enhance failed',
+          title: 'AI operation failed',
           message: e.toString(),
           intent: UiIntent.danger,
         );
@@ -413,6 +416,25 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     } finally {
       if (mounted) setState(() => _aiRefactoring = false);
     }
+  }
+
+  void _showAiCustomPromptSheet() {
+    final sel = _selectedTextRange;
+    if (sel == null) return;
+    final fullText = _contentController.text;
+    final selectedText = fullText.substring(sel.start, sel.end).trim();
+    if (selectedText.isEmpty) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => AiCustomPromptSheet(
+        selectedText: selectedText,
+        type: CaptureType.note,
+        onApply: (prompt) => _aiRefactorSelected(customPrompt: prompt),
+      ),
+    );
   }
 
   @override
@@ -455,9 +477,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                       AnimatedOpacity(
                         opacity: _selectedTextRange != null ? 1.0 : 0.0,
                         duration: const Duration(milliseconds: 200),
-                        child: _AiRefactorBar(
+                        child: AiRefactorBar(
                           refactoring: _aiRefactoring,
-                          onRefactor: _aiRefactorSelected,
+                          selectedCharCount: _selectedTextRange != null
+                              ? (_selectedTextRange!.end -
+                                  _selectedTextRange!.start)
+                              : 0,
+                          onQuickRefactor: () => _aiRefactorSelected(),
+                          onCustomPrompt: _showAiCustomPromptSheet,
                           onDismiss: () =>
                               setState(() => _selectedTextRange = null),
                         ),
@@ -622,108 +649,3 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// AI Refactor bar — floats above the formatting toolbar on text selection
-// ---------------------------------------------------------------------------
-
-class _AiRefactorBar extends StatelessWidget {
-  const _AiRefactorBar({
-    required this.refactoring,
-    required this.onRefactor,
-    required this.onDismiss,
-  });
-
-  final bool refactoring;
-  final VoidCallback onRefactor;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.uiColors;
-    return Material(
-      type: MaterialType.transparency,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: c.primary.withValues(alpha: 0.25)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.auto_awesome_rounded, size: 16, color: c.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Text selected',
-              style: context.uiText.caption.copyWith(
-                color: c.foregroundMuted,
-                decoration: TextDecoration.none,
-              ),
-            ),
-            const Spacer(),
-            if (refactoring) ...[
-              SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(c.primary),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Enhancing…',
-                style: context.uiText.caption.copyWith(
-                  color: c.primary,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ] else ...[
-              GestureDetector(
-                onTap: onRefactor,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: c.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome_rounded,
-                          size: 14, color: c.onPrimary),
-                      const SizedBox(width: 5),
-                      Text(
-                        'Enhance with AI',
-                        style: context.uiText.caption.copyWith(
-                          color: c.onPrimary,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: onDismiss,
-                child: Icon(Icons.close_rounded,
-                    size: 18, color: c.foregroundMuted),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
