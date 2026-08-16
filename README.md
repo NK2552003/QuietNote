@@ -1,122 +1,166 @@
 # QuietNote
 
 <p align="center">
-  <img src="assets/branding/quietnote-logo.png" width="152" alt="QuietNote logo" />
+  <img src="assets/branding/quietnote-logo.png" width="140" alt="QuietNote logo" />
 </p>
 
 <p align="center">
-  <strong>A calm, private home for the things you want to remember.</strong><br />
-  Notes, reflection, plans, and focus — thoughtfully organised and available offline.
+  <strong>A calm, 100% private study suite and personal productivity sanctuary.</strong><br />
+  Notes, reflection, habits, tasks, flashcards, and focus — thoughtfully organized and available offline.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Flutter-3.0%2B-202124?logo=flutter&logoColor=white" alt="Flutter" />
-  <img src="https://img.shields.io/badge/Platform-Android-202124?logo=android&logoColor=white" alt="Android" />
-  <img src="https://img.shields.io/badge/Storage-On--device-202124?logo=sqlite&logoColor=white" alt="On-device storage" />
-  <img src="https://img.shields.io/badge/AI-Optional%20%26%20local-202124" alt="Optional local AI" />
+  <img src="https://img.shields.io/badge/License-Apache--2.0-202124?style=flat-square" alt="Apache-2.0 License" />
+  <img src="https://img.shields.io/badge/Platform-Android%208.0%2B-202124?logo=android&logoColor=white&style=flat-square" alt="Android 8.0+" />
+  <img src="https://img.shields.io/badge/Flutter-3.8%2B-202124?logo=flutter&logoColor=white&style=flat-square" alt="Flutter" />
+  <img src="https://img.shields.io/badge/F--Droid-Ready-202124?logo=f-droid&logoColor=white&style=flat-square" alt="F-Droid Ready" />
+  <img src="https://img.shields.io/badge/Storage-100%25%20Local%20SQLite-202124?logo=sqlite&logoColor=white&style=flat-square" alt="100% Local SQLite" />
+  <img src="https://img.shields.io/badge/AI-Optional%20%26%20Local-202124?style=flat-square" alt="Optional Local AI" />
+  <img src="https://img.shields.io/badge/Telemetry-Zero%20Trackers-202124?style=flat-square" alt="Zero Telemetry" />
 </p>
 
 <p align="center">
-  <a href="#start-here">Start here</a> ·
-  <a href="#your-day-in-one-place">Features</a> ·
-  <a href="#privacy-without-the-asterisk">Privacy</a> ·
-  <a href="#project-map">Project map</a>
+  <a href="#core-features">Features</a> ·
+  <a href="#privacy--security">Privacy & Security</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#building-from-source">Building</a> ·
+  <a href="#f-droid--publishing">F-Droid & Releases</a> ·
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
 
 ## A little more room to think
 
-QuietNote is an offline-first productivity companion for the everyday
-things worth holding onto: an idea before it disappears, a journal entry at
-the end of a long day, a task for tomorrow, and an uninterrupted hour for the
-work in front of you.
+QuietNote is an offline-first productivity companion designed for deep work, study, and daily organization.
 
-There is no account to create and no cloud connection required for your core
-content. Just open the app and pick up where you left off.
+There are **no accounts to create**, **no subscription paywalls**, and **no remote cloud sync servers**. All your notes, journal entries, tasks, habits, flashcards, and focus records are stored safely in an on-device SQLite database.
 
-## Your day, in one place
+---
 
-| Space | Made for |
-| --- | --- |
-| **Notes** | Capture ideas, checklists, rich text, images, and voice dictation. Every note opens in a clean, read-only preview before you choose to edit. |
-| **Journal** | Write private, titled entries with moods and photos. Review past reflections through calm previews rather than an accidental editing state. |
-| **Tasks & calendar** | Plan one-off or repeating work, events, due dates, and reminders. |
-| **Habits, goals & routines** | Build momentum with streaks, milestones, daily progress, and repeatable rituals. |
-| **Focus clock** | See what is next, then start a saved focus session with progress and completion alerts. |
-| **AI Capture** | Turn a typed or spoken intention into useful local content when a compatible model is installed. |
+## Core Features
 
-### Designed to feel quiet
+| Domain | Description & Capabilities |
+| :--- | :--- |
+| **Study Notes & Markdown** | Distraction-free editor with CommonMark, LaTeX math equations (`$...$`, `$$...$$`), syntax highlighting for 150+ programming languages, tags, and instant PDF/Markdown exports. Opens in a read-only preview by default. |
+| **To-dos & Tasks** | Streamlined task manager with priorities (Low, Medium, High, Urgent), due dates, and interactive checkbox subtasks. |
+| **Habit Streaks** | Track consistency with consecutive day streak counters, daily targets, and visual streak heatmaps. |
+| **Daily Routines** | Structured morning, afternoon, and evening routine workflow checklists. |
+| **Reflective Journal** | Private daily reflection space with mood logs, gratitude prompts, and encrypted local storage. |
+| **Spaced Repetition Flashcards** | Active recall flashcard study system with self-assessment recall grading (*Again*, *Hard*, *Good*, *Easy*). |
+| **Courses & Syllabi** | Manage academic courses, lecture times, professors, and linked study materials in one hub. |
+| **Goal Milestones** | Break ambitions down into measurable milestones with target completion dates and progress tracking. |
+| **Zen Focus & Pomodoro** | Deep work timer with Pomodoro (25/5), 50/10, Deep Work (90 min), and custom interval presets, ambient bells, and an optional floating edge pill timer. |
+| **Unified Timeline & Calendar** | Chronological timeline combining course lectures, exam dates, deadlines, and daily routines. |
+| **Focus Clock & Alarms** | High-precision Android exact alarms synchronized with study blocks and morning routines. |
+| **AI Capture & Assistant** | Optional on-device AI intent capture (local Gemma models) and BYOK cloud AI providers for note summarization, task extraction, and flashcard generation with zero telemetry. |
 
-- **Readable at every size** — responsive navigation and card layouts adapt from compact phones to larger screens.
-- **Preview before edit** — opening a note or journal tile takes you to a readable preview; editing is always a deliberate next step.
-- **Helpful, never noisy** — useful empty states, loading feedback, and clear confirmations accompany everyday actions.
-- **A considered visual language** — restrained grayscale branding and a consistent interface keep attention on your content.
+---
 
-## Privacy without the asterisk
+## Ergonomic Navigation Dock
 
-Your notes, journal entries, tasks, habits, and focus records are stored in
-local device storage. QuietNote is useful without a login or an internet
-connection. Optional AI Capture uses on-device model files when you provide
-them; the rest of the app works normally without AI enabled.
+* **Calibrated Sizes**: Choose between **Compact** (48dp), **Standard** (54dp), and **Spacious** (60dp) to match your screen size and preference.
+* **Hand Alignment**: Align the floating dock to the **Left**, **Center**, or **Right** for comfortable one-handed reach with either thumb.
+* **Interactive Live Preview**: Test dock sizing, hand alignment, and animated sliding pill indicators inside Appearance Settings.
 
-Some device permissions support specific features:
+---
 
-- **Notifications and alarms** for reminders and focus completion.
-- **Microphone** for voice capture.
-- **Photos/files** when you choose to attach an image or import content.
+## On-Device AI & Intent Capture (Optional)
 
-## Start here
+QuietNote includes an optional, privacy-respecting AI assistant:
+* **Fully Offline On-Device Gemma**: Run small language models (Gemma .task/.bin) directly on your device's hardware with zero data transmitted over the internet.
+* **Bring Your Own Key (BYOK)**: Connect your own API key for cloud providers (OpenRouter, Gemini, Groq, Ollama) directly from the device.
+* **No Telemetry**: AI queries are strictly processed locally or sent directly to your chosen API endpoint without passing through any intermediate proxy servers.
+* **Works Without AI**: The entire QuietNote application functions 100% normally without any AI models or keys configured.
 
-### You will need
+---
 
-- Flutter SDK compatible with Dart `>=3.8.0 <4.0.0`
-- Android Studio and an Android emulator or physical device
+## Privacy & Security
 
-### Run the app
+* **100% Local Storage**: Powered by Drift and SQLite on your device.
+* **Zero Telemetry**: Zero analytics frameworks, zero crash trackers, and zero advertising SDKs.
+* **Native Biometric App Lock**: Secure your private notes and data with fingerprint, face unlock, or system PIN/pattern.
+* **Full Data Ownership**: Export your entire database as JSON or backup notes as Markdown files anytime.
 
+---
+
+## Quick Start
+
+### Prerequisites
+* Flutter SDK (`>=3.8.0 <4.0.0`)
+* Android Studio / Android SDK (API 26+)
+
+### Run Locally
 ```bash
+# Clone the repository
+git clone https://github.com/NK2552003/QuietNote.git
+cd QuietNote
+
+# Install dependencies
 flutter pub get
+
+# Launch the app
 flutter run
 ```
 
-### Build a debug APK
+---
 
+## Building from Source
+
+### Lightweight Split APKs (~45 MB, Recommended)
 ```bash
-flutter build apk --debug
+flutter build apk --split-per-abi
+```
+Outputs optimized per-architecture APKs in `build/app/outputs/flutter-apk/`:
+* `app-arm64-v8a-release.apk` (~45.6 MB · Modern Android smartphones)
+* `app-armeabi-v7a-release.apk` (~40.0 MB · 32-bit Android phones)
+* `app-x86_64-release.apk` (~48.7 MB · Emulators / Chromebooks)
+
+### Universal Fat APK (~125 MB)
+```bash
+flutter build apk --release
 ```
 
-The APK will be available at `build/app/outputs/flutter-apk/app-debug.apk`.
+---
 
-> **Optional local AI** — place compatible Gemma task files in
-> `assets/models/` before building to enable AI Capture inference. The rest
-> of QuietNote does not depend on these files.
-
-## Project map
+## Project Structure
 
 ```text
 lib/
-├── core/              # Data, notifications, settings, navigation, shared UI
-├── features/          # Notes, journal, tasks, habits, focus, AI, and more
-└── main.dart          # Application entry point
+├── core/
+│   ├── branding/          # Logo and vector marks
+│   ├── flutter-ui/        # Custom frosted UI kit and navigation dock
+│   ├── focus/             # Focus timer and floating bubble service
+│   ├── notifications/     # 11-feature notification taxonomy
+│   ├── security/          # Biometric app lock gate and controller
+│   └── settings/          # SQLite persistence and theme builder
+├── features/              # Notes, journal, tasks, habits, courses, flashcards, etc.
+└── main.dart              # Application entry point with root error dispatcher
 
-assets/
-├── branding/          # QuietNote PNG and SVG identity
-└── models/            # Optional on-device AI model files (not committed)
-
-fastlane/              # Store listing text
-fdroid/                # F-Droid metadata template
-docs/publishing/       # Release and publishing guidance
+fastlane/                  # Triple-T store metadata and 512x512 app icon
+fdroid/                    # Production F-Droid metadata recipe
+docs/                      # Release and publishing documentation
+.github/                   # Issue forms, PR template, and security policy
 ```
 
-## Preparing a release & F-Droid
+---
 
-QuietNote is configured for F-Droid and standard Android releases. For release notes and version history, see the [Changelog](CHANGELOG.md).
+## F-Droid & Publishing
 
-For store publishing guidance and F-Droid metadata, read:
-- [F-Droid Submission Guide](fdroid/README.md)
-- [Complete Publishing Guide](docs/publishing/README.md)
-- [Software License (Apache-2.0)](LICENSE)
+QuietNote is fully prepared for open-source distribution:
+* **Application ID**: `io.github.nk2552003.quietnote`
+* **F-Droid Recipe**: [`fdroid/io.github.nk2552003.quietnote.yml`](fdroid/io.github.nk2552003.quietnote.yml)
+* **In-Tree Config**: [`.fdroid.yml`](.fdroid.yml)
+* **Publishing Guide**: [`docs/publishing/README.md`](docs/publishing/README.md)
+
+---
+
+## Documentation & Community
+
+* **[Changelog](CHANGELOG.md)** — Version history and release notes.
+* **[Contributing Guidelines](CONTRIBUTING.md)** — How to report bugs and submit pull requests.
+* **[Security Policy](.github/SECURITY.md)** — Vulnerability reporting guidelines.
+* **[License](LICENSE)** — Apache License 2.0.
 
 ---
 
@@ -124,4 +168,3 @@ For store publishing guidance and F-Droid metadata, read:
   <strong>Make room for what matters.</strong><br />
   Made for quieter, more intentional days.
 </p>
-
