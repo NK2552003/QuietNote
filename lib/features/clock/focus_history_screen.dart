@@ -32,15 +32,13 @@ class _FocusHistoryScreenState extends ConsumerState<FocusHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final history =
-        ref.watch(recentFocusSessionsProvider).value ?? const <FocusSession>[];
+        ref.watch(allFocusSessionsProvider).value ?? const <FocusSession>[];
+    final activeSession = ref.watch(activeFocusSessionProvider).value;
     final courses = ref.watch(coursesStreamProvider).value ?? const <Course>[];
     final tasks = ref.watch(tasksStreamProvider).value ?? const <Task>[];
 
     final completedList = history.where((s) => s.status == 'completed').toList();
-    final totalFocusMinutes = completedList.fold<int>(
-      0,
-      (sum, s) => sum + s.durationMinutes,
-    );
+    final totalFocusMinutes = computeTotalFocusMinutes(history, activeSession: activeSession);
     final totalCycles = history.fold<int>(
       0,
       (sum, s) => sum + s.cyclesCompleted,

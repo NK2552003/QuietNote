@@ -298,7 +298,9 @@ class _UiNavShellState extends State<UiNavShell> {
                   return const SizedBox.shrink();
                 }
                 final location = GoRouterState.of(context).uri.path;
-                if (location == '/clock') return const SizedBox.shrink();
+                if (location == '/' || location == '/clock' || location.isEmpty) {
+                  return const SizedBox.shrink();
+                }
 
                 final bool hasFloatingButton = location.startsWith('/todos') ||
                     location.startsWith('/notes') ||

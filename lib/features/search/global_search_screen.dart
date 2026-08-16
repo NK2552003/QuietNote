@@ -121,17 +121,16 @@ final comprehensiveSearchResultsProvider =
           (t) =>
               t.title.toLowerCase().contains(q) ||
               t.subtitle.toLowerCase().contains(q) ||
-              (t.details ?? '').toLowerCase().contains(q) ||
-              (t.category ?? '').toLowerCase().contains(q) ||
-              t.priority.toLowerCase().contains(q),
+              (t.details ?? '').toLowerCase().contains(q),
         )
         .toList(),
     habits: habits
         .where(
           (h) =>
               h.title.toLowerCase().contains(q) ||
-              h.description.toLowerCase().contains(q) ||
-              (h.category != null && h.category!.toLowerCase().contains(q)),
+              h.subtitle.toLowerCase().contains(q) ||
+              (h.category != null && h.category!.toLowerCase().contains(q)) ||
+              (h.notes != null && h.notes!.toLowerCase().contains(q)),
         )
         .toList(),
     courses: courses
@@ -140,14 +139,13 @@ final comprehensiveSearchResultsProvider =
               c.name.toLowerCase().contains(q) ||
               (c.code != null && c.code!.toLowerCase().contains(q)) ||
               (c.instructor != null && c.instructor!.toLowerCase().contains(q)) ||
-              (c.location != null && c.location!.toLowerCase().contains(q)),
+              (c.room != null && c.room!.toLowerCase().contains(q)),
         )
         .toList(),
     goals: goals
         .where(
           (g) =>
               g.title.toLowerCase().contains(q) ||
-              (g.description != null && g.description!.toLowerCase().contains(q)) ||
               (g.category != null && g.category!.toLowerCase().contains(q)),
         )
         .toList(),
@@ -156,7 +154,7 @@ final comprehensiveSearchResultsProvider =
           (d) =>
               d.title.toLowerCase().contains(q) ||
               (d.description != null && d.description!.toLowerCase().contains(q)) ||
-              (d.tags != null && d.tags!.toLowerCase().contains(q)),
+              (d.subject != null && d.subject!.toLowerCase().contains(q)),
         )
         .toList(),
     routines: routines
@@ -164,7 +162,7 @@ final comprehensiveSearchResultsProvider =
           (r) =>
               r.title.toLowerCase().contains(q) ||
               (r.description != null && r.description!.toLowerCase().contains(q)) ||
-              (r.timeOfDay != null && r.timeOfDay!.toLowerCase().contains(q)),
+              r.timeOfDay.toLowerCase().contains(q),
         )
         .toList(),
     calendarEvents: calendar
@@ -172,7 +170,7 @@ final comprehensiveSearchResultsProvider =
           (e) =>
               e.title.toLowerCase().contains(q) ||
               (e.description != null && e.description!.toLowerCase().contains(q)) ||
-              (e.location != null && e.location!.toLowerCase().contains(q)),
+              (e.category != null && e.category!.toLowerCase().contains(q)),
         )
         .toList(),
     focusSessions: focus
@@ -630,7 +628,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   badgeIntent: UiIntent.primary,
                   title: n.title.isEmpty ? 'Untitled Note' : n.title,
                   subtitle: _plainPreview(n.content),
-                  timestamp: n.updatedAt,
+                  timestamp: n.createdAt,
                   onTap: () => context.push('/notes/${n.id}'),
                 ),
               ),
@@ -650,9 +648,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               ...results.tasks.map(
                 (t) => _ResultItemCard(
                   icon: Icons.checklist_rounded,
-                  badgeLabel: t.completed ? 'Done' : 'Task',
+                  badgeLabel: t.isCompleted ? 'Done' : 'Task',
                   badgeIntent:
-                      t.completed ? UiIntent.success : UiIntent.warning,
+                      t.isCompleted ? UiIntent.success : UiIntent.warning,
                   title: t.title,
                   subtitle: t.subtitle.isNotEmpty
                       ? t.subtitle
@@ -704,7 +702,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   badgeIntent: UiIntent.primary,
                   title: c.name,
                   subtitle:
-                      'Instructor: ${c.instructor ?? "N/A"} · ${c.location ?? ""}',
+                      'Instructor: ${c.instructor ?? "N/A"} · ${c.room ?? ""}',
                   onTap: () => context.push('/courses'),
                 ),
               ),
@@ -750,9 +748,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   badgeLabel: h.category ?? 'Habit',
                   badgeIntent: UiIntent.success,
                   title: h.title,
-                  subtitle: h.description.isNotEmpty
-                      ? h.description
-                      : 'Track daily consistency',
+                  subtitle: h.subtitle.isNotEmpty
+                      ? h.subtitle
+                      : (h.notes ?? 'Track daily consistency'),
                   onTap: () => context.push('/habits'),
                 ),
               ),
@@ -775,7 +773,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   badgeLabel: 'Goal',
                   badgeIntent: UiIntent.bullish,
                   title: g.title,
-                  subtitle: g.description ?? 'Target: ${g.targetDate != null ? DateFormat.yMMMd().format(g.targetDate!) : "Ongoing"}',
+                  subtitle: 'Target: ${g.deadline != null ? DateFormat.yMMMd().format(g.deadline!) : "Ongoing"} · ${g.progressPercent}%',
                   onTap: () => context.push('/goals'),
                 ),
               ),
@@ -795,11 +793,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               ...results.calendarEvents.map(
                 (e) => _ResultItemCard(
                   icon: Icons.calendar_today_outlined,
-                  badgeLabel: DateFormat.jm().format(e.startAt),
+                  badgeLabel: DateFormat.jm().format(e.startTime),
                   badgeIntent: UiIntent.info,
                   title: e.title,
                   subtitle:
-                      '${DateFormat.yMMMd().format(e.startAt)} · ${e.location ?? ""}',
+                      '${DateFormat.yMMMd().format(e.startTime)} · ${e.category ?? "Event"}',
                   onTap: () => context.push('/calendar'),
                 ),
               ),
@@ -819,7 +817,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               ...results.routines.map(
                 (r) => _ResultItemCard(
                   icon: Icons.wb_sunny_outlined,
-                  badgeLabel: r.timeOfDay ?? 'Routine',
+                  badgeLabel: r.timeOfDay,
                   badgeIntent: UiIntent.neutral,
                   title: r.title,
                   subtitle: r.description ?? 'Daily checklist steps',
@@ -905,7 +903,9 @@ class _CategoryChip extends StatelessWidget {
               Icon(
                 icon,
                 size: 13,
-                color: selected ? Colors.white : context.uiColors.foregroundMuted,
+                color: selected
+                    ? context.uiColors.onPrimary
+                    : context.uiColors.foregroundMuted,
               ),
               const SizedBox(width: 5),
             ],
@@ -915,7 +915,7 @@ class _CategoryChip extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected
-                    ? Colors.white
+                    ? context.uiColors.onPrimary
                     : context.uiColors.foreground,
               ),
             ),
@@ -924,7 +924,7 @@ class _CategoryChip extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 color: selected
-                    ? Colors.white.withValues(alpha: 0.25)
+                    ? context.uiColors.onPrimary.withValues(alpha: 0.18)
                     : context.uiColors.surfaceMuted,
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -934,7 +934,7 @@ class _CategoryChip extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: selected
-                      ? Colors.white
+                      ? context.uiColors.onPrimary
                       : context.uiColors.foregroundMuted,
                 ),
               ),

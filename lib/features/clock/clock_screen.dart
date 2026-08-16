@@ -269,7 +269,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
 
     await FocusTimerService().startSession(
       ref,
-      workMinutes: minutes,
+      workMinutes: effectiveMinutes,
       breakMinutes: breakMinutes,
       preset: preset,
       courseId: _selectedCourseId,
@@ -490,37 +490,19 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  DateFormat('HH:mm:ss').format(_now),
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -2,
-                    color: foreground,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  DateFormat('EEEE, MMMM d').format(_now),
-                  style: TextStyle(color: foreground.withValues(alpha: 0.76)),
-                ),
-              ],
-            ),
-          ),
           if (focusEnd != null && focusEnd.isAfter(_now)) ...[
-            const SizedBox(height: 16),
-            _FocusLiveCard(
+            _HeroActiveFocusCard(
               end: focusEnd,
               now: _now,
               startedAt: settings.focusSessionStartedAt ?? activeSession?.startedAt,
+              phase: settings.focusSessionPhase,
+              cyclesCompleted: activeSession?.cyclesCompleted ?? 0,
+              presetLabel: focusPresetFromId(activeSession?.presetId)?.chipLabel,
+              linkedTitle: () {
+                final course = courses.where((c) => c.id == activeSession?.courseId).firstOrNull;
+                final task = tasks.where((t) => t.id == activeSession?.taskId).firstOrNull;
+                return course != null ? (course.code ?? course.name) : task?.title;
+              }(),
               onCancel: _cancelFocus,
               onExtend: () => _extendFocus(5),
               onZen: () {
@@ -536,10 +518,33 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                   startedAt: settings.focusSessionStartedAt ?? activeSession?.startedAt,
                 );
               },
-              phase: settings.focusSessionPhase,
-              cyclesCompleted: activeSession?.cyclesCompleted ?? 0,
-              presetLabel: focusPresetFromId(activeSession?.presetId)?.chipLabel,
               onResumeWork: () => FocusTimerService().skipBreakAndStartWork(ref, context: context),
+            ),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    DateFormat('HH:mm:ss').format(_now),
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -2,
+                      color: foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    DateFormat('EEEE, MMMM d').format(_now),
+                    style: TextStyle(color: foreground.withValues(alpha: 0.76)),
+                  ),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 18),
@@ -1120,29 +1125,32 @@ class _SoundChip extends StatelessWidget {
   }
 }
 
-class _FocusLiveCard extends StatelessWidget {
-  const _FocusLiveCard({
+class _HeroActiveFocusCard extends StatelessWidget {
+  const _HeroActiveFocusCard({
     required this.end,
     required this.now,
     this.startedAt,
-    required this.onCancel,
-    this.onExtend,
-    this.onZen,
-    this.onResumeWork,
     required this.phase,
     required this.cyclesCompleted,
     this.presetLabel,
+    this.linkedTitle,
+    required this.onCancel,
+    required this.onExtend,
+    required this.onZen,
+    required this.onResumeWork,
   });
+
   final DateTime end;
   final DateTime now;
   final DateTime? startedAt;
-  final VoidCallback onCancel;
-  final VoidCallback? onExtend;
-  final VoidCallback? onZen;
-  final VoidCallback? onResumeWork;
   final String phase;
   final int cyclesCompleted;
   final String? presetLabel;
+  final String? linkedTitle;
+  final VoidCallback onCancel;
+  final VoidCallback onExtend;
+  final VoidCallback onZen;
+  final VoidCallback onResumeWork;
 
   @override
   Widget build(BuildContext context) {
@@ -1150,7 +1158,7 @@ class _FocusLiveCard extends StatelessWidget {
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;
     final isBreak = phase == 'break';
-    final accentColor = isBreak ? const Color(0xFFF59E0B) : context.uiColors.primary;
+    final accentColor = isBreak ? const Color(0xFFF59E0B) : const Color(0xFF6366F1);
 
     final effectiveStart = startedAt ??
         end.subtract(
@@ -1164,102 +1172,166 @@ class _FocusLiveCard extends StatelessWidget {
         ? (elapsedSec / sessionTotalSec).clamp(0.0, 1.0)
         : 0.0;
 
-    return UiCard(
-      accentColor: accentColor,
-      onTap: onZen,
-      child: Row(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101827),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined,
+                      size: 13,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isBreak ? 'Break Time' : (presetLabel ?? 'Deep Focus'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: accentColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (cyclesCompleted > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Cycle ${cyclesCompleted + 1}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
           Stack(
             alignment: Alignment.center,
             children: [
               SizedBox(
-                width: 36,
-                height: 36,
+                width: 140,
+                height: 140,
                 child: CircularProgressIndicator(
                   value: progress,
-                  strokeWidth: 3.2,
+                  strokeWidth: 6.0,
                   strokeCap: StrokeCap.round,
-                  backgroundColor:
-                      accentColor.withValues(alpha: 0.15),
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(accentColor),
+                  backgroundColor: accentColor.withValues(alpha: 0.12),
+                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                 ),
               ),
-              Icon(
-                isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined,
-                size: 15,
-                color: accentColor,
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                      color: Colors.white,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isBreak ? 'Remaining' : 'Focus Time',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isBreak ? 'Rest & recharge in progress' : 'Focus session active',
-                  style: context.uiText.bodyStrong,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          if (linkedTitle != null) ...[
+            const SizedBox(height: 14),
+            Text(
+              linkedTitle!,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isBreak) ...[
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                  label: const Text('Resume Focus'),
+                  onPressed: onResumeWork,
                 ),
-                const SizedBox(height: 3),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')} remaining',
-                      style: context.uiText.caption.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: accentColor,
-                      ),
-                    ),
-                    if (isBreak)
-                      const UiBadge(label: 'Break', intent: UiIntent.warning, size: UiSize.xs)
-                    else if (presetLabel != null)
-                      UiBadge(label: presetLabel!, size: UiSize.xs),
-                    if (cyclesCompleted > 0)
-                      UiBadge(
-                        label: 'Cycle ${cyclesCompleted + 1}',
-                        intent: UiIntent.primary,
-                        size: UiSize.xs,
-                      ),
-                  ],
-                ),
+                const SizedBox(width: 8),
               ],
-            ),
-          ),
-          if (isBreak && onResumeWork != null) ...[
-            UiIconButton(
-              icon: Icons.play_arrow_rounded,
-              tooltip: 'Resume Focus & Skip Break',
-              onPressed: onResumeWork,
-            ),
-            const SizedBox(width: 2),
-          ],
-          if (onExtend != null) ...[
-            UiIconButton(
-              icon: Icons.more_time_rounded,
-              tooltip: 'Extend +5 Min',
-              onPressed: onExtend,
-            ),
-            const SizedBox(width: 2),
-          ],
-          if (onZen != null) ...[
-            UiIconButton(
-              icon: Icons.fullscreen_outlined,
-              tooltip: 'Full Screen Zen Mode',
-              onPressed: onZen,
-            ),
-            const SizedBox(width: 2),
-          ],
-          UiIconButton(
-            icon: Icons.stop_circle_outlined,
-            tooltip: 'End focus session',
-            onPressed: onCancel,
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.more_time_rounded, size: 15),
+                label: const Text('+5m'),
+                onPressed: onExtend,
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.fullscreen_outlined, size: 15),
+                label: const Text('Zen'),
+                onPressed: onZen,
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'End focus session',
+                icon: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
+                onPressed: onCancel,
+              ),
+            ],
           ),
         ],
       ),
