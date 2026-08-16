@@ -243,7 +243,7 @@ class _CodeBlock extends StatefulWidget {
 class _CodeBlockState extends State<_CodeBlock> {
   bool _copied = false;
 
-  Future<void> _copy(BuildContext context) async {
+  Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: widget.source));
     if (!mounted) return;
     setState(() => _copied = true);
@@ -268,7 +268,7 @@ class _CodeBlockState extends State<_CodeBlock> {
           icon: _copied ? Icons.check_rounded : Icons.copy_outlined,
           tooltip: 'Copy code',
           color: _copied ? colors.bullish : null,
-          onPressed: () => _copy(context),
+          onPressed: _copy,
         ),
       ],
       body: ClipRRect(
@@ -498,9 +498,8 @@ class _MermaidFullscreenViewState extends State<_MermaidFullscreenView> {
     final double scale = fitScale.clamp(0.4, 1.0);
     final double dx = (viewport.width - content.width * scale) / 2;
     final double dy = (viewport.height - content.height * scale) / 2;
-    _transform.value = Matrix4.identity()
-      ..translate(dx, dy)
-      ..scale(scale);
+    _transform.value = Matrix4.translationValues(dx, dy, 0.0)
+      ..multiply(Matrix4.diagonal3Values(scale, scale, 1.0));
     _didAutoFit = true;
   }
 

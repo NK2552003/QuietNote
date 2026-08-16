@@ -254,9 +254,8 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
       );
     }
 
-    // Ensure the habits list refreshes immediately after save. Use refresh
-    // to force a recompute and then verify the saved row exists.
-    ref.refresh(habitsStreamProvider);
+    // Ensure the habits list refreshes immediately after save.
+    ref.invalidate(habitsStreamProvider);
     final checkId = _isEditing ? widget.habitId! : (newId ?? '');
     if (reminderDateTime != null && checkId.isNotEmpty) {
       var nextReminder = reminderDateTime;

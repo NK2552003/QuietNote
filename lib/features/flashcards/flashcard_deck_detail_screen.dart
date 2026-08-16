@@ -80,6 +80,18 @@ class _FlashcardDeckDetailScreenState
     if (ok == true) await onConfirm();
   }
 
+  Future<void> _deleteDeck(FlashcardRepository repo) async {
+    await _confirm(
+      title: 'Delete deck?',
+      message:
+          'This removes the deck, its cards and its review history. This can\'t be undone.',
+      onConfirm: () async {
+        await repo.deleteDeck(widget.deckId);
+        if (mounted) context.go('/flashcards');
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.uiColors;
@@ -147,15 +159,7 @@ class _FlashcardDeckDetailScreenState
             icon: Icons.delete_outline,
             variant: UiVariant.ghost,
             tooltip: 'Delete deck',
-            onPressed: () => _confirm(
-              title: 'Delete deck?',
-              message:
-                  'This removes the deck, its cards and its review history. This can\'t be undone.',
-              onConfirm: () async {
-                await repo.deleteDeck(widget.deckId);
-                if (mounted) context.go('/flashcards');
-              },
-            ),
+            onPressed: () => _deleteDeck(repo),
           ),
         ],
       ),

@@ -28,17 +28,6 @@ List<Map<String, dynamic>> _parseMilestones(String? raw) {
   }
 }
 
-String _deadlineLabel(DateTime deadline) {
-  final today = _dateOnly(DateTime.now());
-  final day = _dateOnly(deadline);
-  final diff = day.difference(today).inDays;
-  if (diff == 0) return 'Due today';
-  if (diff == 1) return 'Due tomorrow';
-  if (diff < 0) return '${-diff} day${diff == -1 ? '' : 's'} overdue';
-  if (diff <= 30) return '$diff days left';
-  return 'Due ${DateFormat.yMMMd().format(deadline)}';
-}
-
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
 

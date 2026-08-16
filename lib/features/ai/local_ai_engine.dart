@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
 import 'package:quietnote/features/ai/ai_capture_intelligence.dart';
+import 'package:quietnote/features/ai/ai_local_prompts.dart';
 import 'package:quietnote/features/ai/capture_parser.dart';
 import 'package:quietnote/features/ai/cloud_ai_providers.dart';
 
@@ -512,6 +513,72 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
       'raw': reply,
     };
   }
+
+  // ---------------------------------------------------------- AI enrichment
+
+  /// Generates flashcard Q&A pairs from a [topic] using the active backend.
+  /// Returns [] when no AI backend is configured or the call fails — the
+  /// conversation flow continues and lets the user add cards manually.
+  Future<List<({String front, String back})>> generateFlashcards(
+    String topic, {
+    int count = 5,
+  }) async {
+    if (!canGenerate) return const [];
+    try {
+      final String reply = await _generate(
+        systemPrompt:
+            'You generate flashcard pairs. Reply with ONLY a JSON array.',
+        userMessage: AiLocalPrompts.generateFlashcards(topic, count: count),
+        maxTokens: 512,
+        temperature: 0.3,
+        jsonMode: false,
+      );
+      return AiCaptureIntelligence.parseFlashcardPairs(reply);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Suggests 3 milestone strings for a goal. Returns [] on failure.
+  Future<List<String>> suggestGoalMilestones(
+    String title,
+    double target, {
+    String? unit,
+  }) async {
+    if (!canGenerate) return const [];
+    try {
+      final String reply = await _generate(
+        systemPrompt:
+            'You suggest milestone steps for goals. Reply ONLY with a JSON array of strings.',
+        userMessage: AiLocalPrompts.suggestMilestones(title, target, unit),
+        maxTokens: 256,
+        temperature: 0.4,
+      );
+      return AiCaptureIntelligence.parseMilestones(reply);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Returns a polished, concise title for the given raw capture text.
+  /// Falls back to [rawText] on any failure so callers are always safe.
+  Future<String> polishTitle(String rawText, CaptureType type) async {
+    if (!canGenerate || rawText.trim().isEmpty) return rawText;
+    try {
+      final String reply = await _generate(
+        systemPrompt: 'You clean up and improve capture titles. Reply with ONLY the improved title.',
+        userMessage: AiLocalPrompts.cleanTitle(rawText, type.shortLabel),
+        maxTokens: 80,
+        temperature: 0.2,
+      );
+      final String clean = reply.trim();
+      if (clean.isEmpty || clean.length > 200) return rawText;
+      return clean;
+    } catch (_) {
+      return rawText;
+    }
+  }
+
 
   Future<String> _generate({
     required String systemPrompt,

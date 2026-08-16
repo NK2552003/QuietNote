@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'ai_local_prompts.dart';
 import 'capture_parser.dart';
 
 /// Turns free text into a structured capture using whichever AI backend is
@@ -11,46 +12,10 @@ import 'capture_parser.dart';
 class AiCaptureIntelligence {
   const AiCaptureIntelligence._();
 
-  /// System prompt for the structured extraction call. The model is asked for
-  /// strict JSON so the reply can be merged field by field.
-  static String systemPrompt(DateTime now) {
-    final String today =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final String weekday = _weekdayName(now.weekday);
-    return '''You extract structured entries for QuietNote, a personal planner.
-Today is $weekday, $today (local time). The current time is ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}.
-
-Reply with ONE JSON object and nothing else. No markdown, no code fences, no
-commentary. Use exactly this shape:
-
-{
-  "type": "todo|event|habit|routine|goal|journal|note",
-  "title": "short imperative title, max 80 chars",
-  "details": "extra context, or empty string",
-  "date": "YYYY-MM-DD or empty string",
-  "time": "HH:MM (24h) or empty string",
-  "end_time": "HH:MM (24h) or empty string",
-  "priority": 0,
-  "mood": "Happy|Calm|Neutral|Sad|Anxious|Tired|Grateful",
-  "category": "Health|Work|Personal|Learning|Finance|Other",
-  "frequency": "daily|weekly|monthly",
-  "target": 0,
-  "confidence": 0.0
-}
-
-Rules:
-- Choose "todo" for actions, "event" for anything with a specific date/time,
-  "habit" for repeated behaviour, "routine" for a sequence tied to a part of
-  the day, "goal" for a measurable target, "journal" for reflections on what
-  already happened, "note" for reference information.
-- Resolve relative dates ("tomorrow", "next Monday", "in 3 days") against
-  today's date above and output absolute values.
-- priority: 0 normal, 1 high, 2 urgent.
-- target: numeric goal amount when the text states one, else 0.
-- confidence: how sure you are about "type", between 0 and 1.
-- Never invent facts, names, amounts or dates that are not implied by the text.
-- Keep the user's own wording in the title wherever possible.''';
-  }
+  /// System prompt for the structured extraction call. Uses the extended
+  /// prompt from [AiLocalPrompts] which covers all 10 capture types.
+  static String systemPrompt(DateTime now) =>
+      AiLocalPrompts.captureSystemPrompt(now);
 
   /// Prompt for a plain conversational answer.
   static const String answerSystemPrompt =
@@ -62,13 +27,16 @@ planning questions, lead with the single best next action. Never claim you
 performed a real-world action, sent anything, or read data that is not in this
 conversation. Plain text only — no markdown headings.''';
 
+  // -------------------------------------------------------------------------
+  // Draft enrichment
+  // -------------------------------------------------------------------------
+
   /// Merges a raw model reply into [draft]. Returns true when at least one
   /// field was applied, so callers can tell whether AI actually contributed.
   static bool applyToDraft(CaptureDraft draft, String rawReply) {
     final Map<String, dynamic>? json = extractJson(rawReply);
     if (json == null) {
-      // Not JSON: treat the whole reply as a cleaned-up title when it is short
-      // enough to plausibly be one.
+      // Not JSON: treat the whole reply as a cleaned-up title when short enough.
       final String text = rawReply.trim().replaceAll(RegExp(r'\s+'), ' ');
       if (text.isNotEmpty && text.length <= 120 && !text.contains('\n')) {
         draft.title = text;
@@ -92,10 +60,8 @@ conversation. Plain text only — no markdown headings.''';
       applied = true;
     }
 
+    // Type classification
     final CaptureType? type = parseType(_asString(json['type']));
-    // The heuristic parser wins when it was highly confident (an explicit
-    // date, "every day", and so on); otherwise the model's classification is
-    // usually the better read of intent.
     if (type != null && (draft.confidence < 0.9 || modelConfidence >= 0.9)) {
       if (type != draft.type) {
         final List<CaptureSuggestion> alternates = <CaptureSuggestion>[
@@ -108,6 +74,7 @@ conversation. Plain text only — no markdown headings.''';
       applied = true;
     }
 
+    // Date / time
     final DateTime? when = parseDateTime(
       _asString(json['date']),
       _asString(json['time']),
@@ -126,24 +93,28 @@ conversation. Plain text only — no markdown headings.''';
       applied = true;
     }
 
+    // Priority
     final double? priority = _asDouble(json['priority']);
     if (priority != null && draft.priority == 0) {
-      draft.priority = priority.round().clamp(0, 2);
+      draft.priority = priority.round().clamp(0, 3);
       applied = true;
     }
 
+    // Mood
     final String? mood = _asString(json['mood']);
     if (mood != null && draft.mood == 'Neutral') {
       draft.mood = _titleCase(mood);
       applied = true;
     }
 
+    // Category
     final String? category = _asString(json['category']);
     if (category != null && draft.category == 'Other') {
       draft.category = _titleCase(category);
       applied = true;
     }
 
+    // Frequency
     final String? frequency = _asString(json['frequency'])?.toLowerCase();
     if (frequency != null &&
         <String>['daily', 'weekly', 'monthly'].contains(frequency)) {
@@ -151,12 +122,55 @@ conversation. Plain text only — no markdown headings.''';
       applied = true;
     }
 
+    // Goal target
     final double? target = _asDouble(json['target']);
     if (target != null && target > 0 && draft.goalTarget <= 0) {
       draft.goalTarget = target;
       applied = true;
     }
 
+    // Goal unit
+    final String? unit = _asString(json['unit']);
+    if (unit != null && draft.goalUnit.isEmpty) {
+      draft.goalUnit = unit;
+      applied = true;
+    }
+
+    // Course fields
+    final String? courseCode = _asString(json['course_code']);
+    if (courseCode != null && draft.courseCode.isEmpty) {
+      draft.courseCode = courseCode;
+      applied = true;
+    }
+    final String? instructor = _asString(json['instructor']);
+    if (instructor != null && draft.courseInstructor.isEmpty) {
+      draft.courseInstructor = instructor;
+      applied = true;
+    }
+    final String? room = _asString(json['room']);
+    if (room != null && draft.courseRoom.isEmpty) {
+      draft.courseRoom = room;
+      applied = true;
+    }
+    final String? term = _asString(json['term']);
+    if (term != null && draft.courseTerm.isEmpty) {
+      draft.courseTerm = term;
+      applied = true;
+    }
+    final double? targetGrade = _asDouble(json['target_grade']);
+    if (targetGrade != null && targetGrade > 0 && draft.courseTargetGrade == null) {
+      draft.courseTargetGrade = targetGrade;
+      applied = true;
+    }
+
+    // Focus preset
+    final String? focusPreset = _asString(json['focus_preset']);
+    if (focusPreset != null && draft.focusPresetId == null) {
+      draft.focusPresetId = focusPreset;
+      applied = true;
+    }
+
+    // Confidence blending
     if (modelConfidence > 0) {
       draft.confidence =
           ((draft.confidence + modelConfidence) / 2).clamp(0.0, 1.0);
@@ -164,6 +178,73 @@ conversation. Plain text only — no markdown headings.''';
 
     return applied;
   }
+
+  // -------------------------------------------------------------------------
+  // Flashcard generation
+  // -------------------------------------------------------------------------
+
+  /// Parses a raw AI reply that should contain a JSON array of
+  /// {front, back} objects. Returns an empty list on parse failure.
+  static List<({String front, String back})> parseFlashcardPairs(
+      String rawReply) {
+    try {
+      var text = rawReply.trim();
+      // Strip markdown code fences if present
+      text = text
+          .replaceAll(RegExp(r'^```(?:json)?', caseSensitive: false), '')
+          .replaceAll(RegExp(r'```$'), '')
+          .trim();
+      final start = text.indexOf('[');
+      final end = text.lastIndexOf(']');
+      if (start < 0 || end < start) return const [];
+      final jsonStr = text.substring(start, end + 1);
+      final dynamic decoded = jsonDecode(jsonStr);
+      if (decoded is! List) return const [];
+      final result = <({String front, String back})>[];
+      for (final item in decoded) {
+        if (item is Map<String, dynamic>) {
+          final front = _asString(item['front']) ?? _asString(item['q']) ?? '';
+          final back = _asString(item['back']) ?? _asString(item['a']) ?? '';
+          if (front.isNotEmpty && back.isNotEmpty) {
+            result.add((front: front, back: back));
+          }
+        }
+      }
+      return result;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Milestone parsing
+  // -------------------------------------------------------------------------
+
+  /// Parses a raw AI reply that should contain a JSON array of strings.
+  static List<String> parseMilestones(String rawReply) {
+    try {
+      var text = rawReply.trim();
+      text = text
+          .replaceAll(RegExp(r'^```(?:json)?', caseSensitive: false), '')
+          .replaceAll(RegExp(r'```$'), '')
+          .trim();
+      final start = text.indexOf('[');
+      final end = text.lastIndexOf(']');
+      if (start < 0 || end < start) return const [];
+      final dynamic decoded = jsonDecode(text.substring(start, end + 1));
+      if (decoded is! List) return const [];
+      return decoded
+          .map((e) => e.toString().trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // JSON extraction helpers
+  // -------------------------------------------------------------------------
 
   /// Pulls the first JSON object out of a model reply, tolerating code fences,
   /// leading prose and trailing text.
@@ -178,7 +259,6 @@ conversation. Plain text only — no markdown headings.''';
     final int start = text.indexOf('{');
     if (start < 0) return null;
 
-    // Walk forward to the matching closing brace so trailing prose is ignored.
     int depth = 0;
     bool inString = false;
     bool escaped = false;
@@ -215,6 +295,10 @@ conversation. Plain text only — no markdown headings.''';
     return null;
   }
 
+  // -------------------------------------------------------------------------
+  // Type parsing
+  // -------------------------------------------------------------------------
+
   static CaptureType? parseType(String? raw) {
     final String value = (raw ?? '').toLowerCase().trim();
     if (value.isEmpty) return null;
@@ -237,11 +321,24 @@ conversation. Plain text only — no markdown headings.''';
     if (value.contains('journal') || value.contains('diary')) {
       return CaptureType.journal;
     }
+    if (value.contains('flashcard') || value.contains('flash_card') || value.contains('deck')) {
+      return CaptureType.flashcard;
+    }
+    if (value.contains('course') || value.contains('class')) {
+      return CaptureType.course;
+    }
+    if (value.contains('focus') || value.contains('pomodoro') || value.contains('session')) {
+      return CaptureType.focusSession;
+    }
     if (value.contains('note') || value.contains('idea')) {
       return CaptureType.note;
     }
     return null;
   }
+
+  // -------------------------------------------------------------------------
+  // Date / time parsing
+  // -------------------------------------------------------------------------
 
   static DateTime? parseDateTime(String? date, String? time) {
     final String d = (date ?? '').trim();
@@ -263,12 +360,16 @@ conversation. Plain text only — no markdown headings.''';
 
     if (t.isEmpty) return base;
     final RegExpMatch? match =
-        RegExp(r'^(\d{1,2})[:.](\d{2})').firstMatch(t);
+        RegExp(r'^(\d{1,2})[:.:](\d{2})').firstMatch(t);
     if (match == null) return base;
     final int hour = int.parse(match.group(1)!).clamp(0, 23);
     final int minute = int.parse(match.group(2)!).clamp(0, 59);
     return DateTime(base.year, base.month, base.day, hour, minute);
   }
+
+  // -------------------------------------------------------------------------
+  // Shared utilities
+  // -------------------------------------------------------------------------
 
   static String _titleCase(String value) {
     final String v = value.trim();
@@ -292,14 +393,4 @@ conversation. Plain text only — no markdown headings.''';
     if (value is num) return value.toDouble();
     return double.tryParse(value.toString().trim());
   }
-
-  static String _weekdayName(int weekday) => const <String>[
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ][(weekday - 1).clamp(0, 6)];
 }

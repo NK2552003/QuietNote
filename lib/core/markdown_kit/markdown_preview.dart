@@ -74,7 +74,7 @@ class RichMarkdownPreview extends StatelessWidget {
     // able to scroll to a heading, the document is split at its heading lines
     // and each section is rendered as its own `MarkdownBody` inside a keyed
     // wrapper. Same parser, same stylesheet, same visual result.
-    final List<_MarkdownSection> sections = splitIntoSections(source);
+    final List<_MarkdownSection> sections = _splitIntoSections(source);
     final List<MarkdownHeading> collected = <MarkdownHeading>[];
     final Set<String> liveCacheIds = <String>{};
     final Map<String, int> occurrences = <String, int>{};
@@ -135,7 +135,7 @@ class RichMarkdownPreview extends StatelessWidget {
       styleSheet: styleSheet,
       borderColor: context.uiColors.border,
     );
-    final List<_SourcePiece> pieces = extractTableBlocks(source);
+    final List<_SourcePiece> pieces = _extractTableBlocks(source);
     final double spacing = styleSheet.blockSpacing ?? 14;
 
     final List<Widget> children = <Widget>[];
@@ -293,7 +293,7 @@ final RegExp _tableDelimiterRow =
 /// cannot be mistaken for ordinary prose — rather than guessing from `|`
 /// characters alone, so a stray pipe in normal text is never misread as a
 /// table.
-List<_SourcePiece> extractTableBlocks(String source) {
+List<_SourcePiece> _extractTableBlocks(String source) {
   final List<String> lines = source.split('\n');
   final List<_SourcePiece> pieces = <_SourcePiece>[];
   List<String> buffer = <String>[];
@@ -351,7 +351,7 @@ List<_SourcePiece> extractTableBlocks(String source) {
 }
 
 /// Parses [tableSource] (the raw markdown of a single table block, as
-/// produced by [extractTableBlocks]) and returns its `table` element, or
+/// produced by [_extractTableBlocks]) and returns its `table` element, or
 /// `null` if it didn't actually parse as one — e.g. a false-positive match
 /// on ordinary text. The caller falls back to rendering the text as plain
 /// markdown in that case, so no content is ever silently dropped.
@@ -386,7 +386,7 @@ final RegExp _fence = RegExp(r'^ {0,3}(```+|~~~+)');
 
 /// Splits [source] at top-level ATX heading lines. Lines inside fenced code
 /// blocks are never treated as headings.
-List<_MarkdownSection> splitIntoSections(String source) {
+List<_MarkdownSection> _splitIntoSections(String source) {
   final List<String> lines = source.split('\n');
   final List<_MarkdownSection> sections = <_MarkdownSection>[];
   List<String> buffer = <String>[];

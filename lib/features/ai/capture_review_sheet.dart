@@ -9,9 +9,9 @@ import 'capture_parser.dart';
 import 'capture_actions.dart';
 
 const List<UiToggleOption<String>> _moodToggleOptions = [
-  UiToggleOption(value: 'Great', label: '😃 Great'),
-  UiToggleOption(value: 'Neutral', label: '😐 Neutral'),
-  UiToggleOption(value: 'Bad', label: '😔 Bad'),
+  UiToggleOption(value: 'Great', label: 'Great'),
+  UiToggleOption(value: 'Neutral', label: 'Neutral'),
+  UiToggleOption(value: 'Bad', label: 'Bad'),
 ];
 
 const List<UiToggleOption<int>> _priorityToggleOptions = [
@@ -24,6 +24,13 @@ const List<UiToggleOption<int>> _priorityToggleOptions = [
 const List<UiToggleOption<String>> _frequencyToggleOptions = [
   UiToggleOption(value: 'daily', label: 'Daily'),
   UiToggleOption(value: 'weekly', label: 'Weekly'),
+];
+
+const List<UiToggleOption<String>> _focusPresetToggleOptions = [
+  UiToggleOption(value: 'pomodoro', label: 'Pomodoro'),
+  UiToggleOption(value: 'deepWork', label: 'Deep Work'),
+  UiToggleOption(value: 'quickReview', label: 'Quick Review'),
+  UiToggleOption(value: 'custom', label: 'Custom'),
 ];
 
 /// Full editor for a single [CaptureDraft]. Presented inside [UiDialog.show]
@@ -42,6 +49,12 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
   late TextEditingController _titleCtrl;
   late TextEditingController _detailsCtrl;
   late TextEditingController _targetCtrl;
+  late TextEditingController _unitCtrl;
+  late TextEditingController _tagsCtrl;
+  late TextEditingController _courseCodeCtrl;
+  late TextEditingController _instructorCtrl;
+  late TextEditingController _roomCtrl;
+  late TextEditingController _termCtrl;
   bool _isSaving = false;
 
   @override
@@ -50,7 +63,13 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
     _draft = widget.initial.copy();
     _titleCtrl = TextEditingController(text: _draft.title);
     _detailsCtrl = TextEditingController(text: _draft.details);
-    _targetCtrl = TextEditingController(text: _draft.goalTarget.toStringAsFixed(0));
+    _targetCtrl = TextEditingController(text: _draft.goalTarget > 0 ? _draft.goalTarget.toStringAsFixed(0) : '');
+    _unitCtrl = TextEditingController(text: _draft.goalUnit);
+    _tagsCtrl = TextEditingController(text: _draft.tags.join(', '));
+    _courseCodeCtrl = TextEditingController(text: _draft.courseCode);
+    _instructorCtrl = TextEditingController(text: _draft.courseInstructor);
+    _roomCtrl = TextEditingController(text: _draft.courseRoom);
+    _termCtrl = TextEditingController(text: _draft.courseTerm);
   }
 
   @override
@@ -58,6 +77,12 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
     _titleCtrl.dispose();
     _detailsCtrl.dispose();
     _targetCtrl.dispose();
+    _unitCtrl.dispose();
+    _tagsCtrl.dispose();
+    _courseCodeCtrl.dispose();
+    _instructorCtrl.dispose();
+    _roomCtrl.dispose();
+    _termCtrl.dispose();
     super.dispose();
   }
 
@@ -104,6 +129,17 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
       _draft.title = title;
       _draft.details = _detailsCtrl.text.trim();
       _draft.goalTarget = double.tryParse(_targetCtrl.text.trim()) ?? _draft.goalTarget;
+      _draft.goalUnit = _unitCtrl.text.trim();
+      _draft.tags = _tagsCtrl.text
+          .split(',')
+          .map((t) => t.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+      _draft.courseCode = _courseCodeCtrl.text.trim();
+      _draft.courseInstructor = _instructorCtrl.text.trim();
+      _draft.courseRoom = _roomCtrl.text.trim();
+      _draft.courseTerm = _termCtrl.text.trim();
+
       final result = await saveCaptureDraft(ref, _draft);
 
       if (!mounted) return;
@@ -167,18 +203,34 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
           ),
           const SizedBox(height: 20),
           UiField(
-            label: 'Title',
+            label: _draft.type == CaptureType.course ? 'Course Name' : 'Title',
             required: true,
             child: UiInput(controller: _titleCtrl, hintText: 'What is this about?'),
           ),
           const SizedBox(height: 16),
-          if (_draft.type != CaptureType.journal) ...[
+
+          // ── Note / General Details ──
+          if (_draft.type != CaptureType.journal &&
+              _draft.type != CaptureType.flashcard &&
+              _draft.type != CaptureType.course &&
+              _draft.type != CaptureType.focusSession) ...[
             UiField(
               label: _draft.type == CaptureType.note ? 'Content' : 'Details',
               child: UiTextarea(controller: _detailsCtrl, hintText: 'Add more detail (optional)', rows: 3),
             ),
             const SizedBox(height: 16),
           ],
+
+          // ── Note Tags ──
+          if (_draft.type == CaptureType.note) ...[
+            UiField(
+              label: 'Tags / Subjects',
+              child: UiInput(controller: _tagsCtrl, hintText: 'Biology, Exam prep, Formulas…'),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Journal ──
           if (_draft.type == CaptureType.journal) ...[
             UiField(
               label: 'Entry',
@@ -195,6 +247,8 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
             ),
             const SizedBox(height: 16),
           ],
+
+          // ── Todo ──
           if (_draft.type == CaptureType.todo) ...[
             Text('Priority', style: context.uiText.label),
             const SizedBox(height: 8),
@@ -212,6 +266,8 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
             ),
             const SizedBox(height: 8),
           ],
+
+          // ── Event ──
           if (_draft.type == CaptureType.event) ...[
             _DatePickRow(
               label: 'Starts · ${dateFmt.format(_draft.startTime ?? DateTime.now().add(const Duration(hours: 1)))}',
@@ -226,6 +282,8 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
             ),
             const SizedBox(height: 8),
           ],
+
+          // ── Habit ──
           if (_draft.type == CaptureType.habit) ...[
             Text('Category', style: context.uiText.label),
             const SizedBox(height: 8),
@@ -244,14 +302,34 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
             ),
             const SizedBox(height: 8),
           ],
+
+          // ── Goal ──
           if (_draft.type == CaptureType.goal) ...[
-            UiField(
-              label: 'Target',
-              child: UiInput(
-                controller: _targetCtrl,
-                keyboardType: TextInputType.number,
-                hintText: 'e.g. 100',
-              ),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: UiField(
+                    label: 'Target',
+                    child: UiInput(
+                      controller: _targetCtrl,
+                      keyboardType: TextInputType.number,
+                      hintText: 'e.g. 100',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: UiField(
+                    label: 'Unit',
+                    child: UiInput(
+                      controller: _unitCtrl,
+                      hintText: 'pages, km…',
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Text('Category', style: context.uiText.label),
@@ -270,6 +348,105 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
             ),
             const SizedBox(height: 8),
           ],
+
+          // ── Flashcard ──
+          if (_draft.type == CaptureType.flashcard) ...[
+            UiField(
+              label: 'Subjects / Tags',
+              child: UiInput(controller: _tagsCtrl, hintText: 'Biology, Chemistry, French…'),
+            ),
+            const SizedBox(height: 16),
+            if (_draft.flashcardPairs.isNotEmpty) ...[
+              Text('Cards (${_draft.flashcardPairs.length})', style: context.uiText.label),
+              const SizedBox(height: 8),
+              for (int i = 0; i < _draft.flashcardPairs.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: c.surfaceMuted,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Q: ${_draft.flashcardPairs[i].front}',
+                            style: context.uiText.caption.copyWith(fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'A: ${_draft.flashcardPairs[i].back}',
+                            style: context.uiText.caption.copyWith(color: c.foregroundMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ],
+
+          // ── Course ──
+          if (_draft.type == CaptureType.course) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: UiField(
+                    label: 'Course Code',
+                    child: UiInput(controller: _courseCodeCtrl, hintText: 'BIO101'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: UiField(
+                    label: 'Term / Semester',
+                    child: UiInput(controller: _termCtrl, hintText: 'Fall 2026'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: UiField(
+                    label: 'Instructor',
+                    child: UiInput(controller: _instructorCtrl, hintText: 'Dr. Smith'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: UiField(
+                    label: 'Room',
+                    child: UiInput(controller: _roomCtrl, hintText: 'Hall B'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Focus Session ──
+          if (_draft.type == CaptureType.focusSession) ...[
+            Text('Session Type', style: context.uiText.label),
+            const SizedBox(height: 8),
+            UiToggleGroup<String>(
+              options: _focusPresetToggleOptions,
+              value: _draft.focusPresetId ?? 'pomodoro',
+              onChanged: (v) => setState(() => _draft.focusPresetId = v),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           const SizedBox(height: 16),
           Row(
             children: [
@@ -283,9 +460,9 @@ class _CaptureReviewSheetState extends ConsumerState<CaptureReviewSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: UiButton(
-                  label: 'Save',
+                  label: _draft.type == CaptureType.focusSession ? 'Start Focus' : 'Save',
                   loading: _isSaving,
-                  leadingIcon: Icons.check,
+                  leadingIcon: _draft.type == CaptureType.focusSession ? Icons.timer_outlined : Icons.check,
                   onPressed: _save,
                 ),
               ),

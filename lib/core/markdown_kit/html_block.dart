@@ -167,7 +167,6 @@ String _transformHtmlSegment(String text, Map<String, HtmlNode> registry, _IdGen
   final List<_OpenFrame> stack = <_OpenFrame>[];
   int cursor = 0; // Position up to which `out` has already captured text.
   int lastPos = 0; // Position up to which the tokenizer has consumed tokens.
-  int? runStart;
 
   void attach(HtmlNode node) {
     if (stack.isEmpty) return;
@@ -189,7 +188,6 @@ String _transformHtmlSegment(String text, Map<String, HtmlNode> registry, _IdGen
       out.write('$_htmlPlaceholderMarker$id$_htmlPlaceholderMarker');
     }
     cursor = end;
-    runStart = null;
   }
 
   for (final RegExpMatch m in _htmlTag.allMatches(text)) {
@@ -206,7 +204,6 @@ String _transformHtmlSegment(String text, Map<String, HtmlNode> registry, _IdGen
     }
     if (stack.isEmpty && !isClose) {
       out.write(text.substring(cursor, m.start));
-      runStart = m.start;
     }
 
     if (!isClose) {

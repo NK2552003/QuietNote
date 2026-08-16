@@ -190,9 +190,11 @@ class MarkdownPdfExporter {
     );
     if (file == null) return false;
     onStep?.call('Opening share sheet');
-    await Share.shareXFiles(
-      <XFile>[XFile(file.path, mimeType: 'application/pdf')],
-      text: title,
+    await SharePlus.instance.share(
+      ShareParams(
+        files: <XFile>[XFile(file.path, mimeType: 'application/pdf')],
+        text: title,
+      ),
     );
     return true;
   }
