@@ -140,10 +140,6 @@ class RoutinesScreen extends ConsumerWidget {
         leading: QuietNoteMark(size: 38),
         subtitle: 'Build consistent daily rhythms that guide seamless productivity.',
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'New routine',
-        onPressed: () => context.push('/routines/new'),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

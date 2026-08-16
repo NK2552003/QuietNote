@@ -56,10 +56,6 @@ class GoalsScreen extends ConsumerWidget {
         leading: QuietNoteMark(size: 38),
         subtitle: 'Turn ambitious vision into clear, achievable milestones.',
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'New goal',
-        onPressed: () => context.push('/goals/new'),
-      ),
       child: goalsAsync.when(
         loading: () => const _GoalsSkeleton(),
         error: (err, stack) => UiCard(accentColor: context.uiColors.destructive, child: Text('Could not load goals: $err', style: context.uiText.caption.copyWith(color: context.uiColors.destructive))),

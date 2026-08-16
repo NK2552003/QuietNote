@@ -613,6 +613,144 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
     }
   }
 
+  /// Generates a reflective journal entry for the given topic.
+  Future<String> writeJournalEntry(String topic) async {
+    if (!canGenerate || topic.trim().isEmpty) return '';
+    try {
+      final String reply = await _generate(
+        systemPrompt:
+            'You are a thoughtful journaling assistant. Write a reflective, personal, first-person journal entry. '
+            'Focus on emotional depth, insight, and mindfulness. Use authentic prose without bullet points or Markdown headers.',
+        userMessage: 'Write a personal journal entry about: $topic',
+        maxTokens: 800,
+        temperature: 0.7,
+      );
+      return reply.trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Enhances or refactors selected text in a note or journal entry according
+  /// to the active AI backend (local on-device model or cloud API from Settings).
+  Future<String> enhanceSelectedText({
+    required String selectedText,
+    required CaptureType type,
+    String? contextTitle,
+    String? customInstruction,
+  }) async {
+    if (!canGenerate || selectedText.trim().isEmpty) return '';
+    try {
+      final String systemPrompt;
+      final String userPrompt;
+
+      if (type == CaptureType.journal) {
+        systemPrompt =
+            'You are a thoughtful writing editor and journaling assistant. '
+            'Improve and enrich the provided journal text while keeping the authentic, reflective first-person voice and emotional depth. '
+            'Do not add Markdown headers or bullet points. Return ONLY the improved replacement text.';
+        userPrompt = customInstruction != null && customInstruction.isNotEmpty
+            ? 'Journal title: ${contextTitle ?? ""}\nInstruction: $customInstruction\n\nOriginal text:\n"$selectedText"'
+            : 'Journal title: ${contextTitle ?? ""}\n\nPlease improve and polish this journal excerpt while maintaining its personal voice:\n"$selectedText"';
+      } else {
+        systemPrompt =
+            'You are an expert writing tutor and editor. Enhance clarity, flow, vocabulary, and formatting of the provided note text. '
+            'Maintain any valid Markdown formatting. Return ONLY the enhanced replacement text without meta-commentary.';
+        userPrompt = customInstruction != null && customInstruction.isNotEmpty
+            ? 'Note topic: ${contextTitle ?? ""}\nInstruction: $customInstruction\n\nOriginal text:\n"$selectedText"'
+            : 'Note topic: ${contextTitle ?? ""}\n\nPlease enhance and improve this note excerpt:\n"$selectedText"';
+      }
+
+      final String reply = await _generate(
+        systemPrompt: systemPrompt,
+        userMessage: userPrompt,
+        maxTokens: 800,
+        temperature: 0.4,
+      );
+      return reply.trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Generates content for a specific field/type combination during an AI capture
+  /// conversation step. The AI fills in the field so the user doesn't have to
+  /// type the entire body themselves.
+  ///
+  /// Returns the generated text, or empty string on failure.
+  Future<String> generateFieldContent({
+    required String title,
+    required CaptureType type,
+    required String field,
+    String? userHint,
+  }) async {
+    if (!canGenerate || title.trim().isEmpty) return '';
+    final topic = userHint?.isNotEmpty == true ? '$title — $userHint' : title;
+    try {
+      switch (type) {
+        case CaptureType.note:
+          return await writeMarkdownNote(topic);
+        case CaptureType.journal:
+          return await writeJournalEntry(topic);
+        case CaptureType.todo:
+          // For todo "details" — write a short step-by-step description
+          return await _generate(
+            systemPrompt:
+                'You are a productivity assistant. Write a concise, step-by-step breakdown for completing the task. '
+                'Use a numbered list or short prose.',
+            userMessage: 'Describe how to complete this task: $topic',
+            maxTokens: 400,
+            temperature: 0.4,
+          ).then((r) => r.trim());
+        case CaptureType.habit:
+          return await _generate(
+            systemPrompt:
+                'You are a wellness coach. Write a short motivational description for the habit '
+                'explaining its benefits and how to stay consistent.',
+            userMessage: 'Describe the habit: $topic',
+            maxTokens: 300,
+            temperature: 0.5,
+          ).then((r) => r.trim());
+        case CaptureType.goal:
+          return await _generate(
+            systemPrompt:
+                'You are a goal-setting coach. Write a clear description of why this goal matters '
+                'and an approach to achieving it.',
+            userMessage: 'Describe this goal: $topic',
+            maxTokens: 350,
+            temperature: 0.5,
+          ).then((r) => r.trim());
+        case CaptureType.routine:
+          return await _generate(
+            systemPrompt:
+                'You are a productivity and wellness expert. Write a structured routine description '
+                'with steps and the purpose of each step.',
+            userMessage: 'Write a routine description for: $topic',
+            maxTokens: 500,
+            temperature: 0.45,
+          ).then((r) => r.trim());
+        case CaptureType.event:
+          return await _generate(
+            systemPrompt:
+                'You are an assistant helping plan events. Write a concise event description or agenda.',
+            userMessage: 'Write a description for this event: $topic',
+            maxTokens: 300,
+            temperature: 0.45,
+          ).then((r) => r.trim());
+        default:
+          // Fallback for any unhandled type
+          return await _generate(
+            systemPrompt: 'You are a helpful writing assistant. Write a clear, concise description.',
+            userMessage: 'Write content about: $topic',
+            maxTokens: 400,
+            temperature: 0.5,
+          ).then((r) => r.trim());
+      }
+    } catch (_) {
+      return '';
+    }
+  }
+
 
   Future<String> _generate({
     required String systemPrompt,

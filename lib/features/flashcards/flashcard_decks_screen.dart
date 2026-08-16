@@ -52,10 +52,6 @@ class _FlashcardDecksScreenState extends ConsumerState<FlashcardDecksScreen> {
             ),
         ],
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'New deck',
-        onPressed: () => context.push('/flashcards/new'),
-      ),
       child: decksAsync.when(
         loading: () => const Center(
           child: Padding(

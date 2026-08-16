@@ -81,10 +81,6 @@ class TodosScreen extends ConsumerWidget {
         leading: QuietNoteMark(size: 38),
         subtitle: 'Clear your mind, capture your tasks & conquer your day.',
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'Add task',
-        onPressed: () => context.push('/todos/new'),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

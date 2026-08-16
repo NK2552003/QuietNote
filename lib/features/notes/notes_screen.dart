@@ -147,10 +147,6 @@ class NotesScreen extends ConsumerWidget {
         leading: QuietNoteMark(size: 38),
         subtitle: 'Capture ideas, organize thoughts & build your personal knowledge base.',
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'New note',
-        onPressed: () => context.push('/notes/new'),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

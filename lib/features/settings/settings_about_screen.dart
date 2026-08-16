@@ -1,22 +1,219 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
+import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
-import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/features/settings/widgets/settings_widgets.dart';
 
-/// App identity, privacy promise and credits.
+/// App identity, solo developer info, privacy policy, terms of service,
+/// and publication compliance.
 class SettingsAboutScreen extends ConsumerWidget {
   const SettingsAboutScreen({super.key});
+
+  static const String _appVersion = '1.0.0';
+  static const String _buildNumber = '1';
+  static const String _supportEmail = 'nitishkumar2552003@gmail.com';
+
+  void _showPrivacyPolicyDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final theme = ctx.ui;
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : theme.colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.shield_outlined, color: theme.colors.primary, size: 24),
+              const SizedBox(width: 10),
+              const Text('Privacy Policy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: const SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Last updated: August 2026',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey),
+                ),
+                SizedBox(height: 12),
+                _PolicySection(
+                  title: '1. Zero Personal Data Collection',
+                  body: 'QuietNote does not collect, harvest, monetize, or transmit your personal data. We do not maintain any user accounts or remote database sync servers.',
+                ),
+                _PolicySection(
+                  title: '2. 100% Local Storage',
+                  body: 'All your notes, journal entries, tasks, habits, routines, goals, calendar events, courses, flashcards, and focus timers are stored exclusively on your device in a local SQLite database.',
+                ),
+                _PolicySection(
+                  title: '3. AI Capture & On-Device Processing',
+                  body: 'When utilizing local AI (Gemma), prompts and inferences are processed entirely on your device without sending text across the internet. If you configure a Cloud API key, requests are routed directly to the selected provider using your credentials.',
+                ),
+                _PolicySection(
+                  title: '4. No Third-Party Trackers or Ads',
+                  body: 'QuietNote contains zero third-party advertising SDKs, zero behavioral tracking frameworks, and zero analytics telemetry libraries.',
+                ),
+                _PolicySection(
+                  title: '5. Data Control & Deletion',
+                  body: 'You own your data completely. You can export a full JSON/Markdown backup at any time. Clearing the app cache or uninstalling the app permanently erases all local data from your device.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showTermsDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final theme = ctx.ui;
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : theme.colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.gavel_outlined, color: theme.colors.primary, size: 24),
+              const SizedBox(width: 10),
+              const Text('Terms of Service', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: const SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Last updated: August 2026',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey),
+                ),
+                SizedBox(height: 12),
+                _PolicySection(
+                  title: '1. Software License',
+                  body: 'QuietNote is provided as a personal productivity and study application. You are granted a personal, non-exclusive license to use the app on your personal devices.',
+                ),
+                _PolicySection(
+                  title: '2. User Ownership of Content',
+                  body: 'You retain complete ownership and responsibility for all notes, reflections, routines, and materials created or stored inside QuietNote.',
+                ),
+                _PolicySection(
+                  title: '3. Offline Nature & Backups',
+                  body: 'Because QuietNote operates without a cloud server, regular backups via the Settings Data Export tool are recommended to protect against physical device damage or loss.',
+                ),
+                _PolicySection(
+                  title: '4. Disclaimer of Warranty',
+                  body: 'The software is provided on an "as is" and "as available" basis without warranties of any kind, either express or implied.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSupportDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final theme = ctx.ui;
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : theme.colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.support_agent_rounded, color: theme.colors.primary, size: 24),
+              const SizedBox(width: 10),
+              const Text('Developer Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'QuietNote is actively maintained and developed. If you have questions, feedback, or encountered a bug, feel free to reach out directly:',
+                style: TextStyle(fontSize: 14, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.mail_outline_rounded, size: 18),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: SelectableText(
+                        _supportEmail,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      tooltip: 'Copy email',
+                      onPressed: () {
+                        Clipboard.setData(const ClipboardData(text: _supportEmail));
+                        Navigator.of(ctx).pop();
+                        UiToast.show(
+                          context,
+                          title: 'Email copied',
+                          message: 'Support email copied to clipboard.',
+                          intent: UiIntent.primary,
+                          icon: Icons.check_circle_outline,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.ui;
     return SettingsSubPage(
       title: 'About',
-      subtitle: 'A quiet, offline study companion.',
+      subtitle: 'Solo developer, privacy promise, and publication details.',
       children: <Widget>[
+        // ── Main Identity Card ──
         UiCard(
           variant: UiCardVariant.elevated,
           child: Column(
@@ -24,94 +221,159 @@ class SettingsAboutScreen extends ConsumerWidget {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Container(
-                    width: context.sz(48),
-                    height: context.sz(48),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: theme.colors.primary.withValues(alpha: 0.12),
-                      borderRadius: context.radius(theme.radii.lg),
-                    ),
-                    child: Icon(
-                      Icons.nights_stay_outlined,
-                      color: theme.colors.primary,
-                      size: context.sz(theme.sizes.iconLg),
-                    ),
-                  ),
+                  const QuietNoteMark(size: 52),
                   SizedBox(width: context.sp(theme.spacing.md)),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('QuietNote', style: context.uiText.title),
-                      Text(
-                        'Version 1.0.0 · offline build',
-                        style: context.uiText.caption
-                            .copyWith(color: theme.colors.foregroundMuted),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text('QuietNote', style: context.uiText.title),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Version $_appVersion (Build $_buildNumber)',
+                          style: context.uiText.caption
+                              .copyWith(color: theme.colors.foregroundMuted),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: context.sp(theme.spacing.lg)),
+              SizedBox(height: context.sp(theme.spacing.md)),
               Text(
-                'Notes, journal, habits, routines, goals and a study calendar — '
-                'all in one place, all stored on your phone.',
-                style: context.uiText.body,
+                'A private, offline-first study suite and personal productivity system designed for calm focus, knowledge organization, and structured mastery.',
+                style: context.uiText.body.copyWith(height: 1.45),
               ),
             ],
           ),
         ),
         SizedBox(height: context.sp(theme.spacing.xl)),
-        const SettingsSection(
-          title: 'Privacy',
+
+        // ── Solo Developer Section ──
+        SettingsSection(
+          title: 'Solo Developer',
+          children: <Widget>[
+            const SettingsTile(
+              icon: Icons.person_outline_rounded,
+              title: 'Independent Project',
+              description: 'Crafted with care as a solo endeavor focusing on minimalism and user privacy.',
+              showChevron: false,
+            ),
+            SettingsTile(
+              icon: Icons.mail_outline_rounded,
+              title: 'Support & Inquiries',
+              description: _supportEmail,
+              onTap: () => _showSupportDialog(context),
+            ),
+            SettingsTile(
+              icon: Icons.chat_bubble_outline_rounded,
+              title: 'Send Feedback & Ideas',
+              description: 'Share suggestions to help shape future updates.',
+              onTap: () => _showSupportDialog(context),
+            ),
+          ],
+        ),
+
+        // ── Privacy & Trust (Publication Requirements) ──
+        SettingsSection(
+          title: 'Privacy & Data Protection',
           children: <Widget>[
             SettingsTile(
-              icon: Icons.wifi_off_outlined,
-              title: 'Works offline',
-              description: 'No account, no sync server, no tracking.',
+              icon: Icons.shield_outlined,
+              title: 'Privacy Policy',
+              description: 'Zero telemetry, zero ads, and no user tracking.',
+              onTap: () => _showPrivacyPolicyDialog(context),
+            ),
+            const SettingsTile(
+              icon: Icons.storage_rounded,
+              title: '100% Local SQLite Database',
+              description: 'Your notes, journals, tasks, and habits never leave this device.',
               showChevron: false,
             ),
-            SettingsTile(
-              icon: Icons.phone_iphone,
-              title: 'Data stays local',
-              description: 'Your database never leaves the device unless you export it.',
+            const SettingsTile(
+              icon: Icons.memory_rounded,
+              title: 'On-Device AI Privacy',
+              description: 'Gemma runs locally on hardware with no remote data uploads.',
               showChevron: false,
             ),
-            SettingsTile(
-              icon: Icons.psychology_outlined,
-              title: 'On-device AI',
-              description: 'AI Capture runs the model locally, with no uploads.',
+            const SettingsTile(
+              icon: Icons.wifi_off_rounded,
+              title: 'Offline-First Architecture',
+              description: 'Full functionality available without an internet connection.',
               showChevron: false,
             ),
           ],
         ),
+
+        // ── Legal & Compliance (Store Requirements) ──
+        SettingsSection(
+          title: 'Legal & Compliance',
+          children: <Widget>[
+            SettingsTile(
+              icon: Icons.gavel_outlined,
+              title: 'Terms of Service',
+              description: 'Standard software license and data ownership guidelines.',
+              onTap: () => _showTermsDialog(context),
+            ),
+            SettingsTile(
+              icon: Icons.code_rounded,
+              title: 'Open Source Licenses',
+              description: 'Third-party software libraries and dependencies.',
+              onTap: () {
+                showLicensePage(
+                  context: context,
+                  applicationName: 'QuietNote',
+                  applicationVersion: 'Version $_appVersion (Build $_buildNumber)',
+                  applicationIcon: const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: QuietNoteMark(size: 48),
+                  ),
+                  applicationLegalese: 'Copyright 2026 Nitish Kumar. All rights reserved.',
+                );
+              },
+            ),
+          ],
+        ),
+
+        // ── Technology Stack ──
         const SettingsSection(
-          title: 'Built with',
+          title: 'Architecture & Frameworks',
           children: <Widget>[
             SettingsTile(
               icon: Icons.flutter_dash,
-              title: 'Flutter & Riverpod',
+              title: 'Flutter & Dart',
+              description: 'High-performance reactive frontend framework.',
               showChevron: false,
             ),
             SettingsTile(
-              icon: Icons.storage_outlined,
-              title: 'Drift + SQLite',
+              icon: Icons.alt_route_rounded,
+              title: 'Riverpod State Management',
+              description: 'Robust, compile-safe reactive state architecture.',
+              showChevron: false,
+            ),
+            SettingsTile(
+              icon: Icons.dns_outlined,
+              title: 'Drift & SQLite',
+              description: 'Typed local persistence engine with automated schema migrations.',
               showChevron: false,
             ),
             SettingsTile(
               icon: Icons.palette_outlined,
-              title: 'QuietNote UI kit',
+              title: 'QuietNote Custom Design System',
+              description: 'Handcrafted responsive UI kit adhering to minimal aesthetics.',
               showChevron: false,
             ),
           ],
         ),
+
+        // ── Maintenance & Setup ──
         SettingsSection(
-          title: 'Setup',
+          title: 'Setup & Onboarding',
           children: <Widget>[
             SettingsTile(
-              icon: Icons.restart_alt,
-              title: 'Replay onboarding',
-              description: 'Walk through the welcome flow again.',
+              icon: Icons.restart_alt_rounded,
+              title: 'Replay Onboarding',
+              description: 'Walk through the initial setup and feature overview again.',
               onTap: () async {
                 await ref.read(settingsProvider.notifier).update(
                       (AppSettings s) => s.copyWith(onboardingComplete: false),
@@ -126,3 +388,35 @@ class SettingsAboutScreen extends ConsumerWidget {
     );
   }
 }
+
+class _PolicySection extends StatelessWidget {
+  const _PolicySection({
+    required this.title,
+    required this.body,
+  });
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            body,
+            style: const TextStyle(fontSize: 13, height: 1.45, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

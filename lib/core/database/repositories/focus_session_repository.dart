@@ -134,8 +134,16 @@ class FocusSessionRepository {
 
   Future<void> finishActive({bool? cancelled, String? reflection}) async {
     final active = await (_db.select(_db.focusSessions)..where((t) => t.status.equals('active'))).getSingleOrNull();
+    // A session is 'cancelled' only when:
+    //   • The user explicitly ended it early (cancelled == true), AND
+    //   • The timer still has meaningful time left (>2 s), AND
+    //   • No full Pomodoro cycle has been completed yet (cyclesCompleted == 0).
+    // If the user completed at least one work→break→work cycle, we honour
+    // that as 'completed' regardless of whether there's time remaining.
     final bool isActuallyCancelled = (cancelled == true) &&
-        (active != null && active.endsAt.isAfter(DateTime.now().add(const Duration(seconds: 2))));
+        (active != null &&
+            active.cyclesCompleted == 0 &&
+            active.endsAt.isAfter(DateTime.now().add(const Duration(seconds: 2))));
     await (_db.update(_db.focusSessions)..where((t) => t.status.equals('active'))).write(
       FocusSessionsCompanion(
         status: drift.Value(isActuallyCancelled ? 'cancelled' : 'completed'),

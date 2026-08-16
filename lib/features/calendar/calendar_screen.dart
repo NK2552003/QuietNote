@@ -80,7 +80,6 @@ class CalendarScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(aggregatedCalendarEventsProvider);
     final view = ref.watch(_calendarViewProvider);
-    final selectedDay = ref.watch(_selectedDayProvider);
 
     return UiPage(
       header: UiHeader(
@@ -95,12 +94,6 @@ class CalendarScreen extends ConsumerWidget {
                 _dateOnly(DateTime.now()),
           ),
         ],
-      ),
-      floatingActionButton: UiFab(
-        tooltip: 'New event',
-        onPressed: () => context.push(
-          '/calendar/new?date=${selectedDay.toIso8601String()}',
-        ),
       ),
       child: eventsAsync.when(
         loading: () => const _CalendarSkeleton(),

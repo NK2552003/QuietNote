@@ -18,7 +18,7 @@
     <!-- Required to display floating overlay bubble over other apps during focus timer. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application
-        android:label="quietnote"
+        android:label="QuietNote"
         android:name="${applicationName}"
         android:icon="@drawable/ic_launcher_quietnote">
         <activity

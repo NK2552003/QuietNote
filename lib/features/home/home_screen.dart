@@ -669,15 +669,18 @@ class _HomeFocusSectionState extends ConsumerState<_HomeFocusSection> {
             Stack(
               alignment: Alignment.center,
               children: [
-                SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 3.5,
-                    strokeCap: StrokeCap.round,
-                    backgroundColor: accentColor.withValues(alpha: 0.15),
-                    valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 3.5,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: accentColor.withValues(alpha: 0.15),
+                      valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                    ),
                   ),
                 ),
                 Icon(

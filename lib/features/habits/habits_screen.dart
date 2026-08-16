@@ -28,10 +28,6 @@ class HabitsScreen extends ConsumerWidget {
         leading: QuietNoteMark(size: 38),
         subtitle: 'Small daily steps lead to remarkable long-term growth.',
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'New habit',
-        onPressed: () => context.push('/habits/new'),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

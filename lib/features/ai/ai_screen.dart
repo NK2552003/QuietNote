@@ -75,6 +75,9 @@ class _AiScreenState extends ConsumerState<AiScreen>
   // ── Async loading (AI flashcard generation etc.) ──────────────────────────
   bool _enriching = false;
 
+  // ── AI Write state (AI writing field content in conversation steps) ────────
+  bool _aiWriting = false;
+
   @override
   void initState() {
     super.initState();
@@ -288,6 +291,65 @@ class _AiScreenState extends ConsumerState<AiScreen>
       }
     } finally {
       if (mounted) setState(() => _enriching = false);
+    }
+  }
+
+  // ── AI Write content for conversation step ────────────────────────────
+
+  Future<void> _aiWriteContent() async {
+    if (_session == null || _aiWriting) return;
+    final step = _session!.currentStep;
+    if (step == null || step.answerType != AiAnswerType.multilineText) return;
+
+    final notifier = ref.read(aiEngineProvider.notifier);
+    if (!notifier.canGenerate) {
+      UiToast.show(
+        context,
+        title: 'Set up AI first',
+        message: 'Import an on-device model or paste an API key in Settings › AI to use AI Write.',
+        intent: UiIntent.info,
+        actionLabel: 'Settings',
+        onAction: () => context.push('/settings/ai'),
+        duration: const Duration(seconds: 5),
+      );
+      return;
+    }
+
+    HapticFeedback.lightImpact();
+    setState(() => _aiWriting = true);
+    try {
+      final content = await notifier.generateFieldContent(
+        title: _session!.draft.title.isNotEmpty
+            ? _session!.draft.title
+            : _answerTextCtrl.text.trim(),
+        type: _session!.type,
+        field: step.field,
+        userHint: _answerTextCtrl.text.trim().isNotEmpty
+            ? _answerTextCtrl.text.trim()
+            : null,
+      );
+      if (!mounted || content.isEmpty) return;
+      _answerTextCtrl.value = TextEditingValue(
+        text: content,
+        selection: TextSelection.collapsed(offset: content.length),
+      );
+      UiToast.show(
+        context,
+        title: 'AI Generated',
+        message: 'Review and edit before submitting.',
+        intent: UiIntent.success,
+      );
+    } catch (e) {
+      if (mounted) {
+        UiToast.show(
+          context,
+          title: 'AI Write failed',
+          message: e.toString(),
+          intent: UiIntent.danger,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _aiWriting = false);
     }
   }
 
@@ -644,10 +706,12 @@ class _AiScreenState extends ConsumerState<AiScreen>
               session: _session!,
               answerCtrl: _answerTextCtrl,
               enriching: _enriching,
+              aiWriting: _aiWriting,
               onSubmit: _submitAnswer,
               onSkip: _skipStep,
               onBack: _goBack,
               onSwitchType: _switchType,
+              onAiWrite: _aiWriteContent,
             ),
           _AiMode.review => _ReviewView(
               key: const ValueKey('review'),
@@ -1184,15 +1248,20 @@ class _ConversationView extends ConsumerStatefulWidget {
     required this.onSkip,
     required this.onBack,
     required this.onSwitchType,
+    this.onAiWrite,
+    this.aiWriting = false,
   });
 
   final AiConversationSession session;
   final TextEditingController answerCtrl;
   final bool enriching;
+  final bool aiWriting;
   final ValueChanged<dynamic> onSubmit;
   final VoidCallback onSkip;
   final VoidCallback onBack;
   final ValueChanged<CaptureType> onSwitchType;
+  /// Called when user taps ✨ AI Write on a content step.
+  final VoidCallback? onAiWrite;
 
   @override
   ConsumerState<_ConversationView> createState() => _ConversationViewState();
@@ -1380,6 +1449,40 @@ class _ConversationViewState extends ConsumerState<_ConversationView> {
                   onPressed: widget.onBack,
                 ),
               const Spacer(),
+              // AI Write button — only for text content steps
+              if (effectiveStep.answerType == AiAnswerType.multilineText &&
+                  widget.onAiWrite != null &&
+                  !widget.aiWriting)
+                UiButton(
+                  label: 'AI Write',
+                  leadingIcon: Icons.auto_awesome_rounded,
+                  variant: UiVariant.secondary,
+                  size: UiSize.sm,
+                  onPressed: widget.onAiWrite,
+                ),
+              if (widget.aiWriting)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Writing…',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
               if (effectiveStep.optional)
                 UiButton(
                   label: 'Skip',

@@ -150,10 +150,6 @@ class JournalScreen extends ConsumerWidget {
         leading: QuietNoteMark(size: 38),
         subtitle: 'Reflect on your journey, express your mood and ideas.',
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'Write entry',
-        onPressed: () => context.push('/journal/new'),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

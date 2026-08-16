@@ -51,10 +51,6 @@ class CoursesScreen extends ConsumerWidget {
         leading: QuietNoteMark(size: 38),
         subtitle: 'Manage classes, grades, assignments & focus time.',
       ),
-      floatingActionButton: UiFab(
-        tooltip: 'New course',
-        onPressed: () => context.push('/courses/new'),
-      ),
       child: coursesAsync.when(
         loading: () => const _CoursesSkeleton(),
         error: (err, stack) => UiCard(

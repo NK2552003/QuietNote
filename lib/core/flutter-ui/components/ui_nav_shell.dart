@@ -283,68 +283,81 @@ class _UiNavShellState extends State<UiNavShell> {
               ),
             ),
           ],
-          // Interactive Floating Focus Pill (When timer active and user is outside /clock)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 78 + MediaQuery.of(context).padding.bottom,
-            child: Consumer(
-              builder: (context, ref, _) {
-                final settings = ref.watch(settingsProvider).value;
-                final focusEnd = settings?.focusSessionEndsAt;
-                if (focusEnd == null ||
-                    !focusEnd.isAfter(DateTime.now()) ||
-                    _isMenuOpen) {
-                  return const SizedBox.shrink();
-                }
-                final location = GoRouterState.of(context).uri.path;
-                if (location == '/' || location == '/clock' || location.isEmpty) {
-                  return const SizedBox.shrink();
-                }
 
-                final bool hasFloatingButton = location.startsWith('/todos') ||
-                    location.startsWith('/notes') ||
-                    location.startsWith('/habits') ||
-                    location.startsWith('/routines') ||
-                    location.startsWith('/calendar') ||
-                    location.startsWith('/goals') ||
-                    location.startsWith('/journal') ||
-                    location.startsWith('/courses') ||
-                    location.startsWith('/flashcards') ||
-                    location.startsWith('/note') ||
-                    location.startsWith('/journal_preview');
+          // ── Mobile Floating Focus Pill & Action Button Group ──
+          if (!_isMenuOpen)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 84 + MediaQuery.of(context).padding.bottom,
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final settings = ref.watch(settingsProvider).value;
+                  final activeSession =
+                      ref.watch(activeFocusSessionProvider).value;
+                  final DateTime? focusEnd =
+                      settings?.focusSessionEndsAt ?? activeSession?.endsAt;
+                  final bool isFocusActive =
+                      focusEnd != null && focusEnd.isAfter(DateTime.now());
 
-                final activeSession =
-                    ref.watch(activeFocusSessionProvider).value;
-                return AnimatedPadding(
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: hasFloatingButton ? 80 : 16,
-                  ),
-                  child: _MobileFloatingFocusPill(
-                    end: focusEnd,
-                    startedAt: settings?.focusSessionStartedAt ?? activeSession?.startedAt,
-                    phase: settings?.focusSessionPhase ?? 'work',
-                    hasFloatingButton: hasFloatingButton,
-                    presetLabel:
-                        focusPresetFromId(activeSession?.presetId)?.chipLabel,
-                    onTap: () {
-                      _closeQuickMenu();
-                      ZenFocusScreen.open(
-                        context,
-                        ref,
-                        end: focusEnd,
-                        startedAt: settings?.focusSessionStartedAt ?? activeSession?.startedAt,
-                        phase: settings?.focusSessionPhase,
-                      );
-                    },
-                  ),
-                );
-              },
+                  final currentPath = GoRouterState.of(context).uri.path;
+                  final bool isHomeScreen = widget.selectedIndex == 0 &&
+                      (currentPath == '/' || currentPath.isEmpty);
+
+                  final addRoute = _getAddRouteForCurrentPath(
+                      currentPath, widget.selectedIndex);
+
+                  // On Home screen, the Home page already has the focus card;
+                  // on other screens show the floating focus pill.
+                  final bool showFocusPill = isFocusActive && !isHomeScreen;
+
+                  if (!showFocusPill && addRoute == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Row(
+                    children: [
+                      if (showFocusPill)
+                        Expanded(
+                          child: _MobileFloatingFocusPill(
+                            end: focusEnd,
+                            startedAt: settings?.focusSessionStartedAt ??
+                                activeSession?.startedAt,
+                            phase: settings?.focusSessionPhase ?? 'work',
+                            presetLabel: focusPresetFromId(
+                                    activeSession?.presetId)
+                                ?.chipLabel,
+                            onTap: () {
+                              _closeQuickMenu();
+                              ZenFocusScreen.open(
+                                context,
+                                ref,
+                                end: focusEnd,
+                                startedAt:
+                                    settings?.focusSessionStartedAt ??
+                                        activeSession?.startedAt,
+                                phase: settings?.focusSessionPhase,
+                              );
+                            },
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      if (addRoute != null) ...[
+                        if (showFocusPill) const SizedBox(width: 10),
+                        _ShellCircularFab(
+                          tooltip: _getAddTooltip(addRoute),
+                          onPressed: () {
+                            _closeQuickMenu();
+                            context.push(addRoute);
+                          },
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -358,179 +371,179 @@ class _UiNavShellState extends State<UiNavShell> {
             width: 280,
             height: 56,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xDC1A1817)
-                      : theme.colors.surface.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : Colors.black.withValues(alpha: 0.08),
-                    width: 1.2,
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                child: Stack(
-                  children: [
-                    // Sliding Bubble Shift Background Animation
-                    AnimatedAlign(
-                      duration: const Duration(milliseconds: 140),
-                      curve: Curves.fastOutSlowIn,
-                      alignment: Alignment(-1.0 + (activeNavIndex * 0.5), 0.0),
-                      child: FractionallySizedBox(
-                        widthFactor: 0.20,
-                        heightFactor: 1.0,
-                        child: Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.14)
-                                  : theme.colors.primary.withValues(
-                                      alpha: 0.10,
-                                    ),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.22)
-                                    : theme.colors.primary.withValues(
-                                        alpha: 0.25,
-                                      ),
-                                width: 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xDC1A1817)
+                          : theme.colors.surface.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : Colors.black.withValues(alpha: 0.08),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Sliding Bubble Shift Background Animation
+                        AnimatedAlign(
+                          duration: const Duration(milliseconds: 140),
+                          curve: Curves.fastOutSlowIn,
+                          alignment: Alignment(-1.0 + (activeNavIndex * 0.5), 0.0),
+                          child: FractionallySizedBox(
+                            widthFactor: 0.20,
+                            heightFactor: 1.0,
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.14)
+                                      : theme.colors.primary.withValues(
+                                          alpha: 0.10,
+                                        ),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.22)
+                                        : theme.colors.primary.withValues(
+                                            alpha: 0.25,
+                                          ),
+                                    width: 1,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    // Foreground Interactive Tabs: Home (0), Todos (1), Options (4), Notes (2), Settings (3)
-                    Row(
-                      children: <Widget>[
-                        // Home (0)
-                        Expanded(
-                          child: _UiNavEntry(
-                            item: widget.items[0],
-                            activeIcon: _getActiveIcon(widget.items[0].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 0,
-                            showLabel: false,
-                            vertical: true,
-                            isBubbleTab: true,
-                            onTap: () {
-                              _closeQuickMenu();
-                              widget.onChanged(0);
-                            },
-                          ),
-                        ),
-                        // Todos (1)
-                        Expanded(
-                          child: _UiNavEntry(
-                            item: widget.items[1],
-                            activeIcon: _getActiveIcon(widget.items[1].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 1,
-                            showLabel: false,
-                            vertical: true,
-                            isBubbleTab: true,
-                            onTap: () {
-                              _closeQuickMenu();
-                              widget.onChanged(1);
-                            },
-                          ),
-                        ),
-                        // Middle Quick Options Drawer Trigger
-                        Expanded(
-                          child: UiInteractive(
-                            onTap: _toggleQuickMenu,
-                            semanticLabel: 'Quick Options',
-                            builder: (context, state) {
-                              final Color activeFg = isDark
-                                  ? Colors.white
-                                  : theme.colors.primary;
-                              final Color inactiveFg = isDark
-                                  ? Colors.white.withValues(alpha: 0.55)
-                                  : theme.colors.foregroundMuted;
+                        // Foreground Interactive Tabs: Home (0), Todos (1), Options (4), Notes (2), Settings (3)
+                        Row(
+                          children: <Widget>[
+                            // Home (0)
+                            Expanded(
+                              child: _UiNavEntry(
+                                item: widget.items[0],
+                                activeIcon: _getActiveIcon(widget.items[0].icon),
+                                selected: !_isMenuOpen && widget.selectedIndex == 0,
+                                showLabel: false,
+                                vertical: true,
+                                isBubbleTab: true,
+                                onTap: () {
+                                  _closeQuickMenu();
+                                  widget.onChanged(0);
+                                },
+                              ),
+                            ),
+                            // Todos (1)
+                            Expanded(
+                              child: _UiNavEntry(
+                                item: widget.items[1],
+                                activeIcon: _getActiveIcon(widget.items[1].icon),
+                                selected: !_isMenuOpen && widget.selectedIndex == 1,
+                                showLabel: false,
+                                vertical: true,
+                                isBubbleTab: true,
+                                onTap: () {
+                                  _closeQuickMenu();
+                                  widget.onChanged(1);
+                                },
+                              ),
+                            ),
+                            // Middle Quick Options Drawer Trigger
+                            Expanded(
+                              child: UiInteractive(
+                                onTap: _toggleQuickMenu,
+                                semanticLabel: 'Quick Options',
+                                builder: (context, state) {
+                                  final Color activeFg = isDark
+                                      ? Colors.white
+                                      : theme.colors.primary;
+                                  final Color inactiveFg = isDark
+                                      ? Colors.white.withValues(alpha: 0.55)
+                                      : theme.colors.foregroundMuted;
 
-                              return Center(
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 220),
-                                  switchInCurve: Curves.easeOutBack,
-                                  switchOutCurve: Curves.easeIn,
-                                  transitionBuilder: (child, animation) =>
-                                      ScaleTransition(
-                                        scale: animation,
-                                        child: FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        ),
+                                  return Center(
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 220),
+                                      switchInCurve: Curves.easeOutBack,
+                                      switchOutCurve: Curves.easeIn,
+                                      transitionBuilder: (child, animation) =>
+                                          ScaleTransition(
+                                            scale: animation,
+                                            child: FadeTransition(
+                                              opacity: animation,
+                                              child: child,
+                                            ),
+                                          ),
+                                      child: Icon(
+                                        _isMenuOpen
+                                            ? Icons.close_rounded
+                                            : Icons.grid_view_rounded,
+                                        key: ValueKey<bool>(_isMenuOpen),
+                                        size: 22,
+                                        color: activeNavIndex == 2 || _isMenuOpen
+                                            ? activeFg
+                                            : inactiveFg,
                                       ),
-                                  child: Icon(
-                                    _isMenuOpen
-                                        ? Icons.close_rounded
-                                        : Icons.grid_view_rounded,
-                                    key: ValueKey<bool>(_isMenuOpen),
-                                    size: 22,
-                                    color: activeNavIndex == 2 || _isMenuOpen
-                                        ? activeFg
-                                        : inactiveFg,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        // Notes (2)
-                        Expanded(
-                          child: _UiNavEntry(
-                            item: widget.items[2],
-                            activeIcon: _getActiveIcon(widget.items[2].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 2,
-                            showLabel: false,
-                            vertical: true,
-                            isBubbleTab: true,
-                            onTap: () {
-                              _closeQuickMenu();
-                              widget.onChanged(2);
-                            },
-                          ),
-                        ),
-                        // Settings (3)
-                        Expanded(
-                          child: _UiNavEntry(
-                            item: widget.items[3],
-                            activeIcon: _getActiveIcon(widget.items[3].icon),
-                            selected:
-                                !_isMenuOpen && widget.selectedIndex == 3,
-                            showLabel: false,
-                            vertical: true,
-                            isBubbleTab: true,
-                            onTap: () {
-                              _closeQuickMenu();
-                              widget.onChanged(3);
-                            },
-                          ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            // Notes (2)
+                            Expanded(
+                              child: _UiNavEntry(
+                                item: widget.items[2],
+                                activeIcon: _getActiveIcon(widget.items[2].icon),
+                                selected: !_isMenuOpen && widget.selectedIndex == 2,
+                                showLabel: false,
+                                vertical: true,
+                                isBubbleTab: true,
+                                onTap: () {
+                                  _closeQuickMenu();
+                                  widget.onChanged(2);
+                                },
+                              ),
+                            ),
+                            // Settings (3)
+                            Expanded(
+                              child: _UiNavEntry(
+                                item: widget.items[3],
+                                activeIcon: _getActiveIcon(widget.items[3].icon),
+                                selected:
+                                    !_isMenuOpen && widget.selectedIndex == 3,
+                                showLabel: false,
+                                vertical: true,
+                                isBubbleTab: true,
+                                onTap: () {
+                                  _closeQuickMenu();
+                                  widget.onChanged(3);
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildBubbleCard(_QuickGridItem item, bool isDark, UiTheme theme) {
@@ -892,6 +905,52 @@ class _NavFocusBubbleState extends State<_NavFocusBubble>
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Shell Route Helpers for Unified Floating Add Button
+// ---------------------------------------------------------------------------
+
+String? _getAddRouteForCurrentPath(String path, int selectedIndex) {
+  if (path.endsWith('/new') || path.contains('/edit') || path.contains('/study')) {
+    return null;
+  }
+  if (path == '/todos' || selectedIndex == 1) return '/todos/new';
+  if (path == '/notes' || selectedIndex == 2) return '/notes/new';
+  if (path == '/habits') return '/habits/new';
+  if (path == '/routines') return '/routines/new';
+  if (path == '/calendar') return '/calendar/new';
+  if (path == '/goals') return '/goals/new';
+  if (path == '/journal') return '/journal/new';
+  if (path == '/courses') return '/courses/new';
+  if (path == '/flashcards') return '/flashcards/new';
+  return null;
+}
+
+String _getAddTooltip(String route) {
+  switch (route) {
+    case '/todos/new':
+      return 'Add task';
+    case '/notes/new':
+      return 'New note';
+    case '/habits/new':
+      return 'New habit';
+    case '/routines/new':
+      return 'New routine';
+    case '/calendar/new':
+      return 'New event';
+    case '/goals/new':
+      return 'New goal';
+    case '/journal/new':
+      return 'New entry';
+    case '/courses/new':
+      return 'New course';
+    case '/flashcards/new':
+      return 'New deck';
+    default:
+      return 'Add';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Mobile Floating Interactive Focus Pill
 // ---------------------------------------------------------------------------
 
@@ -900,7 +959,6 @@ class _MobileFloatingFocusPill extends StatefulWidget {
     required this.end,
     this.startedAt,
     this.phase = 'work',
-    this.hasFloatingButton = false,
     this.presetLabel,
     required this.onTap,
   });
@@ -908,7 +966,6 @@ class _MobileFloatingFocusPill extends StatefulWidget {
   final DateTime end;
   final DateTime? startedAt;
   final String phase;
-  final bool hasFloatingButton;
   final String? presetLabel;
   final VoidCallback onTap;
 
@@ -921,7 +978,6 @@ class _MobileFloatingFocusPillState extends State<_MobileFloatingFocusPill>
     with SingleTickerProviderStateMixin {
   late Timer _ticker;
   late DateTime _now;
-  late AnimationController _pulseCtrl;
 
   @override
   void initState() {
@@ -930,35 +986,27 @@ class _MobileFloatingFocusPillState extends State<_MobileFloatingFocusPill>
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _ticker.cancel();
-    _pulseCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final uiTheme = context.ui;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isBreak = widget.phase == 'break';
     final Color accentColor =
         isBreak ? const Color(0xFFF59E0B) : const Color(0xFF6366F1);
-    final Color ringColor =
-        isBreak ? const Color(0xFFFBBF24) : const Color(0xFF818CF8);
-    final IconData icon =
-        isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined;
 
     final diff = widget.end.difference(_now).inSeconds.clamp(0, 24 * 60 * 60);
     final min = diff ~/ 60;
     final sec = diff % 60;
     final timeStr =
         '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final effectiveStart =
         widget.startedAt ?? widget.end.subtract(const Duration(minutes: 25));
@@ -968,100 +1016,174 @@ class _MobileFloatingFocusPillState extends State<_MobileFloatingFocusPill>
         ? (elapsedSec / sessionTotalSec).clamp(0.0, 1.0)
         : 0.0;
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: AnimatedBuilder(
-        animation: _pulseCtrl,
-        builder: (context, _) {
-          final pulseVal = _pulseCtrl.value;
-          return Container(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          widget.onTap();
+        },
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xDC1A1817)
+                : uiTheme.colors.surface.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 18,
+                spreadRadius: 0,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 2.6,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.black.withValues(alpha: 0.08),
+                      valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                    ),
+                  ),
+                  Icon(
+                    isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined,
+                    size: 13,
+                    color: accentColor,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isBreak ? 'Break Time' : (widget.presetLabel ?? 'Focus Active'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF1A1817),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : uiTheme.colors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : uiTheme.colors.primary.withValues(alpha: 0.15),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  timeStr,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : uiTheme.colors.primary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 11,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.45)
+                    : Colors.black.withValues(alpha: 0.35),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shell Unified Floating Circular Action Button
+// ---------------------------------------------------------------------------
+
+class _ShellCircularFab extends StatelessWidget {
+  const _ShellCircularFab({
+    required this.onPressed,
+    this.tooltip,
+  });
+
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final uiTheme = context.ui;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: Tooltip(
+        message: tooltip ?? 'Add',
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onPressed();
+          },
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            width: 56,
             height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: isDark
-                  ? (isBreak
-                      ? const Color(0xE61F1A12)
-                      : const Color(0xE6141320))
-                  : Colors.white.withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(28),
+                  ? const Color(0xDC1A1817)
+                  : uiTheme.colors.surface.withValues(alpha: 0.85),
+              shape: BoxShape.circle,
               border: Border.all(
-                color: ringColor.withValues(alpha: 0.35 + 0.3 * pulseVal),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: accentColor.withValues(alpha: 0.12 + 0.08 * pulseVal),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 26,
-                      height: 26,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 2.6,
-                        strokeCap: StrokeCap.round,
-                        backgroundColor:
-                            accentColor.withValues(alpha: 0.18),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                            ringColor),
-                      ),
-                    ),
-                    Icon(
-                      icon,
-                      size: 13,
-                      color: ringColor,
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    isBreak ? 'Break Time' : (widget.presetLabel ?? 'Focus Active'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: ringColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    timeStr,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 12,
-                  color: ringColor,
-                ),
-              ],
+            child: Icon(
+              Icons.add_rounded,
+              color: isDark ? Colors.white : const Color(0xFF1A1817),
+              size: 26,
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

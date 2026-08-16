@@ -17,6 +17,8 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:quietnote/core/markdown_kit/markdown_kit.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:quietnote/features/ai/local_ai_engine.dart';
+import 'package:quietnote/features/ai/capture_parser.dart';
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
   final String? noteId;
@@ -51,6 +53,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   // result to be appended again, duplicating words on every callback.
   String _voiceBaseText = '';
 
+  // ── AI Refactor state ───────────────────────────────────────────────────────
+  bool _aiRefactoring = false;
+  TextSelection? _selectedTextRange;
+
   late String _currentNoteId;
   String _courseId = '';
   bool get _isEditing => widget.noteId != null;
@@ -64,10 +70,22 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     } else if (widget.initialCourseId != null) {
       _courseId = widget.initialCourseId!;
     }
+    // Track selection changes for AI refactor button visibility
+    _contentController.addListener(_onSelectionChanged);
+  }
+
+  void _onSelectionChanged() {
+    final sel = _contentController.selection;
+    final hasSelection = sel.isValid && !sel.isCollapsed;
+    final newSel = hasSelection ? sel : null;
+    if (newSel != _selectedTextRange) {
+      setState(() => _selectedTextRange = newSel);
+    }
   }
 
   @override
   void dispose() {
+    _contentController.removeListener(_onSelectionChanged);
     _titleController.dispose();
     _contentController.dispose();
     _outlineController.dispose();
@@ -338,6 +356,65 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     );
   }
 
+  // ── AI Refactor ──────────────────────────────────────────────────────────
+
+  Future<void> _aiRefactorSelected() async {
+    final sel = _selectedTextRange;
+    if (sel == null || _aiRefactoring) return;
+    final fullText = _contentController.text;
+    final selectedText = fullText.substring(sel.start, sel.end).trim();
+    if (selectedText.isEmpty) return;
+
+    final notifier = ref.read(aiEngineProvider.notifier);
+    if (!notifier.canGenerate) {
+      UiToast.show(
+        context,
+        title: 'Set up AI first',
+        message: 'Import an on-device model or paste an API key in Settings › AI.',
+        intent: UiIntent.info,
+      );
+      return;
+    }
+
+    setState(() => _aiRefactoring = true);
+    try {
+      final enhanced = await notifier.enhanceSelectedText(
+        selectedText: selectedText,
+        type: CaptureType.note,
+        contextTitle: _titleController.text.trim().isNotEmpty
+            ? _titleController.text.trim()
+            : null,
+      );
+      if (!mounted || enhanced.isEmpty) return;
+
+      // Replace selected text with enhanced version
+      final newText = fullText.replaceRange(sel.start, sel.end, enhanced);
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: sel.start + enhanced.length),
+      );
+      setState(() => _selectedTextRange = null);
+
+      UiToast.show(
+        context,
+        title: 'AI Enhanced',
+        message: 'Selected text has been improved.',
+        intent: UiIntent.success,
+      );
+    } catch (e) {
+      if (mounted) {
+        UiToast.show(
+          context,
+          title: 'AI Enhance failed',
+          message: e.toString(),
+          intent: UiIntent.danger,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _aiRefactoring = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final wordCount = _contentController.text.trim().isEmpty
@@ -358,10 +435,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       child: Stack(
         children: [
           _buildScaffold(context, wordCount),
-          // Formatting toolbar floats just above the keyboard, like an
-          // input accessory view, instead of living inline above the text
-          // field — it stays reachable no matter how far the note has
-          // scrolled.
+          // Floating accessory bars above the keyboard: AI refactor bar (when text selected)
+          // stacked cleanly above the markdown formatting toolbar.
           if (!_isPreview && !_isLoading)
             Positioned(
               left: 0,
@@ -370,13 +445,31 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               child: AnimatedPadding(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
-                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                child: MarkdownEditorToolbar(
-                    editorKey: _editorKey,
-                    onPickImage: _pickImage,
-                    onPickDocument: _pickDocument,
-                    onToggleVoice: _toggleVoiceInput,
-                    listening: _listening,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_selectedTextRange != null)
+                      AnimatedOpacity(
+                        opacity: _selectedTextRange != null ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: _AiRefactorBar(
+                          refactoring: _aiRefactoring,
+                          onRefactor: _aiRefactorSelected,
+                          onDismiss: () =>
+                              setState(() => _selectedTextRange = null),
+                        ),
+                      ),
+                    MarkdownEditorToolbar(
+                      editorKey: _editorKey,
+                      onPickImage: _pickImage,
+                      onPickDocument: _pickDocument,
+                      onToggleVoice: _toggleVoiceInput,
+                      listening: _listening,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -525,6 +618,112 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 ],
               ],
             ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AI Refactor bar — floats above the formatting toolbar on text selection
+// ---------------------------------------------------------------------------
+
+class _AiRefactorBar extends StatelessWidget {
+  const _AiRefactorBar({
+    required this.refactoring,
+    required this.onRefactor,
+    required this.onDismiss,
+  });
+
+  final bool refactoring;
+  final VoidCallback onRefactor;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.uiColors;
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: c.primary.withValues(alpha: 0.25)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome_rounded, size: 16, color: c.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Text selected',
+              style: context.uiText.caption.copyWith(
+                color: c.foregroundMuted,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const Spacer(),
+            if (refactoring) ...[
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(c.primary),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Enhancing…',
+                style: context.uiText.caption.copyWith(
+                  color: c.primary,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ] else ...[
+              GestureDetector(
+                onTap: onRefactor,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: c.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome_rounded,
+                          size: 14, color: c.onPrimary),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Enhance with AI',
+                        style: context.uiText.caption.copyWith(
+                          color: c.onPrimary,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onDismiss,
+                child: Icon(Icons.close_rounded,
+                    size: 18, color: c.foregroundMuted),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

@@ -936,17 +936,20 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                         Stack(
                           alignment: Alignment.center,
                           children: [
-                            SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                value: sessionProgress,
-                                strokeWidth: 2.6,
-                                strokeCap: StrokeCap.round,
-                                backgroundColor: context.uiColors.primary
-                                    .withValues(alpha: 0.15),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    context.uiColors.primary),
+                            Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  value: sessionProgress,
+                                  strokeWidth: 2.6,
+                                  strokeCap: StrokeCap.round,
+                                  backgroundColor: context.uiColors.primary
+                                      .withValues(alpha: 0.15),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      context.uiColors.primary),
+                                ),
                               ),
                             ),
                             Icon(
@@ -1234,15 +1237,18 @@ class _HeroActiveFocusCard extends StatelessWidget {
           Stack(
             alignment: Alignment.center,
             children: [
-              SizedBox(
-                width: 140,
-                height: 140,
-                child: CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 6.0,
-                  strokeCap: StrokeCap.round,
-                  backgroundColor: accentColor.withValues(alpha: 0.12),
-                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: SizedBox(
+                  width: 140,
+                  height: 140,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 6.0,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: accentColor.withValues(alpha: 0.12),
+                    valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                  ),
                 ),
               ),
               Column(

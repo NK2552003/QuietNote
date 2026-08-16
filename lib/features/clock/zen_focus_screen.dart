@@ -61,7 +61,7 @@ class ZenFocusScreen extends ConsumerStatefulWidget {
           linkedTitle: linkedTitle,
           onCancel: () async {
             HapticFeedback.lightImpact();
-            await FocusTimerService().finishSession(ref);
+            await FocusTimerService().finishSession(ref, cancelled: true);
             if (ctx.mounted) Navigator.of(ctx).maybePop();
           },
           onExtend: (int extraMinutes) async {
