@@ -1,13 +1,30 @@
-import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/flutter-ui/flutter_ui.dart';
+import 'core/focus/floating_bubble_service.dart';
 import 'core/navigation/app_routes.dart';
+import 'core/security/app_lock_controller.dart';
+import 'core/security/app_lock_gate.dart';
 import 'core/settings/app_settings.dart';
 import 'core/settings/settings_repository.dart';
 import 'core/settings/theme_builder.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Catch synchronous Flutter framework errors
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('QuietNote UI error: ${details.exceptionAsString()}');
+  };
+
+  // Catch asynchronous and isolate errors without zone mismatch
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('QuietNote async error: $error\n$stack');
+    return true;
+  };
+
   // By default Flutter shows a *blank grey box* (not the red debug screen)
   // for any widget that throws during build in profile/release mode, and
   // prints nothing useful for isolate-level failures (e.g. a database
@@ -44,18 +61,49 @@ void main() {
     );
   };
 
-  runZonedGuarded(() {
-    runApp(const ProviderScope(child: HabitFlowApp()));
-  }, (error, stack) {
-    debugPrint('QuietNote uncaught error: $error\n$stack');
-  });
+  runApp(const ProviderScope(child: HabitFlowApp()));
 }
 
-class HabitFlowApp extends ConsumerWidget {
+class HabitFlowApp extends ConsumerStatefulWidget {
   const HabitFlowApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HabitFlowApp> createState() => _HabitFlowAppState();
+}
+
+class _HabitFlowAppState extends ConsumerState<HabitFlowApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        FloatingBubblePlatformService().notifyAppForeground();
+        ref.read(appLockProvider.notifier).onAppResumed();
+      },
+      onInactive: () {
+        ref.read(appLockProvider.notifier).onAppPaused();
+      },
+      onPause: () {
+        FloatingBubblePlatformService().notifyAppBackground();
+        ref.read(appLockProvider.notifier).onAppPaused();
+      },
+      onHide: () {
+        FloatingBubblePlatformService().notifyAppBackground();
+        ref.read(appLockProvider.notifier).onAppPaused();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Settings drive theme mode, accent colour and text size app-wide. Until
     // they load from the database we fall back to the defaults, so the very
     // first frame still renders.
@@ -81,13 +129,13 @@ class HabitFlowApp extends ConsumerWidget {
         darkTheme: buildUiTheme(brightness: Brightness.dark, settings: settings)
             .toThemeData(),
         themeMode: settings.themeMode,
-        // UiToast.show(...) looks up the nearest UiToastScope ancestor.
-        // Wrapping it here (above the Navigator, inside MaterialApp's own
-        // `builder`) means every route — including AI Capture, which is the
-        // first screen to actually call UiToast.show — can surface toasts.
-        // Without this wrap, UiToast.show throws immediately.
-        builder: (context, child) => UiToastScope(child: child ?? const SizedBox.shrink()),
+        // AppLockGate protects the app whenever biometric lock is enabled.
+        // UiToastScope allows toasts across all screens.
+        builder: (context, child) => AppLockGate(
+          child: UiToastScope(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }
 }
+

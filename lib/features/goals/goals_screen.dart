@@ -7,6 +7,7 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/features/goals/goal_editor_screen.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _GoalFilter { all, active, completed, overdue }
 
@@ -25,17 +26,6 @@ List<Map<String, dynamic>> _parseMilestones(String? raw) {
   } catch (_) {
     return const [];
   }
-}
-
-String _deadlineLabel(DateTime deadline) {
-  final today = _dateOnly(DateTime.now());
-  final day = _dateOnly(deadline);
-  final diff = day.difference(today).inDays;
-  if (diff == 0) return 'Due today';
-  if (diff == 1) return 'Due tomorrow';
-  if (diff < 0) return '${-diff} day${diff == -1 ? '' : 's'} overdue';
-  if (diff <= 30) return '$diff days left';
-  return 'Due ${DateFormat.yMMMd().format(deadline)}';
 }
 
 class GoalsScreen extends ConsumerWidget {
@@ -61,12 +51,10 @@ class GoalsScreen extends ConsumerWidget {
     final goalsAsync = ref.watch(goalsStreamProvider);
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Goals',
-        subtitle: 'Vision translated into milestones.',
-        actions: [
-          UiButton(label: 'New Goal', leadingIcon: Icons.add, onPressed: () => context.push('/goals/new')),
-        ],
+        leading: QuietNoteMark(size: 38),
+        subtitle: 'Turn ambitious vision into clear, achievable milestones.',
       ),
       child: goalsAsync.when(
         loading: () => const _GoalsSkeleton(),

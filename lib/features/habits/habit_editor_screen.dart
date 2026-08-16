@@ -254,9 +254,8 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
       );
     }
 
-    // Ensure the habits list refreshes immediately after save. Use refresh
-    // to force a recompute and then verify the saved row exists.
-    ref.refresh(habitsStreamProvider);
+    // Ensure the habits list refreshes immediately after save.
+    ref.invalidate(habitsStreamProvider);
     final checkId = _isEditing ? widget.habitId! : (newId ?? '');
     if (reminderDateTime != null && checkId.isNotEmpty) {
       var nextReminder = reminderDateTime;
@@ -284,6 +283,12 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
     }
 
     if (!mounted) return;
+    context.canPop() ? context.pop() : context.go('/habits');
+  }
+
+  /// Leaves the editor without saving. Used by the back arrow so it always
+  /// returns to the list, even when the form is empty/invalid.
+  void _goBack() {
     context.canPop() ? context.pop() : context.go('/habits');
   }
 
@@ -327,8 +332,8 @@ class _HabitEditorScreenState extends ConsumerState<HabitEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveHabit,
-          tooltip: 'Save & close',
+          onPressed: _goBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Habit' : 'New Habit',
         subtitle: _isEditing

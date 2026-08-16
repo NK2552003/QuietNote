@@ -27,12 +27,18 @@ class NoteRepository {
         .watch();
   }
 
-  Future<void> addNote(String title, String content, {List<String> tags = const []}) async {
+  Future<void> addNote(
+    String title,
+    String content, {
+    List<String> tags = const [],
+    String? courseId,
+  }) async {
     await _db.into(_db.notes).insert(NotesCompanion.insert(
       id: const Uuid().v4(),
       title: title,
       content: content,
       tags: drift.Value(tagsToCsv(tags)),
+      courseId: drift.Value(courseId),
     ));
   }
 
@@ -45,6 +51,7 @@ class NoteRepository {
     String title,
     String content, {
     List<String>? tags,
+    String? courseId,
   }) async {
     await (_db.update(_db.notes)..where((n) => n.id.equals(id))).write(
       NotesCompanion(
@@ -53,6 +60,7 @@ class NoteRepository {
         tags: tags != null
             ? drift.Value(tagsToCsv(tags))
             : const drift.Value.absent(),
+        courseId: drift.Value(courseId),
       ),
     );
   }

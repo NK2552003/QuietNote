@@ -109,14 +109,14 @@ fdroid/                # F-Droid metadata template
 docs/publishing/       # Release and publishing guidance
 ```
 
-## Preparing a release
+## Preparing a release & F-Droid
 
-QuietNote includes Android notification receivers, store listing text, and an
-F-Droid metadata template. Before publishing, choose a license, use a final
-Android application ID, test notifications on a physical device, and publish
-the source repository.
+QuietNote is configured for F-Droid and standard Android releases. For release notes and version history, see the [Changelog](CHANGELOG.md).
 
-For the complete checklist, read the [publishing guide](docs/publishing/README.md).
+For store publishing guidance and F-Droid metadata, read:
+- [F-Droid Submission Guide](fdroid/README.md)
+- [Complete Publishing Guide](docs/publishing/README.md)
+- [Software License (Apache-2.0)](LICENSE)
 
 ---
 
@@ -124,3 +124,4 @@ For the complete checklist, read the [publishing guide](docs/publishing/README.m
   <strong>Make room for what matters.</strong><br />
   Made for quieter, more intentional days.
 </p>
+

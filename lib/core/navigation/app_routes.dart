@@ -27,6 +27,7 @@ import '../../features/settings/settings_appearance_screen.dart';
 import '../../features/settings/settings_notifications_screen.dart';
 import '../../features/settings/settings_ai_screen.dart';
 import '../../features/settings/settings_data_screen.dart';
+import '../../features/settings/settings_security_screen.dart';
 import '../../features/settings/settings_about_screen.dart';
 import '../../features/settings/profile_screen.dart';
 import '../../features/ai/ai_screen.dart';
@@ -34,6 +35,14 @@ import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/clock/clock_screen.dart';
 import '../../features/search/global_search_screen.dart';
+import '../../features/courses/courses_screen.dart';
+import '../../features/courses/course_editor_screen.dart';
+import '../../features/courses/course_detail_screen.dart';
+import '../../features/options/all_options_screen.dart';
+import '../../features/flashcards/flashcard_decks_screen.dart';
+import '../../features/flashcards/flashcard_deck_editor_screen.dart';
+import '../../features/flashcards/flashcard_deck_detail_screen.dart';
+import '../../features/flashcards/flashcard_study_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -53,47 +62,80 @@ final appRouter = GoRouter(
       navigatorKey: shellNavigatorKey,
       builder: (context, state, child) => AppShell(child: child),
       routes: [
-        GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+        GoRoute(
+          path: '/',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: HomeScreen()),
+        ),
+        GoRoute(
+          path: '/options',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: AllOptionsScreen()),
+        ),
         GoRoute(
           path: '/habits',
-          builder: (context, state) => const HabitsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: HabitsScreen()),
         ),
         GoRoute(
           path: '/todos',
-          builder: (context, state) => const TodosScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: TodosScreen()),
         ),
         GoRoute(
           path: '/notes',
-          builder: (context, state) => const NotesScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: NotesScreen()),
         ),
         GoRoute(
           path: '/routines',
-          builder: (context, state) => const RoutinesScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: RoutinesScreen()),
         ),
         GoRoute(
           path: '/calendar',
-          builder: (context, state) => const CalendarScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: CalendarScreen()),
         ),
         GoRoute(
           path: '/goals',
-          builder: (context, state) => const GoalsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: GoalsScreen()),
         ),
         GoRoute(
           path: '/journal',
-          builder: (context, state) => const JournalScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: JournalScreen()),
         ),
         GoRoute(
           path: '/analytics',
-          builder: (context, state) => const AnalyticsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: AnalyticsScreen()),
         ),
-        GoRoute(path: '/ai', builder: (context, state) => const AiScreen()),
+        GoRoute(
+          path: '/ai',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: AiScreen()),
+        ),
         GoRoute(
           path: '/settings',
-          builder: (context, state) => const SettingsScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: SettingsScreen()),
         ),
         GoRoute(
           path: '/clock',
-          builder: (context, state) => const ClockScreen(),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: ClockScreen()),
+        ),
+        GoRoute(
+          path: '/courses',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: CoursesScreen()),
+        ),
+        GoRoute(
+          path: '/flashcards',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: FlashcardDecksScreen()),
         ),
       ],
     ),
@@ -118,6 +160,10 @@ final appRouter = GoRouter(
       builder: (context, state) => const SettingsDataScreen(),
     ),
     GoRoute(
+      path: '/settings/security',
+      builder: (context, state) => const SettingsSecurityScreen(),
+    ),
+    GoRoute(
       path: '/settings/about',
       builder: (context, state) => const SettingsAboutScreen(),
     ),
@@ -137,7 +183,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/notes/new',
-      builder: (context, state) => const NoteEditorScreen(),
+      builder: (context, state) => NoteEditorScreen(
+        initialCourseId: state.uri.queryParameters['courseId'],
+      ),
     ),
     GoRoute(
       path: '/notes/edit/:id',
@@ -151,7 +199,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/todos/new',
-      builder: (context, state) => const TodoEditorScreen(),
+      builder: (context, state) => TodoEditorScreen(
+        initialCourseId: state.uri.queryParameters['courseId'],
+      ),
     ),
     GoRoute(
       path: '/todos/edit/:id',
@@ -179,7 +229,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/goals/new',
-      builder: (context, state) => const GoalEditorScreen(),
+      builder: (context, state) => GoalEditorScreen(
+        initialCourseId: state.uri.queryParameters['courseId'],
+      ),
     ),
     GoRoute(
       path: '/goals/edit/:id',
@@ -197,7 +249,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/journal/new',
-      builder: (context, state) => const JournalEditorScreen(),
+      builder: (context, state) => JournalEditorScreen(
+        initialTag: state.uri.queryParameters['tag'],
+      ),
     ),
     GoRoute(
       path: '/journal/edit/:id',
@@ -213,90 +267,260 @@ final appRouter = GoRouter(
       path: '/search',
       builder: (context, state) => const GlobalSearchScreen(),
     ),
+    GoRoute(
+      path: '/courses/new',
+      builder: (context, state) => const CourseEditorScreen(),
+    ),
+    GoRoute(
+      path: '/courses/edit/:id',
+      builder: (context, state) =>
+          CourseEditorScreen(courseId: state.pathParameters['id']),
+    ),
+    // Flashcards (Feature 4). `/flashcards/study` must be declared before
+    // `/flashcards/:id` so it isn't swallowed by the dynamic segment.
+    GoRoute(
+      path: '/flashcards/new',
+      builder: (context, state) => const FlashcardDeckEditorScreen(),
+    ),
+    GoRoute(
+      path: '/flashcards/study',
+      builder: (context, state) => const FlashcardStudyScreen(),
+    ),
+    GoRoute(
+      path: '/flashcards/edit/:id',
+      builder: (context, state) =>
+          FlashcardDeckEditorScreen(deckId: state.pathParameters['id']),
+    ),
+    GoRoute(
+      path: '/flashcards/:id/study',
+      builder: (context, state) =>
+          FlashcardStudyScreen(deckId: state.pathParameters['id']),
+    ),
+    GoRoute(
+      path: '/flashcards/:id',
+      builder: (context, state) =>
+          FlashcardDeckDetailScreen(deckId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/courses/:id',
+      builder: (context, state) =>
+          CourseDetailScreen(courseId: state.pathParameters['id']!),
+    ),
   ],
 );
 
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return UiNavShell(
-      selectedIndex: _calculateSelectedIndex(context),
-      onChanged: (idx) => _onItemTapped(idx, context),
-      items: const [
-        UiTabItem(icon: Icons.home_outlined, label: 'Home'),
-        UiTabItem(icon: Icons.repeat_outlined, label: 'Habits'),
-        UiTabItem(icon: Icons.checklist_outlined, label: 'Todos'),
-        UiTabItem(icon: Icons.notes_outlined, label: 'Notes'),
-        UiTabItem(icon: Icons.route_outlined, label: 'Routines'),
-        UiTabItem(icon: Icons.calendar_month_outlined, label: 'Calendar'),
-        UiTabItem(icon: Icons.flag_outlined, label: 'Goals'),
-        UiTabItem(icon: Icons.menu_book_outlined, label: 'Journal'),
-        UiTabItem(icon: Icons.insights_outlined, label: 'Analytics'),
-        UiTabItem(icon: Icons.auto_awesome, label: 'AI Capture'),
-        UiTabItem(icon: Icons.settings_outlined, label: 'Settings'),
-        UiTabItem(icon: Icons.access_time_outlined, label: 'Clock'),
-      ],
-      body: child,
-    );
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  // The PageView that drives Home/Todos/Notes/Settings is unmounted
+  // whenever a quick-grid screen (Habits, Journal, Courses, ...) is shown
+  // in its place — the drawer's grid tiles push those routes directly,
+  // bypassing this shell's index tracking entirely. That unmount destroys
+  // the PageView's scroll position, so a `PageController` that survives
+  // the unmount has nothing left to reattach to.
+  //
+  // The previous approach kept a single long-lived controller around and,
+  // after the PageView remounted, waited for a post-frame callback to call
+  // `jumpToPage`. That's a race: the fresh scroll position always attaches
+  // at the controller's original `initialPage` (0 / Home) first, and
+  // reading `PageController.page` (or calling `jumpToPage`) before that
+  // position has been laid out can throw — leaving `_pendingPageJump`
+  // stuck `true` and the tab bar reporting the correct tab while the body
+  // stayed blank/on Home. Instead, we never try to resurrect the old
+  // controller: whenever the PageView is about to remount we throw it away
+  // and build a brand new one seeded with `initialPage: _currentIndex`, so
+  // it opens on the right tab on its very first frame — no jump needed.
+  PageController? _pageController;
+  bool _pageControllerNeedsRefresh = true;
+  int _currentIndex = 0;
+  final Set<int> _visitedIndices = <int>{0};
+
+  void _markVisited(int index) {
+    _visitedIndices.add(index);
+  }
+
+  PageController _ensurePageController() {
+    if (_pageController == null || _pageControllerNeedsRefresh) {
+      _pageController?.dispose();
+      _pageController = PageController(initialPage: _currentIndex);
+      _pageControllerNeedsRefresh = false;
+    }
+    return _pageController!;
+  }
+
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    super.dispose();
   }
 
   static int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.path;
-    if (location.startsWith('/habits')) return 1;
-    if (location.startsWith('/todos')) return 2;
-    if (location.startsWith('/notes')) return 3;
-    if (location.startsWith('/routines')) return 4;
-    if (location.startsWith('/calendar')) return 5;
-    if (location.startsWith('/goals')) return 6;
-    if (location.startsWith('/journal')) return 7;
-    if (location.startsWith('/analytics')) return 8;
-    if (location.startsWith('/ai')) return 9;
-    if (location.startsWith('/settings')) return 10;
-    if (location.startsWith('/clock')) return 11;
+    if (location.startsWith('/todos')) return 1;
+    if (location.startsWith('/notes')) return 2;
+    if (location.startsWith('/settings')) return 3;
+    if (location.startsWith('/options') ||
+        location.startsWith('/habits') ||
+        location.startsWith('/routines') ||
+        location.startsWith('/calendar') ||
+        location.startsWith('/goals') ||
+        location.startsWith('/journal') ||
+        location.startsWith('/courses') ||
+        location.startsWith('/flashcards') ||
+        location.startsWith('/analytics') ||
+        location.startsWith('/clock') ||
+        location.startsWith('/ai')) {
+      return 4;
+    }
     return 0;
   }
 
-  void _onItemTapped(int index, BuildContext context) {
+  static String _routeForIndex(int index) {
     switch (index) {
       case 0:
-        context.go('/');
-        break;
+        return '/';
       case 1:
-        context.go('/habits');
-        break;
+        return '/todos';
       case 2:
-        context.go('/todos');
-        break;
+        return '/notes';
       case 3:
-        context.go('/notes');
-        break;
+        return '/settings';
       case 4:
-        context.go('/routines');
-        break;
-      case 5:
-        context.go('/calendar');
-        break;
-      case 6:
-        context.go('/goals');
-        break;
-      case 7:
-        context.go('/journal');
-        break;
-      case 8:
-        context.go('/analytics');
-        break;
-      case 9:
-        context.go('/ai');
-        break;
-      case 10:
-        context.go('/settings');
-        break;
-      case 11:
-        context.go('/clock');
-        break;
+        return '/options';
+      default:
+        return '/';
     }
+  }
+
+  void _onItemTapped(int index) {
+    _markVisited(index);
+    final String targetRoute = _routeForIndex(index);
+    final String currentRoute = GoRouterState.of(context).uri.path;
+    final int prevIndex = _currentIndex;
+
+    if (_currentIndex != index) {
+      setState(() {
+        _currentIndex = index;
+      });
+    }
+
+    // Only move the PageView ourselves if it's actually mounted right now.
+    // If we're tapping a dock icon from a quick-grid screen (Habits,
+    // Journal, ...), the PageView isn't in the tree — `_ensurePageController`
+    // will hand it a fresh controller seeded on `_currentIndex` the moment
+    // it remounts below, so there's nothing to jump here.
+    if (_pageController != null && _pageController!.hasClients) {
+      if ((index - prevIndex).abs() > 1) {
+        _pageController!.jumpToPage(index);
+      } else {
+        _pageController!.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.fastOutSlowIn,
+        );
+      }
+    }
+
+    if (currentRoute != targetRoute) {
+      context.go(targetRoute);
+    }
+  }
+
+  Widget _buildPage(int index) {
+    final Widget content = switch (index) {
+      0 => const HomeScreen(),
+      1 => const TodosScreen(),
+      2 => const NotesScreen(),
+      3 => const SettingsScreen(),
+      4 => const AllOptionsScreen(),
+      _ => const SizedBox.shrink(),
+    };
+    return RepaintBoundary(child: _KeepAliveWrapper(child: content));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String location = GoRouterState.of(context).uri.path;
+    final bool isMainTabRoute = location == '/' ||
+        location.startsWith('/todos') ||
+        location.startsWith('/notes') ||
+        location.startsWith('/settings') ||
+        location.startsWith('/options');
+
+    final int calculatedIndex = _calculateSelectedIndex(context);
+
+    if (isMainTabRoute && _currentIndex != calculatedIndex) {
+      _currentIndex = calculatedIndex;
+      _markVisited(calculatedIndex);
+    }
+
+    if (!isMainTabRoute) {
+      // We're about to show a quick-grid screen (from the drawer/grid, or
+      // an "All Options" tile) as `widget.child` instead of the PageView,
+      // which unmounts the PageView and destroys its scroll position. Mark
+      // the controller as stale so the next time a main-tab route builds,
+      // `_ensurePageController` swaps in a fresh one seeded on the right
+      // page instead of trying to reuse this now-detached one.
+      _pageControllerNeedsRefresh = true;
+    }
+
+    final selectedIndex =
+        isMainTabRoute ? _currentIndex : calculatedIndex;
+
+    return UiNavShell(
+      selectedIndex: selectedIndex,
+      onChanged: (idx) => _onItemTapped(idx),
+      items: const [
+        UiTabItem(icon: Icons.home_outlined, label: 'Home'),
+        UiTabItem(icon: Icons.checklist_outlined, label: 'Todos'),
+        UiTabItem(icon: Icons.notes_outlined, label: 'Notes'),
+        UiTabItem(icon: Icons.settings_outlined, label: 'Settings'),
+        UiTabItem(icon: Icons.grid_view_outlined, label: 'Options'),
+      ],
+      body: isMainTabRoute
+          ? PageView.builder(
+              controller: _ensurePageController(),
+              physics: const ClampingScrollPhysics(),
+              allowImplicitScrolling: false,
+              itemCount: 5,
+              onPageChanged: (index) {
+                _markVisited(index);
+                if (_currentIndex != index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                  context.go(_routeForIndex(index));
+                }
+              },
+              itemBuilder: (context, index) => _buildPage(index),
+            )
+          : widget.child,
+    );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  const _KeepAliveWrapper({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

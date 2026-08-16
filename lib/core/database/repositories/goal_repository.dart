@@ -34,6 +34,7 @@ class GoalRepository {
     String? category,
     int priority = 0,
     String? milestones,
+    String? courseId,
   }) async {
     final id = const Uuid().v4();
     final percent = target == 0 ? 0 : ((current / target) * 100).clamp(0, 100).toInt();
@@ -47,6 +48,7 @@ class GoalRepository {
           progressPercent: drift.Value(percent),
           priority: drift.Value(priority),
           milestones: drift.Value(milestones),
+          courseId: drift.Value(courseId),
         ));
     return id;
   }
@@ -63,6 +65,7 @@ class GoalRepository {
     String? category,
     int priority = 0,
     String? milestones,
+    String? courseId,
   }) async {
     final percent = target == 0 ? 0 : ((current / target) * 100).clamp(0, 100).toInt();
     await (_db.update(_db.goals)..where((g) => g.id.equals(id))).write(
@@ -75,6 +78,7 @@ class GoalRepository {
         progressPercent: drift.Value(percent),
         priority: drift.Value(priority),
         milestones: drift.Value(milestones),
+        courseId: drift.Value(courseId),
       ),
     );
   }

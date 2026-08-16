@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/focus/floating_bubble_service.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
 import 'package:quietnote/core/notifications/notification_service.dart';
@@ -641,7 +643,7 @@ class _FocusStep extends StatelessWidget {
   }
 }
 
-class _RemindersStep extends StatelessWidget {
+class _RemindersStep extends StatefulWidget {
   const _RemindersStep({
     required this.reminders,
     required this.onReminders,
@@ -653,6 +655,71 @@ class _RemindersStep extends StatelessWidget {
   final ValueChanged<bool> onReminders;
   final bool quietHours;
   final ValueChanged<bool> onQuietHours;
+
+  @override
+  State<_RemindersStep> createState() => _RemindersStepState();
+}
+
+class _RemindersStepState extends State<_RemindersStep> {
+  bool _permissionGranted = false;
+  bool _overlayPermissionGranted = false;
+  bool _checkingPermission = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissionStatus();
+    _checkOverlayPermissionStatus();
+  }
+
+  Future<void> _checkPermissionStatus() async {
+    try {
+      final status = await Permission.notification.status;
+      if (mounted) {
+        setState(() {
+          _permissionGranted = status.isGranted;
+          _checkingPermission = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _checkingPermission = false);
+      }
+    }
+  }
+
+  Future<void> _checkOverlayPermissionStatus() async {
+    try {
+      final granted = await FloatingBubblePlatformService().checkPermission();
+      if (mounted) {
+        setState(() => _overlayPermissionGranted = granted);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    setState(() => _checkingPermission = true);
+    final granted = await NotificationService().requestPermissions();
+    if (mounted) {
+      setState(() {
+        _permissionGranted = granted;
+        _checkingPermission = false;
+      });
+      if (granted && !widget.reminders) {
+        widget.onReminders(true);
+      }
+    }
+  }
+
+  Future<void> _requestOverlayPermission() async {
+    try {
+      await FloatingBubblePlatformService().requestPermission();
+      final granted = await FloatingBubblePlatformService().checkPermission();
+      if (mounted) {
+        setState(() => _overlayPermissionGranted = granted);
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -669,8 +736,13 @@ class _RemindersStep extends StatelessWidget {
                 icon: Icons.notifications_active_outlined,
                 title: 'Habit, task and class reminders',
                 description: 'Nudges before deadlines and daily habits.',
-                value: reminders,
-                onChanged: onReminders,
+                value: widget.reminders,
+                onChanged: (val) {
+                  widget.onReminders(val);
+                  if (val && !_permissionGranted) {
+                    _requestNotificationPermission();
+                  }
+                },
               ),
               Divider(
                 height: context.sp(theme.spacing.xl),
@@ -680,10 +752,151 @@ class _RemindersStep extends StatelessWidget {
                 icon: Icons.bedtime_outlined,
                 title: 'Quiet hours (10 PM – 7 AM)',
                 description: 'Nothing buzzes while you sleep.',
-                value: quietHours,
-                enabled: reminders,
-                onChanged: onQuietHours,
+                value: widget.quietHours,
+                enabled: widget.reminders,
+                onChanged: widget.onQuietHours,
               ),
+            ],
+          ),
+        ),
+        SizedBox(height: context.sp(theme.spacing.lg)),
+        UiCard(
+          variant: UiCardVariant.elevated,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: context.sz(40),
+                    height: context.sz(40),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (_permissionGranted
+                              ? UiIntent.success.color(context)
+                              : theme.colors.primary)
+                          .withValues(alpha: 0.12),
+                      borderRadius: context.radius(theme.radii.md),
+                    ),
+                    child: Icon(
+                      _permissionGranted
+                          ? Icons.check_circle_outline
+                          : Icons.notifications_active_outlined,
+                      color: _permissionGranted
+                          ? UiIntent.success.color(context)
+                          : theme.colors.primary,
+                      size: 22,
+                    ),
+                  ),
+                  SizedBox(width: context.sp(theme.spacing.md)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          _permissionGranted
+                              ? 'Notification Permission Granted'
+                              : 'Notification Permission',
+                          style: context.uiText.bodyStrong,
+                        ),
+                        Text(
+                          _permissionGranted
+                              ? 'QuietNote can send scheduled reminders on this device.'
+                              : 'Grant system permission so QuietNote can deliver reminders.',
+                          style: context.uiText.caption.copyWith(
+                            color: theme.colors.foregroundMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (!_permissionGranted) ...<Widget>[
+                SizedBox(height: context.sp(theme.spacing.md)),
+                SizedBox(
+                  width: double.infinity,
+                  child: UiButton(
+                    label: _checkingPermission
+                        ? 'Checking permission...'
+                        : 'Enable Notification Permission',
+                    leadingIcon: Icons.notifications_active,
+                    variant: UiVariant.primary,
+                    loading: _checkingPermission,
+                    onPressed: _checkingPermission
+                        ? null
+                        : _requestNotificationPermission,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        SizedBox(height: context.sp(theme.spacing.md)),
+        UiCard(
+          variant: UiCardVariant.elevated,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: context.sz(40),
+                    height: context.sz(40),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (_overlayPermissionGranted
+                              ? UiIntent.success.color(context)
+                              : theme.colors.primary)
+                          .withValues(alpha: 0.12),
+                      borderRadius: context.radius(theme.radii.md),
+                    ),
+                    child: Icon(
+                      _overlayPermissionGranted
+                          ? Icons.check_circle_outline
+                          : Icons.bubble_chart_outlined,
+                      color: _overlayPermissionGranted
+                          ? UiIntent.success.color(context)
+                          : theme.colors.primary,
+                      size: 22,
+                    ),
+                  ),
+                  SizedBox(width: context.sp(theme.spacing.md)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          _overlayPermissionGranted
+                              ? 'Floating Focus Bubble Enabled'
+                              : 'Floating Focus Overlay Bubble',
+                          style: context.uiText.bodyStrong,
+                        ),
+                        Text(
+                          _overlayPermissionGranted
+                              ? 'The timer bubble can float across your screen during deep focus.'
+                              : 'Show an interactive draggable timer bubble over other apps.',
+                          style: context.uiText.caption.copyWith(
+                            color: theme.colors.foregroundMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (!_overlayPermissionGranted) ...<Widget>[
+                SizedBox(height: context.sp(theme.spacing.md)),
+                SizedBox(
+                  width: double.infinity,
+                  child: UiButton(
+                    label: 'Allow Floating Overlay',
+                    leadingIcon: Icons.bubble_chart_outlined,
+                    variant: UiVariant.secondary,
+                    onPressed: _requestOverlayPermission,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

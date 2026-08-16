@@ -1,5 +1,18 @@
-QuietNote is an offline-first personal productivity space for notes, journals, tasks, habits, routines, calendar planning, reminders, and focus sessions.
+QuietNote is a modern, privacy-focused, offline-first personal productivity space designed for deep work, study, and daily organization.
 
-Your information stays on your device. Use the built-in clock to see today’s progress and start a saved focus timer. Notifications are optional and can be enabled in Settings.
+All your data stays safely on your device. QuietNote has zero tracking, zero analytics, zero external telemetry, and works completely offline.
 
-The app also includes optional on-device AI capture and voice input where supported by the device.
+Key Features:
+
+• Rich Notes & Markdown: Fast distraction-free writing, Markdown formatting, LaTeX math formulas, syntax-highlighted code blocks, tables, and tags.
+• Task Lists & Subtasks: Organize daily todos, priorities, due dates, and reminders with effortless checkbox workflows.
+• Habits & Daily Routines: Build lasting habits, track streaks, and structure morning/evening routines with audio cues.
+• Visual Calendar & Agendas: Manage daily timelines, course schedules, exams, and milestones in one unified view.
+• Flashcards & Spaced Repetition: Create flashcard decks for exam revision with active recall and self-assessment scoring.
+• Zen Focus & Study Timers: Pomodoro, 50/10, Deep Work, and custom intervals with an optional floating edge pill timer over other apps.
+• Customizable Navigation Dock: Personalize the floating bottom dock with Compact, Standard, or Spacious sizing and Left, Center, or Right hand alignment for effortless one-handed use.
+• Biometric App Lock: Protect your notes and sensitive thoughts with native fingerprint, face unlock, or device screen lock.
+• Daily Journal & Mood Tracking: Capture reflections, gratitude, and daily highlights with private, encrypted local storage.
+• Local Backup & Export: Full JSON database export, Markdown document exports, and PDF generation with bundled typography.
+
+QuietNote is free and open-source software (FOSS) released under the Apache 2.0 license.

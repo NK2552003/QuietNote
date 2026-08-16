@@ -7,6 +7,7 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/task_repository.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _TodoFilter { all, today, overdue, upcoming, completed }
 
@@ -75,16 +76,10 @@ class TodosScreen extends ConsumerWidget {
     };
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Todos',
-        subtitle: 'Focus on what matters today.',
-        actions: [
-          UiButton(
-            label: 'Add Task',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push('/todos/new'),
-          ),
-        ],
+        leading: QuietNoteMark(size: 38),
+        subtitle: 'Clear your mind, capture your tasks & conquer your day.',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -179,30 +174,28 @@ class TodosScreen extends ConsumerWidget {
                     onChanged: (v) => ref.read(_todoQueryProvider.notifier).state = v,
                   ),
                   const SizedBox(height: 12),
-                  // Make the filter toggle scroll horizontally when there are
-                  // more than 4 options so it doesn't wrap to multiple rows.
-                  Builder(builder: (ctx) {
-                    final todoOptions = <UiToggleOption<_TodoFilter>>[
-                      const UiToggleOption(value: _TodoFilter.all, label: 'All'),
-                      const UiToggleOption(value: _TodoFilter.today, label: 'Today'),
-                      const UiToggleOption(value: _TodoFilter.overdue, label: 'Overdue', intent: UiIntent.danger),
-                      const UiToggleOption(value: _TodoFilter.upcoming, label: 'Upcoming'),
-                      const UiToggleOption(value: _TodoFilter.completed, label: 'Done'),
-                    ];
-                    final shouldExpand = todoOptions.length <= 4;
-                    final group = UiToggleGroup<_TodoFilter>(
-                      variant: UiToggleGroupVariant.segmented,
-                      size: UiSize.sm,
-                      expand: shouldExpand,
-                      value: filter,
-                      onChanged: (v) => ref.read(_todoFilterProvider.notifier).state = v,
-                      options: todoOptions,
-                    );
-                    if (!shouldExpand) {
-                      return SingleChildScrollView(scrollDirection: Axis.horizontal, child: group);
-                    }
-                    return group;
-                  }),
+                  // UiToggleGroup(expand: true) already fits every option
+                  // into a single row (each shrinks to share the available
+                  // width) instead of wrapping, so no extra scroll wrapper
+                  // is needed here. Wrapping it in a horizontally-scrolling
+                  // SingleChildScrollView (as this used to) hands the
+                  // Expanded() options inside it unbounded width and
+                  // crashes the layout — which was blanking this whole
+                  // screen.
+                  UiToggleGroup<_TodoFilter>(
+                    variant: UiToggleGroupVariant.segmented,
+                    size: UiSize.sm,
+                    expand: true,
+                    value: filter,
+                    onChanged: (v) => ref.read(_todoFilterProvider.notifier).state = v,
+                    options: const <UiToggleOption<_TodoFilter>>[
+                      UiToggleOption(value: _TodoFilter.all, label: 'All'),
+                      UiToggleOption(value: _TodoFilter.today, label: 'Today'),
+                      UiToggleOption(value: _TodoFilter.overdue, label: 'Overdue', intent: UiIntent.danger),
+                      UiToggleOption(value: _TodoFilter.upcoming, label: 'Upcoming'),
+                      UiToggleOption(value: _TodoFilter.completed, label: 'Done'),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   if (filtered.isEmpty)
                     UiEmptyState(

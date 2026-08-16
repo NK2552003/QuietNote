@@ -6,6 +6,7 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/note_repository.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _NoteSort { recent, title }
 
@@ -24,17 +25,6 @@ extension on _CardViewMode {
     _CardViewMode.titleAndPreview => Icons.notes_rounded,
     _CardViewMode.full => Icons.view_agenda_outlined,
   };
-
-  /// Fixed tile height for this mode. GridView lays every tile in a row out
-  /// at the same height, so this has to be a constant per mode rather than
-  /// something each card measures itself — chosen generously enough that
-  /// the tallest possible content (2-line title, 3-line preview, a row of
-  /// tags, and the footer) always fits with room to spare.
-  double get tileHeight => switch (this) {
-    _CardViewMode.titleOnly => 120,
-    _CardViewMode.titleAndPreview => 206,
-    _CardViewMode.full => 240,
-  };
 }
 
 final _noteQueryProvider = StateProvider<String>((ref) => '');
@@ -43,7 +33,10 @@ final _noteTagFilterProvider = StateProvider<String?>((ref) => null);
 final _noteViewModeProvider = StateProvider<_CardViewMode>(
   (ref) => _CardViewMode.full,
 );
-final _noteColumnsProvider = StateProvider<int>((ref) => 2);
+// Single column, one card per row, by default — every card is free to be
+// exactly as tall as its own content (see UiCardGrid's dynamicHeight mode)
+// instead of being squeezed or padded to match a fixed row height.
+final _noteColumnsProvider = StateProvider<int>((ref) => 1);
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -149,16 +142,10 @@ class NotesScreen extends ConsumerWidget {
     final columns = ref.watch(_noteColumnsProvider);
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Notes',
-        subtitle: 'Capture your thoughts.',
-        actions: [
-          UiButton(
-            label: 'New Note',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push('/notes/new'),
-          ),
-        ],
+        leading: QuietNoteMark(size: 38),
+        subtitle: 'Capture ideas, organize thoughts & build your personal knowledge base.',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -372,13 +359,14 @@ class NotesScreen extends ConsumerWidget {
                     )
                   else
                     UiCardGrid(
-                      // A fixed tile height per view mode keeps every card
-                      // in a row the same size (GridView can't vary height
-                      // per item); the column count comes straight from the
-                      // toggle above rather than the available width, so
-                      // the user's choice always wins.
+                      // Every card is exactly as tall as its own content —
+                      // no fixed row height — via UiCardGrid's masonry mode.
+                      // The column count comes straight from the toggle
+                      // above rather than the available width, so the
+                      // user's choice always wins; default is 1 column, so
+                      // by default this is simply one card per row.
                       key: ValueKey('$viewMode-$columns'),
-                      mainAxisExtent: viewMode.tileHeight,
+                      dynamicHeight: true,
                       mobileColumns: columns,
                       tabletColumns: columns,
                       desktopColumns: columns,
@@ -455,9 +443,11 @@ class _NoteCard extends StatelessWidget {
       onLongPress: onDelete,
       padding: EdgeInsets.all(context.sp(context.uiSpace.lg)),
       // Every element below has a capped height (maxLines on text, a fixed
-      // height on the tag row) chosen so the worst-case total always fits
-      // inside the grid's mainAxisExtent for the active view mode. We
-      // deliberately avoid Expanded/Flexible here: UiCard measures this
+      // height on the tag row) — the card grid gives each tile exactly the
+      // height its own content needs (see dynamicHeight on UiCardGrid), so
+      // these caps just keep any one card from growing unreasonably tall
+      // rather than fitting inside a shared row height. We deliberately
+      // avoid Expanded/Flexible here: UiCard measures this
       // child inside an AnimatedCrossFade (for the collapsible feature),
       // which lays it out with an unbounded height to get its natural size
       // — a flex child would throw ("incoming height constraints are

@@ -6,6 +6,8 @@
 *.swp
 .buildlog/
 .history
+.DS_Store
+**/.DS_Store
 
 
 

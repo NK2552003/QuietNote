@@ -20,104 +20,88 @@ final calendarEventsStreamProvider = StreamProvider<List<CalendarEvent>>((ref) {
 
 /// Aggregated calendar events: database events plus scheduled items from
 /// tasks, goals and habits so the calendar shows anything that has a date.
-final aggregatedCalendarEventsProvider = StreamProvider<List<CalendarEvent>>((ref) {
-  final controller = StreamController<List<CalendarEvent>>();
+final aggregatedCalendarEventsProvider = Provider<AsyncValue<List<CalendarEvent>>>((ref) {
+  final eventsAsync = ref.watch(calendarEventsStreamProvider);
+  final tasksAsync = ref.watch(tasksStreamProvider);
+  final goalsAsync = ref.watch(goalsStreamProvider);
+  final habitsAsync = ref.watch(habitsStreamProvider);
 
-  List<CalendarEvent> dbEvents = <CalendarEvent>[];
-  List<Task> tasks = <Task>[];
-  List<Goal> goals = <Goal>[];
-  List<Habit> habits = <Habit>[];
-
-  void emit() {
-    final List<CalendarEvent> combined = <CalendarEvent>[];
-    combined.addAll(dbEvents);
-
-    for (final t in tasks) {
-      if (t.dueDate != null) {
-        combined.add(CalendarEvent(
-          id: 'task:${t.id}',
-          title: 'Task: ${t.title}',
-          description: t.subtitle.isEmpty ? null : t.subtitle,
-          startTime: t.dueDate!,
-          endTime: t.dueDate!.add(const Duration(hours: 1)),
-          isAllDay: false,
-          color: null,
-          category: 'Task',
-          recurrenceRule: null,
-          reminderOffset: t.reminderOffset,
-          linkedGoalId: t.linkedGoalId,
-        ));
-      }
-    }
-
-    for (final g in goals) {
-      if (g.deadline != null) {
-        final isAllDay = g.deadline!.hour == 0 && g.deadline!.minute == 0;
-        combined.add(CalendarEvent(
-          id: 'goal:${g.id}',
-          title: 'Goal: ${g.title}',
-          description: null,
-          startTime: g.deadline!,
-          endTime: g.deadline!.add(const Duration(hours: 1)),
-          isAllDay: isAllDay,
-          color: null,
-          category: 'Goal',
-          recurrenceRule: null,
-          reminderOffset: null,
-          linkedGoalId: g.id,
-        ));
-      }
-    }
-
-    for (final h in habits) {
-      if (h.reminderTime != null) {
-        // Treat habit reminderTime as a scheduled one-off if it has a date.
-        final dt = h.reminderTime!;
-        combined.add(CalendarEvent(
-          id: 'habit:${h.id}:${dt.toIso8601String()}',
-          title: 'Habit: ${h.title}',
-          description: h.subtitle.isEmpty ? null : h.subtitle,
-          startTime: dt,
-          endTime: dt.add(const Duration(minutes: 30)),
-          isAllDay: false,
-          color: null,
-          category: 'Habit',
-          recurrenceRule: null,
-          reminderOffset: null,
-          linkedGoalId: null,
-        ));
-      }
-    }
-
-    controller.add(combined);
+  if (eventsAsync.isLoading || tasksAsync.isLoading || goalsAsync.isLoading || habitsAsync.isLoading) {
+    return const AsyncValue.loading();
   }
 
-  final subs = <StreamSubscription>[];
-  subs.add(ref.watch(calendarEventsStreamProvider.stream).listen((e) {
-    dbEvents = e;
-    emit();
-  }));
-  subs.add(ref.watch(tasksStreamProvider.stream).listen((e) {
-    tasks = e;
-    emit();
-  }));
-  subs.add(ref.watch(goalsStreamProvider.stream).listen((e) {
-    goals = e;
-    emit();
-  }));
-  subs.add(ref.watch(habitsStreamProvider.stream).listen((e) {
-    habits = e;
-    emit();
-  }));
+  if (eventsAsync.hasError) return AsyncValue.error(eventsAsync.error!, eventsAsync.stackTrace!);
+  if (tasksAsync.hasError) return AsyncValue.error(tasksAsync.error!, tasksAsync.stackTrace!);
+  if (goalsAsync.hasError) return AsyncValue.error(goalsAsync.error!, goalsAsync.stackTrace!);
+  if (habitsAsync.hasError) return AsyncValue.error(habitsAsync.error!, habitsAsync.stackTrace!);
 
-  ref.onDispose(() async {
-    for (final s in subs) {
-      await s.cancel();
+  final dbEvents = eventsAsync.value ?? const <CalendarEvent>[];
+  final tasks = tasksAsync.value ?? const <Task>[];
+  final goals = goalsAsync.value ?? const <Goal>[];
+  final habits = habitsAsync.value ?? const <Habit>[];
+
+  final List<CalendarEvent> combined = <CalendarEvent>[...dbEvents];
+
+  for (final t in tasks) {
+    if (t.dueDate != null) {
+      combined.add(CalendarEvent(
+        id: 'task:${t.id}',
+        title: 'Task: ${t.title}',
+        description: t.subtitle.isEmpty ? null : t.subtitle,
+        startTime: t.dueDate!,
+        endTime: t.dueDate!.add(const Duration(hours: 1)),
+        isAllDay: false,
+        color: null,
+        category: 'Task',
+        recurrenceRule: null,
+        reminderOffset: t.reminderOffset,
+        linkedGoalId: t.linkedGoalId,
+        courseId: t.courseId,
+      ));
     }
-    await controller.close();
-  });
+  }
 
-  return controller.stream;
+  for (final g in goals) {
+    if (g.deadline != null) {
+      final isAllDay = g.deadline!.hour == 0 && g.deadline!.minute == 0;
+      combined.add(CalendarEvent(
+        id: 'goal:${g.id}',
+        title: 'Goal: ${g.title}',
+        description: null,
+        startTime: g.deadline!,
+        endTime: g.deadline!.add(const Duration(hours: 1)),
+        isAllDay: isAllDay,
+        color: null,
+        category: 'Goal',
+        recurrenceRule: null,
+        reminderOffset: null,
+        linkedGoalId: g.id,
+        courseId: g.courseId,
+      ));
+    }
+  }
+
+  for (final h in habits) {
+    if (h.reminderTime != null) {
+      final dt = h.reminderTime!;
+      combined.add(CalendarEvent(
+        id: 'habit:${h.id}:${dt.toIso8601String()}',
+        title: 'Habit: ${h.title}',
+        description: h.subtitle.isEmpty ? null : h.subtitle,
+        startTime: dt,
+        endTime: dt.add(const Duration(minutes: 30)),
+        isAllDay: false,
+        color: null,
+        category: 'Habit',
+        recurrenceRule: null,
+        reminderOffset: null,
+        linkedGoalId: null,
+        courseId: null,
+      ));
+    }
+  }
+
+  return AsyncValue.data(combined);
 });
 
 class CalendarRepository {
@@ -143,6 +127,7 @@ class CalendarRepository {
     String? recurrenceRule,
     int? reminderOffset,
     String? linkedGoalId,
+    String? courseId,
   }) async {
     final id = const Uuid().v4();
     await _db.into(_db.calendarEvents).insert(CalendarEventsCompanion.insert(
@@ -157,6 +142,7 @@ class CalendarRepository {
           recurrenceRule: drift.Value(recurrenceRule),
           reminderOffset: drift.Value(reminderOffset),
           linkedGoalId: drift.Value(linkedGoalId),
+          courseId: drift.Value(courseId),
         ));
     return id;
   }
@@ -173,6 +159,7 @@ class CalendarRepository {
     String? recurrenceRule,
     int? reminderOffset,
     String? linkedGoalId,
+    String? courseId,
   }) async {
     await (_db.update(_db.calendarEvents)..where((e) => e.id.equals(id))).write(
       CalendarEventsCompanion(
@@ -186,6 +173,7 @@ class CalendarRepository {
         recurrenceRule: drift.Value(recurrenceRule),
         reminderOffset: drift.Value(reminderOffset),
         linkedGoalId: drift.Value(linkedGoalId),
+        courseId: drift.Value(courseId),
       ),
     );
   }

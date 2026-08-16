@@ -1,13 +1,20 @@
-import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:quietnote/core/database/repositories/focus_session_repository.dart';
+import 'package:quietnote/core/settings/app_settings.dart';
+import 'package:quietnote/core/settings/settings_repository.dart';
+import 'package:quietnote/features/clock/focus_preset.dart';
+import 'package:quietnote/features/clock/zen_focus_screen.dart';
 
 import '../theme/ui_theme.dart';
 import 'ui_common.dart';
 import 'ui_tabs.dart';
 
 /// Bottom navigation for the mobile app shell, side rail on wide screens.
-class UiNavShell extends StatefulWidget {
+class UiNavShell extends ConsumerStatefulWidget {
   const UiNavShell({
     super.key,
     required this.items,
@@ -24,10 +31,10 @@ class UiNavShell extends StatefulWidget {
   final Widget? floatingAction;
 
   @override
-  State<UiNavShell> createState() => _UiNavShellState();
+  ConsumerState<UiNavShell> createState() => _UiNavShellState();
 }
 
-class _UiNavShellState extends State<UiNavShell> {
+class _UiNavShellState extends ConsumerState<UiNavShell> {
   bool _isMenuOpen = false;
 
   void _toggleQuickMenu() {
@@ -56,9 +63,12 @@ class _UiNavShellState extends State<UiNavShell> {
     }
     if (icon == Icons.flag_outlined) return Icons.flag_rounded;
     if (icon == Icons.menu_book_outlined) return Icons.menu_book_rounded;
+    if (icon == Icons.school_outlined) return Icons.school_rounded;
     if (icon == Icons.insights_outlined) return Icons.insights_rounded;
+    if (icon == Icons.auto_awesome_outlined) return Icons.auto_awesome;
     if (icon == Icons.auto_awesome) return Icons.auto_awesome;
     if (icon == Icons.settings_outlined) return Icons.settings_rounded;
+    if (icon == Icons.access_time_outlined) return Icons.access_time_rounded;
     return icon ?? Icons.circle;
   }
 
@@ -99,6 +109,38 @@ class _UiNavShellState extends State<UiNavShell> {
                         },
                       ),
                     const Spacer(),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final settings = ref.watch(settingsProvider).value;
+                        final focusEnd = settings?.focusSessionEndsAt;
+                        if (focusEnd == null || !focusEnd.isAfter(DateTime.now())) {
+                          return const SizedBox.shrink();
+                        }
+                        final activeSession =
+                            ref.watch(activeFocusSessionProvider).value;
+                        return Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.uiRes.isDesktop ? 10 : 4,
+                            vertical: 6,
+                          ),
+                          child: _NavFocusBubble(
+                            end: focusEnd,
+                            phase: settings?.focusSessionPhase ?? 'work',
+                            isDesktop: context.uiRes.isDesktop,
+                            presetLabel:
+                                focusPresetFromId(activeSession?.presetId)
+                                    ?.chipLabel,
+                            onTap: () => ZenFocusScreen.open(
+                              context,
+                              ref,
+                              end: focusEnd,
+                              startedAt: settings?.focusSessionStartedAt ?? activeSession?.startedAt,
+                              phase: settings?.focusSessionPhase,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     if (widget.floatingAction != null)
                       Padding(
                         padding: EdgeInsets.all(context.sp(theme.spacing.lg)),
@@ -114,50 +156,79 @@ class _UiNavShellState extends State<UiNavShell> {
       );
     }
 
-    // Mobile layout: Home (0), Journal (7), + (Middle), Notes (3), Settings (10)
+    // Mobile layout (fixed 5-slot dock): Home (0), Todos (2), + (Middle
+    // quick-grid trigger), Notes (3), Settings (10). Every other
+    // destination lives behind the '+' as a 3x3 grid of tiles.
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Calculate active slot index (0 to 4)
-    int activeNavIndex =
-        2; // Default to middle '+' if non-dock tab or bubble menu active
+    // Calculate active dock slot (0 to 4). Slot 2 is the '+' trigger (Options page 4);
+    // it lights up whenever the currently selected screen is 4 or an option.
+    int activeNavIndex = 2;
     if (!_isMenuOpen) {
       if (widget.selectedIndex == 0) {
         activeNavIndex = 0; // Home
-      } else if (widget.selectedIndex == 7) {
-        activeNavIndex = 1; // Journal
-      } else if (widget.selectedIndex == 3) {
+      } else if (widget.selectedIndex == 1) {
+        activeNavIndex = 1; // Todos
+      } else if (widget.selectedIndex == 2) {
         activeNavIndex = 3; // Notes
-      } else if (widget.selectedIndex == 10) {
+      } else if (widget.selectedIndex == 3) {
         activeNavIndex = 4; // Settings
+      } else if (widget.selectedIndex == 4) {
+        activeNavIndex = 2; // All Options Grid (Middle slot)
       }
     }
 
     const gridOptions = [
-      _QuickGridItem(icon: Icons.repeat_rounded, label: 'Habits', index: 1),
-      _QuickGridItem(icon: Icons.task_alt_rounded, label: 'Todos', index: 2),
+      _QuickGridItem(
+        icon: Icons.repeat_rounded,
+        label: 'Habits',
+        route: '/habits',
+      ),
       _QuickGridItem(
         icon: Icons.alt_route_rounded,
         label: 'Routines',
-        index: 4,
+        route: '/routines',
       ),
       _QuickGridItem(
         icon: Icons.calendar_month_rounded,
         label: 'Calendar',
-        index: 5,
+        route: '/calendar',
       ),
-      _QuickGridItem(icon: Icons.flag_rounded, label: 'Goals', index: 6),
+      _QuickGridItem(icon: Icons.flag_rounded, label: 'Goals', route: '/goals'),
+      _QuickGridItem(
+        icon: Icons.menu_book_rounded,
+        label: 'Journal',
+        route: '/journal',
+      ),
+      _QuickGridItem(
+        icon: Icons.school_rounded,
+        label: 'Courses',
+        route: '/courses',
+      ),
       _QuickGridItem(
         icon: Icons.insights_rounded,
         label: 'Analytics',
-        index: 8,
+        route: '/analytics',
       ),
-      _QuickGridItem(icon: Icons.auto_awesome, label: 'AI Capture', index: 9),
       _QuickGridItem(
         icon: Icons.access_time_rounded,
         label: 'Clock',
-        index: 11,
+        route: '/clock',
+      ),
+      _QuickGridItem(
+        icon: Icons.auto_awesome,
+        label: 'AI Capture',
+        route: '/ai',
       ),
     ];
+    assert(gridOptions.length == 9, 'Quick-grid must hold exactly 9 tiles');
+
+    final appSettings =
+        ref.watch(settingsProvider).value ?? const AppSettings();
+    final dockSize = appSettings.dockSize;
+    final dockPosition = appSettings.dockPosition;
+    final double dockBottomClearance =
+        dockSize.height + 24 + MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody:
@@ -181,7 +252,7 @@ class _UiNavShellState extends State<UiNavShell> {
             Positioned(
               left: 16,
               right: 16,
-              bottom: 84 + MediaQuery.of(context).padding.bottom,
+              bottom: dockBottomClearance,
               child: TweenAnimationBuilder<double>(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutBack,
@@ -195,77 +266,23 @@ class _UiNavShellState extends State<UiNavShell> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[0],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[1],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[2],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[3],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[4],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[5],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[6],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildBubbleCard(
-                                  gridOptions[7],
-                                  isDark,
-                                  theme,
-                                ),
-                              ),
-                            ],
-                          ),
+                          for (int row = 0; row < 3; row++) ...[
+                            if (row != 0) const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                for (int col = 0; col < 3; col++) ...[
+                                  if (col != 0) const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildBubbleCard(
+                                      gridOptions[row * 3 + col],
+                                      isDark,
+                                      theme,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -274,38 +291,117 @@ class _UiNavShellState extends State<UiNavShell> {
               ),
             ),
           ],
+
+          // ── Mobile Floating Focus Pill & Action Button Group ──
+          if (!_isMenuOpen)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: dockBottomClearance,
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final settings = ref.watch(settingsProvider).value;
+                  final activeSession =
+                      ref.watch(activeFocusSessionProvider).value;
+                  final DateTime? focusEnd =
+                      settings?.focusSessionEndsAt ?? activeSession?.endsAt;
+                  final bool isFocusActive =
+                      focusEnd != null && focusEnd.isAfter(DateTime.now());
+
+                  final currentPath = GoRouterState.of(context).uri.path;
+                  final bool isHomeScreen = widget.selectedIndex == 0 &&
+                      (currentPath == '/' || currentPath.isEmpty);
+
+                  final addRoute = _getAddRouteForCurrentPath(
+                      currentPath, widget.selectedIndex);
+
+                  // On Home screen, the Home page already has the focus card;
+                  // on other screens show the floating focus pill.
+                  final bool showFocusPill = isFocusActive && !isHomeScreen;
+
+                  if (!showFocusPill && addRoute == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Row(
+                    children: [
+                      if (showFocusPill)
+                        Expanded(
+                          child: _MobileFloatingFocusPill(
+                            end: focusEnd,
+                            startedAt: settings?.focusSessionStartedAt ??
+                                activeSession?.startedAt,
+                            phase: settings?.focusSessionPhase ?? 'work',
+                            presetLabel: focusPresetFromId(
+                                    activeSession?.presetId)
+                                ?.chipLabel,
+                            onTap: () {
+                              _closeQuickMenu();
+                              ZenFocusScreen.open(
+                                context,
+                                ref,
+                                end: focusEnd,
+                                startedAt:
+                                    settings?.focusSessionStartedAt ??
+                                        activeSession?.startedAt,
+                                phase: settings?.focusSessionPhase,
+                              );
+                            },
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      if (addRoute != null) ...[
+                        if (showFocusPill) const SizedBox(width: 10),
+                        _ShellCircularFab(
+                          tooltip: _getAddTooltip(addRoute),
+                          onPressed: () {
+                            _closeQuickMenu();
+                            context.push(addRoute);
+                          },
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
         ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Align(
-          alignment: Alignment.bottomCenter,
+          alignment: dockPosition.alignment,
           child: Container(
-            margin: EdgeInsets.only(bottom: context.sp(theme.spacing.md)),
-            width: 280,
-            height: 56,
+            margin: EdgeInsets.only(
+              left: dockPosition == UiDockPosition.left ? 16 : 0,
+              right: dockPosition == UiDockPosition.right ? 16 : 0,
+              bottom: (context.sp(theme.spacing.md) - 2).clamp(0.0, 48.0),
+            ),
+            width: dockSize.width,
+            height: dockSize.height,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(dockSize.borderRadius),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 18,
+                  color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.16),
+                  blurRadius: 20,
                   spreadRadius: 0,
                   offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(dockSize.borderRadius),
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark
-                      ? const Color(0xDC1A1817)
-                      : theme.colors.surface.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(28),
+                      ? const Color(0xEE1A1817)
+                      : theme.colors.surface.withValues(alpha: 0.90),
+                  borderRadius: BorderRadius.circular(dockSize.borderRadius),
                   border: Border.all(
                     color: isDark
-                        ? Colors.white.withValues(alpha: 0.12)
+                        ? Colors.white.withValues(alpha: 0.13)
                         : Colors.black.withValues(alpha: 0.08),
                     width: 1.2,
                   ),
@@ -314,8 +410,8 @@ class _UiNavShellState extends State<UiNavShell> {
                   children: [
                     // Sliding Bubble Shift Background Animation
                     AnimatedAlign(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutBack,
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.fastOutSlowIn,
                       alignment: Alignment(-1.0 + (activeNavIndex * 0.5), 0.0),
                       child: FractionallySizedBox(
                         widthFactor: 0.20,
@@ -329,7 +425,8 @@ class _UiNavShellState extends State<UiNavShell> {
                                   : theme.colors.primary.withValues(
                                       alpha: 0.10,
                                     ),
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(
+                                  (dockSize.borderRadius - 4).clamp(12.0, 30.0)),
                               border: Border.all(
                                 color: isDark
                                     ? Colors.white.withValues(alpha: 0.22)
@@ -343,7 +440,7 @@ class _UiNavShellState extends State<UiNavShell> {
                         ),
                       ),
                     ),
-                    // Foreground Interactive Tabs: Home (0), Journal (7), + (Middle), Notes (3), Settings (10)
+                    // Foreground Interactive Tabs: Home (0), Todos (1), Options (4), Notes (2), Settings (3)
                     Row(
                       children: <Widget>[
                         // Home (0)
@@ -355,28 +452,30 @@ class _UiNavShellState extends State<UiNavShell> {
                             showLabel: false,
                             vertical: true,
                             isBubbleTab: true,
+                            iconSize: dockSize.iconSize,
                             onTap: () {
                               _closeQuickMenu();
                               widget.onChanged(0);
                             },
                           ),
                         ),
-                        // Journal (7)
+                        // Todos (1)
                         Expanded(
                           child: _UiNavEntry(
-                            item: widget.items[7],
-                            activeIcon: _getActiveIcon(widget.items[7].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 7,
+                            item: widget.items[1],
+                            activeIcon: _getActiveIcon(widget.items[1].icon),
+                            selected: !_isMenuOpen && widget.selectedIndex == 1,
                             showLabel: false,
                             vertical: true,
                             isBubbleTab: true,
+                            iconSize: dockSize.iconSize,
                             onTap: () {
                               _closeQuickMenu();
-                              widget.onChanged(7);
+                              widget.onChanged(1);
                             },
                           ),
                         ),
-                        // Middle '+' Quick Options Grid Trigger with Morphing Rotation
+                        // Middle Quick Options Drawer Trigger
                         Expanded(
                           child: UiInteractive(
                             onTap: _toggleQuickMenu,
@@ -390,13 +489,24 @@ class _UiNavShellState extends State<UiNavShell> {
                                   : theme.colors.foregroundMuted;
 
                               return Center(
-                                child: AnimatedRotation(
-                                  turns: _isMenuOpen ? 0.125 : 0.0,
-                                  duration: const Duration(milliseconds: 260),
-                                  curve: Curves.easeOutBack,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  switchInCurve: Curves.easeOutBack,
+                                  switchOutCurve: Curves.easeIn,
+                                  transitionBuilder: (child, animation) =>
+                                      ScaleTransition(
+                                        scale: animation,
+                                        child: FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        ),
+                                      ),
                                   child: Icon(
-                                    Icons.add_rounded,
-                                    size: 24,
+                                    _isMenuOpen
+                                        ? Icons.close_rounded
+                                        : Icons.grid_view_rounded,
+                                    key: ValueKey<bool>(_isMenuOpen),
+                                    size: dockSize.iconSize,
                                     color: activeNavIndex == 2 || _isMenuOpen
                                         ? activeFg
                                         : inactiveFg,
@@ -406,34 +516,36 @@ class _UiNavShellState extends State<UiNavShell> {
                             },
                           ),
                         ),
-                        // Notes (3)
+                        // Notes (2)
+                        Expanded(
+                          child: _UiNavEntry(
+                            item: widget.items[2],
+                            activeIcon: _getActiveIcon(widget.items[2].icon),
+                            selected: !_isMenuOpen && widget.selectedIndex == 2,
+                            showLabel: false,
+                            vertical: true,
+                            isBubbleTab: true,
+                            iconSize: dockSize.iconSize,
+                            onTap: () {
+                              _closeQuickMenu();
+                              widget.onChanged(2);
+                            },
+                          ),
+                        ),
+                        // Settings (3)
                         Expanded(
                           child: _UiNavEntry(
                             item: widget.items[3],
                             activeIcon: _getActiveIcon(widget.items[3].icon),
-                            selected: !_isMenuOpen && widget.selectedIndex == 3,
+                            selected:
+                                !_isMenuOpen && widget.selectedIndex == 3,
                             showLabel: false,
                             vertical: true,
                             isBubbleTab: true,
+                            iconSize: dockSize.iconSize,
                             onTap: () {
                               _closeQuickMenu();
                               widget.onChanged(3);
-                            },
-                          ),
-                        ),
-                        // Settings (10)
-                        Expanded(
-                          child: _UiNavEntry(
-                            item: widget.items[10],
-                            activeIcon: _getActiveIcon(widget.items[10].icon),
-                            selected:
-                                !_isMenuOpen && widget.selectedIndex == 10,
-                            showLabel: false,
-                            vertical: true,
-                            isBubbleTab: true,
-                            onTap: () {
-                              _closeQuickMenu();
-                              widget.onChanged(10);
                             },
                           ),
                         ),
@@ -453,7 +565,7 @@ class _UiNavShellState extends State<UiNavShell> {
     return UiInteractive(
       onTap: () {
         _closeQuickMenu();
-        widget.onChanged(item.index);
+        context.push(item.route);
       },
       builder: (context, state) {
         return Container(
@@ -469,28 +581,24 @@ class _UiNavShellState extends State<UiNavShell> {
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? (state.hovered
-                            ? const Color(0xFE252321)
-                            : const Color(0xDC1A1817))
-                      : (state.hovered
-                            ? theme.colors.surface
-                            : theme.colors.surface.withValues(alpha: 0.85)),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : Colors.black.withValues(alpha: 0.08),
-                    width: 1.2,
-                  ),
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? (state.hovered
+                      ? const Color(0xFE252321)
+                      : const Color(0xFE1A1817))
+                  : (state.hovered
+                      ? theme.colors.surface
+                      : theme.colors.surfaceMuted),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
+                width: 1.2,
+              ),
+            ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -518,8 +626,6 @@ class _UiNavShellState extends State<UiNavShell> {
                     ),
                   ],
                 ),
-              ),
-            ),
           ),
         );
       },
@@ -530,11 +636,11 @@ class _UiNavShellState extends State<UiNavShell> {
 class _QuickGridItem {
   final IconData icon;
   final String label;
-  final int index;
+  final String route;
   const _QuickGridItem({
     required this.icon,
     required this.label,
-    required this.index,
+    required this.route,
   });
 }
 
@@ -547,6 +653,7 @@ class _UiNavEntry extends StatelessWidget {
     required this.onTap,
     this.vertical = false,
     this.isBubbleTab = false,
+    this.iconSize,
   });
 
   final UiTabItem item;
@@ -556,6 +663,7 @@ class _UiNavEntry extends StatelessWidget {
   final VoidCallback onTap;
   final bool vertical;
   final bool isBubbleTab;
+  final double? iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -591,12 +699,12 @@ class _UiNavEntry extends StatelessWidget {
           child: vertical
               ? Center(
                   child: AnimatedScale(
-                    scale: selected ? 1.18 : 1.0,
+                    scale: selected ? 1.15 : 1.0,
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     child: Icon(
                       displayIcon,
-                      size: 22,
+                      size: iconSize ?? 22,
                       color: selected ? activeFg : inactiveFg,
                     ),
                   ),
@@ -633,6 +741,467 @@ class _UiNavEntry extends StatelessWidget {
                 ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Interactive Active Focus Bubble for Sidebar Rail
+// ---------------------------------------------------------------------------
+
+class _NavFocusBubble extends StatefulWidget {
+  const _NavFocusBubble({
+    required this.end,
+    this.phase = 'work',
+    required this.isDesktop,
+    this.presetLabel,
+    required this.onTap,
+  });
+
+  final DateTime end;
+  final String phase;
+  final bool isDesktop;
+  final String? presetLabel;
+  final VoidCallback onTap;
+
+  @override
+  State<_NavFocusBubble> createState() => _NavFocusBubbleState();
+}
+
+class _NavFocusBubbleState extends State<_NavFocusBubble>
+    with SingleTickerProviderStateMixin {
+  late Timer _ticker;
+  late DateTime _now;
+  late AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ticker.cancel();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isBreak = widget.phase == 'break';
+    final Color accentColor =
+        isBreak ? const Color(0xFFF59E0B) : const Color(0xFF6366F1);
+    final Color ringColor =
+        isBreak ? const Color(0xFFFBBF24) : const Color(0xFF818CF8);
+
+    final diff = widget.end.difference(_now).inSeconds.clamp(0, 24 * 60 * 60);
+    final min = diff ~/ 60;
+    final sec = diff % 60;
+    final timeStr =
+        '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Tooltip(
+        message: '${isBreak ? "Break" : "Active Focus"} ($timeStr remaining) · Tap to view',
+        child: AnimatedBuilder(
+          animation: _pulseCtrl,
+          builder: (context, _) {
+            final pulseVal = _pulseCtrl.value;
+            return Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.isDesktop ? 10 : 8,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.12 + 0.08 * pulseVal),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.35 + 0.25 * pulseVal),
+                  width: 1.2,
+                ),
+              ),
+              child: widget.isDesktop
+                  ? Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: accentColor,
+                            boxShadow: [
+                              BoxShadow(
+                                color: accentColor
+                                    .withValues(alpha: 0.4 + 0.4 * pulseVal),
+                                blurRadius: 6,
+                                spreadRadius: 1 + 2 * pulseVal,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                isBreak ? 'Break' : (widget.presetLabel ?? 'Focus'),
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: ringColor,
+                                ),
+                              ),
+                              Text(
+                                timeStr,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 11,
+                          color: ringColor,
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: accentColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accentColor
+                                      .withValues(alpha: 0.5),
+                                  blurRadius: 4,
+                                  spreadRadius: 1 + pulseVal,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            timeStr,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Shell Route Helpers for Unified Floating Add Button
+// ---------------------------------------------------------------------------
+
+String? _getAddRouteForCurrentPath(String path, int selectedIndex) {
+  if (path.endsWith('/new') || path.contains('/edit') || path.contains('/study')) {
+    return null;
+  }
+  if (path == '/todos' || selectedIndex == 1) return '/todos/new';
+  if (path == '/notes' || selectedIndex == 2) return '/notes/new';
+  if (path == '/habits') return '/habits/new';
+  if (path == '/routines') return '/routines/new';
+  if (path == '/calendar') return '/calendar/new';
+  if (path == '/goals') return '/goals/new';
+  if (path == '/journal') return '/journal/new';
+  if (path == '/courses') return '/courses/new';
+  if (path == '/flashcards') return '/flashcards/new';
+  return null;
+}
+
+String _getAddTooltip(String route) {
+  switch (route) {
+    case '/todos/new':
+      return 'Add task';
+    case '/notes/new':
+      return 'New note';
+    case '/habits/new':
+      return 'New habit';
+    case '/routines/new':
+      return 'New routine';
+    case '/calendar/new':
+      return 'New event';
+    case '/goals/new':
+      return 'New goal';
+    case '/journal/new':
+      return 'New entry';
+    case '/courses/new':
+      return 'New course';
+    case '/flashcards/new':
+      return 'New deck';
+    default:
+      return 'Add';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mobile Floating Interactive Focus Pill
+// ---------------------------------------------------------------------------
+
+class _MobileFloatingFocusPill extends StatefulWidget {
+  const _MobileFloatingFocusPill({
+    required this.end,
+    this.startedAt,
+    this.phase = 'work',
+    this.presetLabel,
+    required this.onTap,
+  });
+
+  final DateTime end;
+  final DateTime? startedAt;
+  final String phase;
+  final String? presetLabel;
+  final VoidCallback onTap;
+
+  @override
+  State<_MobileFloatingFocusPill> createState() =>
+      _MobileFloatingFocusPillState();
+}
+
+class _MobileFloatingFocusPillState extends State<_MobileFloatingFocusPill>
+    with SingleTickerProviderStateMixin {
+  late Timer _ticker;
+  late DateTime _now;
+
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uiTheme = context.ui;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isBreak = widget.phase == 'break';
+    final Color accentColor =
+        isBreak ? const Color(0xFFF59E0B) : const Color(0xFF6366F1);
+
+    final diff = widget.end.difference(_now).inSeconds.clamp(0, 24 * 60 * 60);
+    final min = diff ~/ 60;
+    final sec = diff % 60;
+    final timeStr =
+        '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+
+    final effectiveStart =
+        widget.startedAt ?? widget.end.subtract(const Duration(minutes: 25));
+    final sessionTotalSec = widget.end.difference(effectiveStart).inSeconds;
+    final elapsedSec = _now.difference(effectiveStart).inSeconds;
+    final progress = sessionTotalSec > 0
+        ? (elapsedSec / sessionTotalSec).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          widget.onTap();
+        },
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xDC1A1817)
+                : uiTheme.colors.surface.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 18,
+                spreadRadius: 0,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 2.6,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.black.withValues(alpha: 0.08),
+                      valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                    ),
+                  ),
+                  Icon(
+                    isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined,
+                    size: 13,
+                    color: accentColor,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isBreak ? 'Break Time' : (widget.presetLabel ?? 'Focus Active'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF1A1817),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : uiTheme.colors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : uiTheme.colors.primary.withValues(alpha: 0.15),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  timeStr,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : uiTheme.colors.primary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 11,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.45)
+                    : Colors.black.withValues(alpha: 0.35),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shell Unified Floating Circular Action Button
+// ---------------------------------------------------------------------------
+
+class _ShellCircularFab extends StatelessWidget {
+  const _ShellCircularFab({
+    required this.onPressed,
+    this.tooltip,
+  });
+
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final uiTheme = context.ui;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: Tooltip(
+        message: tooltip ?? 'Add',
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onPressed();
+          },
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xDC1A1817)
+                  : uiTheme.colors.surface.withValues(alpha: 0.85),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.add_rounded,
+              color: isDark ? Colors.white : const Color(0xFF1A1817),
+              size: 26,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

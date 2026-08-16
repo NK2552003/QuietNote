@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for every network call the app makes: cloud AI providers
+         (NVIDIA NIM, OpenRouter, etc.), backup/export, and any other HTTP
+         request. The debug/profile manifests already carry this (Flutter
+         adds it there for its own tooling), but it was missing from this,
+         the manifest that actually ships in release/profile builds — so
+         every outbound request silently failed as if there were no network
+         at all. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Permission required on Android 13+ to post notifications at runtime. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Needed when scheduling exact reminders on Android 12+ / 14+. -->
@@ -6,8 +15,13 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Requested only when the user starts voice input. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Required to display floating overlay bubble over other apps during focus timer. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Biometric app lock (Fingerprint / Face Unlock). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <application
-        android:label="quietnote"
+        android:label="QuietNote"
         android:name="${applicationName}"
         android:icon="@drawable/ic_launcher_quietnote">
         <activity
@@ -37,6 +51,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <service
+            android:name=".FloatingBubbleService"
+            android:exported="false" />
         <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" android:exported="false" />
         <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver" android:exported="true">
             <intent-filter>

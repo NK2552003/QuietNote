@@ -57,6 +57,7 @@ class TaskRepository {
     String? recurrenceRule,
     String? linkedGoalId,
     int? reminderOffset,
+    String? courseId,
   }) async {
     final id = const Uuid().v4();
     await _db.into(_db.tasks).insert(TasksCompanion.insert(
@@ -70,6 +71,7 @@ class TaskRepository {
           recurrenceRule: drift.Value(recurrenceRule),
           linkedGoalId: drift.Value(linkedGoalId),
           reminderOffset: drift.Value(reminderOffset),
+          courseId: drift.Value(courseId),
         ));
     return id;
   }
@@ -85,6 +87,7 @@ class TaskRepository {
     String? recurrenceRule,
     String? linkedGoalId,
     int? reminderOffset,
+    String? courseId,
   }) async {
     await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(
@@ -97,6 +100,7 @@ class TaskRepository {
         recurrenceRule: drift.Value(recurrenceRule),
         linkedGoalId: drift.Value(linkedGoalId),
         reminderOffset: drift.Value(reminderOffset),
+        courseId: drift.Value(courseId),
       ),
     );
   }

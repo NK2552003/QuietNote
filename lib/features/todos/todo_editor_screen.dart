@@ -8,6 +8,7 @@ import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/task_repository.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
+import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/notifications/notification_service.dart';
 
 const int _reminderNone = -1;
@@ -39,7 +40,12 @@ const List<UiToggleOption<int>> _priorityOptions = [
 
 class TodoEditorScreen extends ConsumerStatefulWidget {
   final String? taskId;
-  const TodoEditorScreen({super.key, this.taskId});
+
+  /// Pre-selects the linked course when creating a brand-new task (e.g.
+  /// opened from a course's "Tasks" tab). Ignored while editing an existing
+  /// task, since that task's own saved course always wins.
+  final String? initialCourseId;
+  const TodoEditorScreen({super.key, this.taskId, this.initialCourseId});
 
   @override
   ConsumerState<TodoEditorScreen> createState() => _TodoEditorScreenState();
@@ -61,6 +67,7 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
   int _reminderSel = _reminderNone;
   String _recurrenceSel = _recurNone;
   String _linkedGoalSel = _goalNone;
+  String _linkedCourseSel = '';
   List<Map<String, dynamic>> _subtasks = [];
 
   @override
@@ -68,6 +75,8 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
     super.initState();
     if (_isEditing) {
       _loadTask();
+    } else if (widget.initialCourseId != null) {
+      _linkedCourseSel = widget.initialCourseId!;
     }
   }
 
@@ -93,6 +102,7 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
       _dueDate = task.dueDate;
       _recurrenceSel = task.recurrenceRule ?? _recurNone;
       _linkedGoalSel = task.linkedGoalId ?? _goalNone;
+      _linkedCourseSel = task.courseId ?? '';
       _reminderSel = task.reminderOffset ?? _reminderNone;
       if (task.subtasks != null) {
         try {
@@ -182,6 +192,16 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
     );
   }
 
+  /// Leaves the editor without saving. Used by the back arrow so it always
+  /// returns to the list, even when the form is empty/invalid.
+  void _goBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/todos');
+    }
+  }
+
   Future<void> _saveTask() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -203,6 +223,7 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
     final subtasksJson = _subtasks.isEmpty ? null : jsonEncode(_subtasks);
     final recurrenceRule = _recurrenceSel == _recurNone ? null : _recurrenceSel;
     final linkedGoalId = _linkedGoalSel.isEmpty ? null : _linkedGoalSel;
+    final linkedCourseId = _linkedCourseSel.isEmpty ? null : _linkedCourseSel;
     final reminderOffset = _reminderSel == _reminderNone ? null : _reminderSel;
 
     late final String taskId;
@@ -221,6 +242,7 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
             recurrenceRule: recurrenceRule,
             linkedGoalId: linkedGoalId,
             reminderOffset: reminderOffset,
+            courseId: linkedCourseId,
           );
     } else {
       taskId = await ref
@@ -235,6 +257,7 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
             recurrenceRule: recurrenceRule,
             linkedGoalId: linkedGoalId,
             reminderOffset: reminderOffset,
+            courseId: linkedCourseId,
           );
     }
 
@@ -326,8 +349,8 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveTask,
-          tooltip: 'Save & close',
+          onPressed: _goBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Task' : 'New Task',
         subtitle: _headerSubtitle,
@@ -464,6 +487,27 @@ class _TodoEditorScreenState extends ConsumerState<TodoEditorScreen> {
                     ...goals.map((g) => UiOption(value: g.id, label: g.title)),
                   ],
                   onChanged: (v) => setState(() => _linkedGoalSel = v),
+                ),
+                const SizedBox(height: 16),
+                Builder(
+                  builder: (context) {
+                    final coursesAsync = ref.watch(coursesStreamProvider);
+                    final courses = coursesAsync.value ?? const <Course>[];
+                    return UiSelect<String>(
+                      label: 'Linked course',
+                      hintText: 'No course',
+                      value: _linkedCourseSel,
+                      leadingIcon: Icons.school_outlined,
+                      options: [
+                        const UiOption(value: '', label: 'No course'),
+                        ...courses.map((c) => UiOption(
+                              value: c.id,
+                              label: c.code != null ? '${c.code} - ${c.name}' : c.name,
+                            )),
+                      ],
+                      onChanged: (v) => setState(() => _linkedCourseSel = v),
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 Row(

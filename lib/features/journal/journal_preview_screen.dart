@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -9,19 +9,32 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/database_provider.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/markdown_kit/markdown_kit.dart';
+import 'package:quietnote/core/utils/export_progress.dart';
+import 'package:quietnote/core/utils/markdown_pdf_export.dart';
+import 'package:quietnote/core/utils/pdf_export_options.dart';
 import 'package:quietnote/core/utils/tag_utils.dart';
-import 'package:quietnote/core/widgets/markdown_mermaid.dart';
 
-class JournalPreviewScreen extends ConsumerWidget {
+class JournalPreviewScreen extends ConsumerStatefulWidget {
   const JournalPreviewScreen({super.key, required this.entryId});
   final String entryId;
 
   @override
-  Widget build(
-    BuildContext context,
-    WidgetRef ref,
-  ) => FutureBuilder<JournalData?>(
-    future: ref.read(journalRepositoryProvider).getEntry(entryId),
+  ConsumerState<JournalPreviewScreen> createState() => _JournalPreviewScreenState();
+}
+
+class _JournalPreviewScreenState extends ConsumerState<JournalPreviewScreen> {
+  final MarkdownOutlineController _outline = MarkdownOutlineController();
+
+  @override
+  void dispose() {
+    _outline.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<JournalData?>(
+    future: ref.read(journalRepositoryProvider).getEntry(widget.entryId),
     builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) {
         return const UiPage(child: Center(child: CircularProgressIndicator()));
@@ -38,6 +51,8 @@ class JournalPreviewScreen extends ConsumerWidget {
         );
       }
       return UiPage(
+        reserveDockSpace: false,
+        floatingActionButton: MarkdownOutlineFab(controller: _outline),
         header: UiHeader(
           title: entry.title,
           subtitle:
@@ -49,10 +64,45 @@ class JournalPreviewScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
           actions: [
+            UiIconButton(
+              icon: Icons.picture_as_pdf_outlined,
+              variant: UiVariant.ghost,
+              tooltip: 'Export as PDF',
+              onPressed: () async {
+                final options = await showPdfExportOptions(context);
+                if (options == null || !context.mounted) return;
+                final ok = await runWithProgressOverlay<bool>(
+                  context,
+                  task: (setStep) async {
+                    setStep('Rendering diagrams');
+                    return MarkdownPdfExporter.exportAndShare(
+                      context: context,
+                      markdown: entry.entry,
+                      title: entry.title.isEmpty ? 'Journal entry' : entry.title,
+                      subtitle:
+                          DateFormat.yMMMd().add_jm().format(entry.createdAt),
+                      imageResolver: (uri) => _imageBytes(ref, uri),
+                      options: options,
+                      onStep: setStep,
+                    );
+                  },
+                );
+                if (!context.mounted || ok == null) return;
+                if (!ok) {
+                  UiToast.show(
+                    context,
+                    title: 'Couldn\'t export PDF',
+                    message: 'Please try again.',
+                    intent: UiIntent.warning,
+                  );
+                }
+              },
+
+            ),
             UiButton(
               label: 'Edit',
               leadingIcon: Icons.edit_outlined,
-              onPressed: () => context.push('/journal/edit/$entryId'),
+              onPressed: () => context.push('/journal/edit/${widget.entryId}'),
             ),
           ],
         ),
@@ -75,48 +125,16 @@ class JournalPreviewScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
             ],
-            MarkdownBody(
-              data: entry.entry.isEmpty ? '*Nothing written yet.*' : entry.entry,
-              selectable: true,
-              builders: <String, MarkdownElementBuilder>{
-                'pre': MermaidCodeBuilder(
-                  dark: context.ui.brightness == Brightness.dark,
-                ),
-              },
-              sizedImageBuilder: (config) => _image(ref, config.uri),
-              styleSheet: MarkdownStyleSheet(
-                p: context.uiText.body,
-                h1: context.uiText.heading.copyWith(fontSize: 26),
-                h2: context.uiText.subheading.copyWith(fontSize: 22),
-                h3: context.uiText.subheading,
-                blockquote: context.uiText.body.copyWith(
-                  color: context.uiColors.foregroundMuted,
-                  fontStyle: FontStyle.italic,
-                ),
-                blockquoteDecoration: BoxDecoration(
-                  color: context.uiColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border(
-                    left: BorderSide(color: context.uiColors.border, width: 3),
-                  ),
-                ),
-                blockquotePadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                code: context.uiText.numeric,
-                codeblockDecoration: BoxDecoration(
-                  color: context.uiColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                horizontalRuleDecoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: context.uiColors.border)),
-                ),
-                tableBorder: TableBorder.all(color: context.uiColors.border),
-                a: context.uiText.body.copyWith(
-                  color: context.uiColors.primary,
-                  decoration: TextDecoration.underline,
-                ),
+            Container(
+              // Matches the page's own background (not the "surface" card
+              // color) so the preview blends straight into the screen
+              // behind it instead of sitting in a visibly different-colored
+              // box.
+              color: context.uiColors.background,
+              child: RichMarkdownPreview(
+                data: entry.entry,
+                imageResolver: (context, uri) => _image(ref, uri),
+                outlineController: _outline,
               ),
             ),
           ],
@@ -145,4 +163,20 @@ class JournalPreviewScreen extends ConsumerWidget {
             ),
     );
   }
+
+  /// Loads a note image's raw bytes for the PDF exporter (which embeds the
+  /// picture in the document instead of drawing a widget).
+  Future<Uint8List?> _imageBytes(WidgetRef ref, Uri uri) async {
+    if (uri.scheme != 'local-image' && uri.scheme != 'local-file') return null;
+    final db = ref.read(databaseProvider);
+    final attachment =
+        await (db.select(db.attachments)..where((a) => a.id.equals(uri.host)))
+            .getSingleOrNull();
+    final String? path = attachment?.filePath;
+    if (path == null) return null;
+    final File file = File(path);
+    if (!await file.exists()) return null;
+    return file.readAsBytes();
+  }
+
 }

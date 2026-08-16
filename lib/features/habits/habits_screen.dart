@@ -5,6 +5,7 @@ import 'package:quietnote/core/database/database.dart';
 import 'package:quietnote/core/database/repositories/habit_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
 import 'package:quietnote/features/habits/habit_editor_screen.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _HabitFilter { active, archived }
 
@@ -22,16 +23,10 @@ class HabitsScreen extends ConsumerWidget {
     final c = context.uiColors;
 
     return UiPage(
-      header: UiHeader(
+      header: const UiHeader(
         title: 'Habits',
-        subtitle: 'Small disciplines compounded over time.',
-        actions: [
-          UiButton(
-            label: 'New Habit',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push('/habits/new'),
-          ),
-        ],
+        leading: QuietNoteMark(size: 38),
+        subtitle: 'Small daily steps lead to remarkable long-term growth.',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

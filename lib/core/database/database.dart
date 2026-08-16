@@ -73,6 +73,7 @@ class Tasks extends Table {
   TextColumn get recurrenceRule => text().nullable()();
   TextColumn get linkedGoalId => text().nullable()();
   IntColumn get reminderOffset => integer().nullable()(); // minutes
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -88,6 +89,7 @@ class Notes extends Table {
   /// convention already used by `imagePaths` and `daysOfWeek` elsewhere in
   /// this schema.
   TextColumn get tags => text().nullable()();
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -124,6 +126,7 @@ class Goals extends Table {
   IntColumn get progressPercent => integer().withDefault(const Constant(0))();
   IntColumn get priority => integer().withDefault(const Constant(0))();
   TextColumn get milestones => text().nullable()(); // JSON string
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -154,6 +157,7 @@ class CalendarEvents extends Table {
   TextColumn get recurrenceRule => text().nullable()();
   IntColumn get reminderOffset => integer().nullable()();
   TextColumn get linkedGoalId => text().nullable()();
+  TextColumn get courseId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -192,9 +196,106 @@ class FocusSessions extends Table {
   /// manually-entered custom duration.
   TextColumn get presetId => text().nullable()();
 
+  TextColumn get courseId => text().nullable()();
+  TextColumn get taskId => text().nullable()();
+  TextColumn get habitId => text().nullable()();
+  TextColumn get reflection => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// A course/class the student is tracking grades for (Feature 5, grade
+/// tracker). `targetGrade` is stored on whatever scale the student enters it
+/// on (percentage or GPA) — we never rescale it, just compare like-for-like
+/// against the weighted average computed from that course's [Assessments].
+class Courses extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  RealColumn get targetGrade => real().nullable()();
+  TextColumn get code => text().nullable()(); // e.g. CS101
+  TextColumn get instructor => text().nullable()();
+  TextColumn get room => text().nullable()();
+  IntColumn get color => integer().nullable()();
+  TextColumn get schedule => text().nullable()();
+  TextColumn get term => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A single graded item (quiz, exam, assignment) within a [Courses] row.
+/// `weight` defaults to 1.0 so ungraded/unweighted assessments still average
+/// sensibly alongside weighted ones.
+class Assessments extends Table {
+  TextColumn get id => text()();
+  TextColumn get courseId => text()();
+  TextColumn get name => text()();
+  RealColumn get score => real()();
+  RealColumn get maxScore => real()();
+  RealColumn get weight => real().withDefault(const Constant(1.0))();
+  DateTimeColumn get date => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A deck of spaced-repetition flashcards (Feature 4). `subject` reuses the
+/// same comma-separated tag convention as [Notes]/[Journal] (see
+/// `lib/core/utils/tag_utils.dart`) so decks can be filtered by subject the
+/// same way notes are.
+class FlashcardDecks extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get subject => text().nullable()(); // CSV of subject tags
+  TextColumn get courseId => text().nullable()();
+  IntColumn get color => integer().nullable()(); // ARGB integer
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One flashcard. The scheduling columns (`easeFactor`, `intervalDays`,
+/// `dueDate`, `reviewCount`, `lapses`) are written by the SM-2 implementation
+/// in `lib/features/flashcards/sm2.dart` after every rating.
+class Flashcards extends Table {
+  TextColumn get id => text()();
+  TextColumn get deckId => text()();
+  TextColumn get front => text()();
+  TextColumn get back => text()();
+  TextColumn get hint => text().nullable()();
+  TextColumn get tags => text().nullable()(); // CSV, same convention as notes
+  RealColumn get easeFactor => real().withDefault(const Constant(2.5))();
+  IntColumn get intervalDays => integer().withDefault(const Constant(0))();
+  DateTimeColumn get dueDate => dateTime().withDefault(currentDateAndTime)();
+  IntColumn get reviewCount => integer().withDefault(const Constant(0))();
+  IntColumn get lapses => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastReviewedAt => dateTime().nullable()();
+  BoolColumn get suspended => boolean().withDefault(const Constant(false))();
+
+  /// Set when the card was generated from a note via "Send to flashcards".
+  TextColumn get sourceNoteId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One row per rating given during study. Powers accuracy, review streaks and
+/// the study history charts without having to derive them from card state.
+class FlashcardReviews extends Table {
+  TextColumn get id => text()();
+  TextColumn get cardId => text()();
+  TextColumn get deckId => text()();
+  IntColumn get rating => integer()(); // 0=Again, 1=Hard, 2=Good, 3=Easy
+  IntColumn get intervalDays => integer().withDefault(const Constant(0))();
+  RealColumn get easeFactor => real().withDefault(const Constant(2.5))();
+  DateTimeColumn get reviewedAt => dateTime().withDefault(currentDateAndTime)();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 
 @DriftDatabase(
   tables: [
@@ -208,13 +309,18 @@ class FocusSessions extends Table {
     Attachments,
     HabitEntries,
     FocusSessions,
+    Courses,
+    Assessments,
+    FlashcardDecks,
+    Flashcards,
+    FlashcardReviews,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9; // v9: focus session presets & cycle counts
+  int get schemaVersion => 12; // v12: flashcards & spaced repetition
 
   @override
   MigrationStrategy get migration {
@@ -317,6 +423,40 @@ class AppDatabase extends _$AppDatabase {
         if (from < 9) {
           await m.addColumn(focusSessions, focusSessions.cyclesCompleted);
           await m.addColumn(focusSessions, focusSessions.presetId);
+        }
+        if (from < 10) {
+          // Courses/Assessments are brand-new tables, so — same as
+          // routines/attachments/habitEntries/focusSessions before them —
+          // this is just createTable, never addColumn.
+          await m.createTable(courses);
+          await m.createTable(assessments);
+        }
+        if (from < 11) {
+          await m.addColumn(courses, courses.code);
+          await m.addColumn(courses, courses.instructor);
+          await m.addColumn(courses, courses.room);
+          await m.addColumn(courses, courses.color);
+          await m.addColumn(courses, courses.schedule);
+          await m.addColumn(courses, courses.term);
+          await m.addColumn(courses, courses.notes);
+
+          await m.addColumn(focusSessions, focusSessions.courseId);
+          await m.addColumn(focusSessions, focusSessions.taskId);
+          await m.addColumn(focusSessions, focusSessions.habitId);
+          await m.addColumn(focusSessions, focusSessions.reflection);
+
+          await m.addColumn(tasks, tasks.courseId);
+          await m.addColumn(notes, notes.courseId);
+          await m.addColumn(calendarEvents, calendarEvents.courseId);
+          await m.addColumn(goals, goals.courseId);
+        }
+        if (from < 12) {
+          // -> v12: flashcards. All three tables are brand new, so this is
+          // only ever `createTable` — never `addColumn` (same pattern as
+          // attachments/focusSessions above).
+          await m.createTable(flashcardDecks);
+          await m.createTable(flashcards);
+          await m.createTable(flashcardReviews);
         }
       },
       beforeOpen: (details) async {

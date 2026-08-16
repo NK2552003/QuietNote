@@ -130,6 +130,12 @@ class _RoutineEditorScreenState extends ConsumerState<RoutineEditorScreen> {
     context.canPop() ? context.pop() : context.go('/routines');
   }
 
+  /// Leaves the editor without saving. Used by the back arrow so it always
+  /// returns to the list, even when the form is empty/invalid.
+  void _goBack() {
+    context.canPop() ? context.pop() : context.go('/routines');
+  }
+
   Future<void> _deleteRoutine() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -171,8 +177,8 @@ class _RoutineEditorScreenState extends ConsumerState<RoutineEditorScreen> {
         leading: UiIconButton(
           icon: Icons.arrow_back,
           variant: UiVariant.ghost,
-          onPressed: _saveRoutine,
-          tooltip: 'Save & close',
+          onPressed: _goBack,
+          tooltip: 'Back',
         ),
         title: _isEditing ? 'Edit Routine' : 'New Routine',
         subtitle: _isEditing ? (_isActive ? 'Active' : 'Paused') : null,

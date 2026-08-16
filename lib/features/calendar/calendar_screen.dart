@@ -7,6 +7,7 @@ import 'package:quietnote/core/database/repositories/calendar_repository.dart';
 import 'package:quietnote/core/database/repositories/goal_repository.dart';
 import 'package:quietnote/features/calendar/calendar_event_editor_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 enum _CalendarView { month, agenda }
 
@@ -79,25 +80,18 @@ class CalendarScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(aggregatedCalendarEventsProvider);
     final view = ref.watch(_calendarViewProvider);
-    final selectedDay = ref.watch(_selectedDayProvider);
 
     return UiPage(
       header: UiHeader(
         title: 'Calendar',
-        subtitle: 'Schedule your priorities.',
+        leading: const QuietNoteMark(size: 38),
+        subtitle: 'Plan your schedule and stay ahead of every commitment.',
         actions: [
           UiIconButton(
             icon: Icons.today_outlined,
             tooltip: 'Jump to today',
             onPressed: () => ref.read(_selectedDayProvider.notifier).state =
                 _dateOnly(DateTime.now()),
-          ),
-          UiButton(
-            label: 'New Event',
-            leadingIcon: Icons.add,
-            onPressed: () => context.push(
-              '/calendar/new?date=${selectedDay.toIso8601String()}',
-            ),
           ),
         ],
       ),
