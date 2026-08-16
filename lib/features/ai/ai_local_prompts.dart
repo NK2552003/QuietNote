@@ -64,6 +64,33 @@ Reply with ONLY the improved title, nothing else.''';
   }
 
   // -------------------------------------------------------------------------
+  // Subtask generation
+  // -------------------------------------------------------------------------
+
+  /// Asks the model to generate 3-5 actionable subtasks for a to-do.
+  /// Expects a JSON array of strings: ["Subtask 1", "Subtask 2", ...]
+  static String generateSubtasks(String taskTitle) {
+    return '''Break down this task into 3-4 actionable subtasks: "$taskTitle"
+Reply ONLY with a JSON array of short strings, nothing else:
+["Subtask 1", "Subtask 2", "Subtask 3"]
+Each subtask under 8 words.''';
+  }
+
+  // -------------------------------------------------------------------------
+  // Structured Markdown Note Prompt
+  // -------------------------------------------------------------------------
+
+  /// Asks the model to write a well-formatted note in Markdown.
+  static String formatNoteMarkdown(String topic) {
+    return '''Write a concise, well-structured study note about: "$topic"
+Format with Markdown:
+- Use ## Headings for key concepts
+- Use bullet points for main takeaways
+- Bold important definitions and terms
+- Keep it clear, informative, and student-ready.''';
+  }
+
+  // -------------------------------------------------------------------------
   // Field enrichment (for the full online system prompt path)
   // -------------------------------------------------------------------------
 

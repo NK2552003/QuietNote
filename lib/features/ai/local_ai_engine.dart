@@ -579,6 +579,40 @@ class AiEngineNotifier extends Notifier<AiEngineState> {
     }
   }
 
+  /// Suggests 3-4 actionable subtasks for a task title.
+  Future<List<String>> generateSubtasks(String taskTitle) async {
+    if (!canGenerate || taskTitle.trim().isEmpty) return const [];
+    try {
+      final String reply = await _generate(
+        systemPrompt:
+            'You break down tasks into actionable subtasks. Reply ONLY with a JSON array of strings.',
+        userMessage: AiLocalPrompts.generateSubtasks(taskTitle),
+        maxTokens: 256,
+        temperature: 0.3,
+      );
+      return AiCaptureIntelligence.parseMilestones(reply);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Generates a structured study note in Markdown for the given topic.
+  Future<String> writeMarkdownNote(String topic) async {
+    if (!canGenerate || topic.trim().isEmpty) return '';
+    try {
+      final String reply = await _generate(
+        systemPrompt:
+            'You are an expert academic tutor. Write clear, structured study notes formatted with Markdown.',
+        userMessage: AiLocalPrompts.formatNoteMarkdown(topic),
+        maxTokens: 1024,
+        temperature: 0.4,
+      );
+      return reply.trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
 
   Future<String> _generate({
     required String systemPrompt,

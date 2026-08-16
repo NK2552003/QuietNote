@@ -179,7 +179,8 @@ class UiPage extends StatelessWidget {
         mq.viewInsets.bottom +
         context.sp(
           reserveDockSpace ? (r.isMobile ? 96 : theme.spacing.lg) : theme.spacing.md,
-        );
+        ) +
+        5;
 
     return Stack(
       children: <Widget>[

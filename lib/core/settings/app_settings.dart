@@ -87,6 +87,13 @@ class AppSettings {
     this.calendarReminders = true,
     this.routineReminders = false,
     this.journalNudge = false,
+    this.flashcardReminders = true,
+    this.courseReminders = true,
+    this.goalReminders = true,
+    this.focusReminders = true,
+    this.noteReminders = false,
+    this.floatingFocusBubbleEnabled = true,
+    this.focusAlarmSound = 'zen_bell',
     this.quietHoursEnabled = false,
     this.quietStartMinutes = 22 * 60,
     this.quietEndMinutes = 7 * 60,
@@ -100,12 +107,17 @@ class AppSettings {
     this.profileEmail = '',
     this.profileImagePath = '',
     this.focusSessionEndsAt,
+    this.focusSessionStartedAt,
+    this.focusSessionPhase = 'work',
+    this.focusSessionIntervalMinutes = 25,
+    this.focusSessionBreakMinutes = 5,
     this.lastUsedPresetId,
     this.aiProviderMode = 'auto',
     this.aiApiProviderId = 'nvidia',
-    this.aiApiBaseUrl = '',
+    this.aiBaseUrl = '',
     this.aiApiModel = '',
     this.aiApiKey = '',
+    this.aiApiBaseUrl = '',
   });
 
   final ThemeMode themeMode;
@@ -118,6 +130,13 @@ class AppSettings {
   final bool calendarReminders;
   final bool routineReminders;
   final bool journalNudge;
+  final bool flashcardReminders;
+  final bool courseReminders;
+  final bool goalReminders;
+  final bool focusReminders;
+  final bool noteReminders;
+  final bool floatingFocusBubbleEnabled;
+  final String focusAlarmSound;
 
   final bool quietHoursEnabled;
   final int quietStartMinutes;
@@ -139,6 +158,10 @@ class AppSettings {
   final String profileEmail;
   final String profileImagePath;
   final DateTime? focusSessionEndsAt;
+  final DateTime? focusSessionStartedAt;
+  final String focusSessionPhase;
+  final int focusSessionIntervalMinutes;
+  final int focusSessionBreakMinutes;
 
   /// The [FocusPreset] name the student last selected on the Focus Clock,
   /// pre-selected on the next visit so it survives an app restart
@@ -157,6 +180,7 @@ class AppSettings {
   final String aiApiProviderId;
 
   /// Only used for the 'custom' provider; presets fill this in themselves.
+  final String aiBaseUrl;
   final String aiApiBaseUrl;
   final String aiApiModel;
   final String aiApiKey;
@@ -167,6 +191,11 @@ class AppSettings {
     calendarReminders,
     routineReminders,
     journalNudge,
+    flashcardReminders,
+    courseReminders,
+    goalReminders,
+    focusReminders,
+    noteReminders,
   ].where((bool b) => b && notificationsEnabled).length;
 
   String get themeModeLabel {
@@ -190,6 +219,13 @@ class AppSettings {
     bool? calendarReminders,
     bool? routineReminders,
     bool? journalNudge,
+    bool? flashcardReminders,
+    bool? courseReminders,
+    bool? goalReminders,
+    bool? focusReminders,
+    bool? noteReminders,
+    bool? floatingFocusBubbleEnabled,
+    String? focusAlarmSound,
     bool? quietHoursEnabled,
     int? quietStartMinutes,
     int? quietEndMinutes,
@@ -203,6 +239,10 @@ class AppSettings {
     String? profileEmail,
     String? profileImagePath,
     DateTime? focusSessionEndsAt,
+    DateTime? focusSessionStartedAt,
+    String? focusSessionPhase,
+    int? focusSessionIntervalMinutes,
+    int? focusSessionBreakMinutes,
     bool clearFocusSession = false,
     String? lastUsedPresetId,
     String? aiProviderMode,
@@ -220,6 +260,14 @@ class AppSettings {
     calendarReminders: calendarReminders ?? this.calendarReminders,
     routineReminders: routineReminders ?? this.routineReminders,
     journalNudge: journalNudge ?? this.journalNudge,
+    flashcardReminders: flashcardReminders ?? this.flashcardReminders,
+    courseReminders: courseReminders ?? this.courseReminders,
+    goalReminders: goalReminders ?? this.goalReminders,
+    focusReminders: focusReminders ?? this.focusReminders,
+    noteReminders: noteReminders ?? this.noteReminders,
+    floatingFocusBubbleEnabled:
+        floatingFocusBubbleEnabled ?? this.floatingFocusBubbleEnabled,
+    focusAlarmSound: focusAlarmSound ?? this.focusAlarmSound,
     quietHoursEnabled: quietHoursEnabled ?? this.quietHoursEnabled,
     quietStartMinutes: quietStartMinutes ?? this.quietStartMinutes,
     quietEndMinutes: quietEndMinutes ?? this.quietEndMinutes,
@@ -235,6 +283,18 @@ class AppSettings {
     focusSessionEndsAt: clearFocusSession
         ? null
         : (focusSessionEndsAt ?? this.focusSessionEndsAt),
+    focusSessionStartedAt: clearFocusSession
+        ? null
+        : (focusSessionStartedAt ?? this.focusSessionStartedAt),
+    focusSessionPhase: clearFocusSession
+        ? 'work'
+        : (focusSessionPhase ?? this.focusSessionPhase),
+    focusSessionIntervalMinutes: clearFocusSession
+        ? 25
+        : (focusSessionIntervalMinutes ?? this.focusSessionIntervalMinutes),
+    focusSessionBreakMinutes: clearFocusSession
+        ? 5
+        : (focusSessionBreakMinutes ?? this.focusSessionBreakMinutes),
     lastUsedPresetId: lastUsedPresetId ?? this.lastUsedPresetId,
     aiProviderMode: aiProviderMode ?? this.aiProviderMode,
     aiApiProviderId: aiApiProviderId ?? this.aiApiProviderId,
@@ -253,6 +313,13 @@ class AppSettings {
     'calendarReminders': '$calendarReminders',
     'routineReminders': '$routineReminders',
     'journalNudge': '$journalNudge',
+    'flashcardReminders': '$flashcardReminders',
+    'courseReminders': '$courseReminders',
+    'goalReminders': '$goalReminders',
+    'focusReminders': '$focusReminders',
+    'noteReminders': '$noteReminders',
+    'floatingFocusBubbleEnabled': '$floatingFocusBubbleEnabled',
+    'focusAlarmSound': focusAlarmSound,
     'quietHoursEnabled': '$quietHoursEnabled',
     'quietStartMinutes': '$quietStartMinutes',
     'quietEndMinutes': '$quietEndMinutes',
@@ -266,6 +333,10 @@ class AppSettings {
     'profileEmail': profileEmail,
     'profileImagePath': profileImagePath,
     'focusSessionEndsAt': focusSessionEndsAt?.toIso8601String() ?? '',
+    'focusSessionStartedAt': focusSessionStartedAt?.toIso8601String() ?? '',
+    'focusSessionPhase': focusSessionPhase,
+    'focusSessionIntervalMinutes': '$focusSessionIntervalMinutes',
+    'focusSessionBreakMinutes': '$focusSessionBreakMinutes',
     'lastUsedPresetId': lastUsedPresetId ?? '',
     'aiProviderMode': aiProviderMode,
     'aiApiProviderId': aiApiProviderId,
@@ -307,6 +378,15 @@ class AppSettings {
       calendarReminders: flag('calendarReminders', true),
       routineReminders: flag('routineReminders', false),
       journalNudge: flag('journalNudge', false),
+      flashcardReminders: flag('flashcardReminders', true),
+      courseReminders: flag('courseReminders', true),
+      goalReminders: flag('goalReminders', true),
+      focusReminders: flag('focusReminders', true),
+      noteReminders: flag('noteReminders', false),
+      floatingFocusBubbleEnabled: flag('floatingFocusBubbleEnabled', true),
+      focusAlarmSound: (map['focusAlarmSound'] ?? '').isEmpty
+          ? 'zen_bell'
+          : map['focusAlarmSound']!,
       quietHoursEnabled: flag('quietHoursEnabled', false),
       quietStartMinutes: number('quietStartMinutes', 22 * 60),
       quietEndMinutes: number('quietEndMinutes', 7 * 60),
@@ -330,6 +410,16 @@ class AppSettings {
       focusSessionEndsAt: (map['focusSessionEndsAt'] ?? '').isEmpty
           ? null
           : DateTime.tryParse(map['focusSessionEndsAt']!),
+      focusSessionStartedAt: (map['focusSessionStartedAt'] ?? '').isEmpty
+          ? null
+          : DateTime.tryParse(map['focusSessionStartedAt']!),
+      focusSessionPhase: (map['focusSessionPhase'] ?? '').isEmpty
+          ? 'work'
+          : map['focusSessionPhase']!,
+      focusSessionIntervalMinutes:
+          number('focusSessionIntervalMinutes', 25),
+      focusSessionBreakMinutes:
+          number('focusSessionBreakMinutes', 5),
       lastUsedPresetId: (map['lastUsedPresetId'] ?? '').isEmpty
           ? null
           : map['lastUsedPresetId'],

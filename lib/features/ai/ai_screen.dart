@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -18,6 +19,8 @@ import 'ai_question_model.dart';
 import 'local_ai_engine.dart';
 import 'cloud_ai_providers.dart';
 import 'ai_voice_service.dart';
+import 'ai_waveform_visualizer.dart';
+import 'ai_typewriter_text.dart';
 import 'package:quietnote/core/branding/quietnote_mark.dart';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +47,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
   final FocusNode _composeFocus = FocusNode();
   late final AnimationController _pulseController;
   bool _isProcessing = false;
+  CaptureDraft? _livePrediction;
 
   // ── Conversation state ────────────────────────────────────────────────────
   AiConversationSession? _session;
@@ -78,10 +82,28 @@ class _AiScreenState extends ConsumerState<AiScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
+
+    _composeCtrl.addListener(_onComposeChanged);
+  }
+
+  void _onComposeChanged() {
+    final text = _composeCtrl.text.trim();
+    if (text.length < 3) {
+      if (_livePrediction != null) {
+        setState(() => _livePrediction = null);
+      }
+      return;
+    }
+    final pred = CaptureParser.parse(text);
+    if (_livePrediction?.type != pred.type ||
+        (_livePrediction?.confidence != pred.confidence)) {
+      setState(() => _livePrediction = pred);
+    }
   }
 
   @override
   void dispose() {
+    _composeCtrl.removeListener(_onComposeChanged);
     _composeCtrl.dispose();
     _composeFocus.dispose();
     _pulseController.dispose();
@@ -187,10 +209,93 @@ class _AiScreenState extends ConsumerState<AiScreen>
     }
   }
 
+  Future<void> _enrichSubtasks() async {
+    if (_session == null || _enriching) return;
+    setState(() => _enriching = true);
+    HapticFeedback.lightImpact();
+    try {
+      final notifier = ref.read(aiEngineProvider.notifier);
+      final subtasks = await notifier.generateSubtasks(_session!.draft.title);
+      if (mounted && subtasks.isNotEmpty) {
+        setState(() {
+          _session = _session!.copyWith(
+            draft: _session!.draft..subtasks = subtasks,
+          );
+        });
+        UiToast.show(
+          context,
+          title: 'Subtasks generated',
+          message: 'Added ${subtasks.length} actionable subtasks',
+          intent: UiIntent.success,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enriching = false);
+    }
+  }
+
+  Future<void> _enrichMilestones() async {
+    if (_session == null || _enriching) return;
+    setState(() => _enriching = true);
+    HapticFeedback.lightImpact();
+    try {
+      final notifier = ref.read(aiEngineProvider.notifier);
+      final milestones = await notifier.suggestGoalMilestones(
+        _session!.draft.title,
+        _session!.draft.goalTarget,
+        unit: _session!.draft.goalUnit,
+      );
+      if (mounted && milestones.isNotEmpty) {
+        setState(() {
+          _session = _session!.copyWith(
+            draft: _session!.draft..milestones = milestones,
+          );
+        });
+        UiToast.show(
+          context,
+          title: 'Milestones generated',
+          message: 'Added ${milestones.length} milestones',
+          intent: UiIntent.success,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enriching = false);
+    }
+  }
+
+  Future<void> _enrichPolishTitle() async {
+    if (_session == null || _enriching) return;
+    setState(() => _enriching = true);
+    HapticFeedback.lightImpact();
+    try {
+      final notifier = ref.read(aiEngineProvider.notifier);
+      final polished = await notifier.polishTitle(
+        _session!.draft.title,
+        _session!.draft.type,
+      );
+      if (mounted && polished != _session!.draft.title) {
+        setState(() {
+          _session = _session!.copyWith(
+            draft: _session!.draft..title = polished,
+          );
+        });
+        UiToast.show(
+          context,
+          title: 'Title polished',
+          message: polished,
+          intent: UiIntent.success,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enriching = false);
+    }
+  }
+
   // ── Conversation navigation ───────────────────────────────────────────────
 
   void _submitAnswer(dynamic value) {
     if (_session == null) return;
+    HapticFeedback.selectionClick();
     final next = AiConversationEngine.answer(_session!, value);
     _answerTextCtrl.clear();
     if (next.isComplete) {
@@ -507,6 +612,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
               isProcessing: _isProcessing,
               pulseController: _pulseController,
               listening: _listening,
+              livePrediction: _livePrediction,
               aiDetail: aiDetail,
               aiState: aiState,
               onCapture: _startCapture,
@@ -515,6 +621,7 @@ class _AiScreenState extends ConsumerState<AiScreen>
               recent: _recent,
               listKey: _listKey,
               onTypeChip: (type) {
+                HapticFeedback.lightImpact();
                 _composeCtrl.clear();
                 // Pre-fill with empty draft of chosen type
                 final draft = CaptureDraft(
@@ -546,9 +653,15 @@ class _AiScreenState extends ConsumerState<AiScreen>
               key: const ValueKey('review'),
               session: _session!,
               saving: _isSaving,
+              enriching: _enriching,
               onSave: _save,
               onEdit: _goBack,
               onDiscard: _resetToCompose,
+              onEnrichSubtasks: _enrichSubtasks,
+              onEnrichMilestones: _enrichMilestones,
+              onEnrichPolishTitle: _enrichPolishTitle,
+              onEnrichFlashcards: () =>
+                  _generateFlashcards(_session!.draft.title),
             ),
           _AiMode.answer => _AnswerView(
               key: const ValueKey('answer'),
@@ -584,6 +697,7 @@ class _ComposeView extends StatelessWidget {
     required this.isProcessing,
     required this.pulseController,
     required this.listening,
+    required this.livePrediction,
     required this.aiDetail,
     required this.aiState,
     required this.onCapture,
@@ -599,6 +713,7 @@ class _ComposeView extends StatelessWidget {
   final bool isProcessing;
   final AnimationController pulseController;
   final bool listening;
+  final CaptureDraft? livePrediction;
   final AiEngineDetail aiDetail;
   final AiEngineState aiState;
   final VoidCallback onCapture;
@@ -633,6 +748,10 @@ class _ComposeView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── Time-aware greeting & contextual prompt ─────────────────────────
+        const _TimeAwareGreeting(),
+        const SizedBox(height: 12),
+
         // ── AI status banner ───────────────────────────────────────────────
         _ModelStatusBanner(state: aiState, detail: aiDetail),
         const SizedBox(height: 16),
@@ -664,6 +783,27 @@ class _ComposeView extends StatelessWidget {
                   ),
                 ],
               ),
+              if (listening) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: c.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const AiWaveformVisualizer(active: true, height: 18),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Listening… speak your capture',
+                        style: context.uiText.caption
+                            .copyWith(color: c.primary, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -689,14 +829,20 @@ class _ComposeView extends StatelessWidget {
                     leadingIcon: isProcessing ? null : Icons.auto_awesome,
                     loading: isProcessing,
                     expandOnMobile: false,
-                    onPressed: isProcessing ? null : onCapture,
+                    onPressed: isProcessing ? null : () {
+                      HapticFeedback.lightImpact();
+                      onCapture();
+                    },
                   ),
                   const SizedBox(width: 8),
                   UiIconButton(
                     icon: Icons.chat_bubble_outline,
                     variant: UiVariant.secondary,
                     tooltip: 'Ask AI a question',
-                    onPressed: isProcessing ? null : onAsk,
+                    onPressed: isProcessing ? null : () {
+                      HapticFeedback.lightImpact();
+                      onAsk();
+                    },
                   ),
                   const SizedBox(width: 8),
                   UiIconButton(
@@ -707,32 +853,59 @@ class _ComposeView extends StatelessWidget {
                         listening ? UiVariant.primary : UiVariant.secondary,
                     tooltip:
                         listening ? 'Stop listening' : 'Speak your capture',
-                    onPressed: isProcessing ? null : onVoice,
+                    onPressed: isProcessing ? null : () {
+                      HapticFeedback.lightImpact();
+                      onVoice();
+                    },
                   ),
                 ],
               ),
             ],
           ),
         ),
+
+        // ── Real-time live prediction pill ─────────────────────────────────
+        if (livePrediction != null) ...[
+          _LiveIntentPill(
+            draft: livePrediction!,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onCapture();
+            },
+            onSwitchType: (t) {
+              HapticFeedback.lightImpact();
+              onTypeChip(t);
+            },
+          ),
+        ],
         const SizedBox(height: 20),
 
         // ── Quick-start chips ──────────────────────────────────────────────
         _QuickStartSection(
           label: 'Study',
           types: studyTypes,
-          onTap: onTypeChip,
+          onTap: (t) {
+            HapticFeedback.lightImpact();
+            onTypeChip(t);
+          },
         ),
         const SizedBox(height: 12),
         _QuickStartSection(
           label: 'Plan',
           types: planTypes,
-          onTap: onTypeChip,
+          onTap: (t) {
+            HapticFeedback.lightImpact();
+            onTypeChip(t);
+          },
         ),
         const SizedBox(height: 12),
         _QuickStartSection(
           label: 'Reflect',
           types: reflectTypes,
-          onTap: onTypeChip,
+          onTap: (t) {
+            HapticFeedback.lightImpact();
+            onTypeChip(t);
+          },
         ),
         const SizedBox(height: 24),
 
@@ -840,6 +1013,158 @@ class _TypeChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Time-aware greeting widget
+// ---------------------------------------------------------------------------
+
+class _TimeAwareGreeting extends StatelessWidget {
+  const _TimeAwareGreeting();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.uiColors;
+    final hour = DateTime.now().hour;
+    final String greeting;
+    final String prompt;
+    final IconData icon;
+
+    if (hour >= 5 && hour < 12) {
+      greeting = 'Good morning';
+      prompt = 'Ready to set your top priorities today?';
+      icon = Icons.wb_sunny_outlined;
+    } else if (hour >= 12 && hour < 17) {
+      greeting = 'Good afternoon';
+      prompt = 'Capture study notes, quick tasks, or a focus sprint.';
+      icon = Icons.light_mode_outlined;
+    } else if (hour >= 17 && hour < 22) {
+      greeting = 'Good evening';
+      prompt = 'Reflect on today or prep for tomorrow.';
+      icon = Icons.wb_twilight_outlined;
+    } else {
+      greeting = 'Late night';
+      prompt = 'Jot down a quick thought or wind down.';
+      icon = Icons.bedtime_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: c.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.primary.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: c.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  greeting,
+                  style: context.uiText.caption.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: c.primary,
+                  ),
+                ),
+                Text(
+                  prompt,
+                  style: context.uiText.caption
+                      .copyWith(color: c.foregroundMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Real-time live prediction pill
+// ---------------------------------------------------------------------------
+
+class _LiveIntentPill extends StatelessWidget {
+  const _LiveIntentPill({
+    required this.draft,
+    required this.onTap,
+    required this.onSwitchType,
+  });
+
+  final CaptureDraft draft;
+  final VoidCallback onTap;
+  final ValueChanged<CaptureType> onSwitchType;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.uiColors;
+    final pct = (draft.confidence * 100).round();
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: c.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(draft.type.icon, size: 16, color: c.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  'Looks like a ${draft.type.label}',
+                  style: context.uiText.caption.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: c.foreground,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '($pct% match)',
+                  style: context.uiText.caption
+                      .copyWith(color: c.foregroundMuted),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: c.primary,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Start',
+                    style: context.uiText.caption.copyWith(
+                      color: c.onPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Icon(Icons.arrow_forward, size: 12, color: c.onPrimary),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1252,7 +1577,7 @@ class _AiBubble extends StatelessWidget {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(text, style: context.uiText.body),
+                      TypewriterText(text: text, style: context.uiText.body),
                       if (subtitle != null) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -1676,16 +2001,26 @@ class _ReviewView extends StatelessWidget {
     super.key,
     required this.session,
     required this.saving,
+    required this.enriching,
     required this.onSave,
     required this.onEdit,
     required this.onDiscard,
+    required this.onEnrichSubtasks,
+    required this.onEnrichMilestones,
+    required this.onEnrichPolishTitle,
+    required this.onEnrichFlashcards,
   });
 
   final AiConversationSession session;
   final bool saving;
+  final bool enriching;
   final VoidCallback onSave;
   final VoidCallback onEdit;
   final VoidCallback onDiscard;
+  final VoidCallback onEnrichSubtasks;
+  final VoidCallback onEnrichMilestones;
+  final VoidCallback onEnrichPolishTitle;
+  final VoidCallback onEnrichFlashcards;
 
   @override
   Widget build(BuildContext context) {
@@ -1713,7 +2048,9 @@ class _ReviewView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Ready to save', style: context.uiText.caption.copyWith(color: c.foregroundMuted)),
+                  Text('Ready to save',
+                      style: context.uiText.caption
+                          .copyWith(color: c.foregroundMuted)),
                   Text(
                     draft.title.isEmpty ? 'Untitled' : draft.title,
                     style: context.uiText.heading,
@@ -1764,6 +2101,38 @@ class _ReviewView extends StatelessWidget {
                   ),
                   Divider(height: 1, color: c.border.withValues(alpha: 0.5)),
                 ],
+              if (draft.subtasks.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Subtasks:', style: context.uiText.caption.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                for (final st in draft.subtasks)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 3),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_box_outline_blank, size: 13, color: c.foregroundMuted),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(st, style: context.uiText.body)),
+                      ],
+                    ),
+                  ),
+              ],
+              if (draft.milestones.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Milestones:', style: context.uiText.caption.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                for (final ms in draft.milestones)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 3),
+                    child: Row(
+                      children: [
+                        Icon(Icons.flag_outlined, size: 13, color: c.primary),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(ms, style: context.uiText.body)),
+                      ],
+                    ),
+                  ),
+              ],
             ],
           ),
         ),
@@ -1777,7 +2146,88 @@ class _ReviewView extends StatelessWidget {
                 context.uiText.caption.copyWith(color: c.foregroundMuted),
           ),
         ],
+        const SizedBox(height: 16),
 
+        // ── Magic AI Enhancers ──────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: c.primary.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: c.primary.withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.auto_awesome, size: 14, color: c.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Magic AI Enhancers',
+                    style: context.uiText.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: c.primary,
+                    ),
+                  ),
+                  if (enriching) ...[
+                    const Spacer(),
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: c.primary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (draft.type == CaptureType.todo)
+                    UiButton(
+                      label: 'Auto-generate subtasks',
+                      leadingIcon: Icons.checklist_rtl_outlined,
+                      variant: UiVariant.secondary,
+                      size: UiSize.sm,
+                      loading: enriching,
+                      onPressed: enriching ? null : onEnrichSubtasks,
+                    ),
+                  if (draft.type == CaptureType.goal)
+                    UiButton(
+                      label: 'Suggest 3 milestones',
+                      leadingIcon: Icons.flag_outlined,
+                      variant: UiVariant.secondary,
+                      size: UiSize.sm,
+                      loading: enriching,
+                      onPressed: enriching ? null : onEnrichMilestones,
+                    ),
+                  if (draft.type == CaptureType.flashcard)
+                    UiButton(
+                      label: 'Regenerate cards',
+                      leadingIcon: Icons.refresh_outlined,
+                      variant: UiVariant.secondary,
+                      size: UiSize.sm,
+                      loading: enriching,
+                      onPressed: enriching ? null : onEnrichFlashcards,
+                    ),
+                  UiButton(
+                    label: 'Polish title',
+                    leadingIcon: Icons.auto_fix_high_outlined,
+                    variant: UiVariant.secondary,
+                    size: UiSize.sm,
+                    loading: enriching,
+                    onPressed: enriching ? null : onEnrichPolishTitle,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 24),
 
         // ── Actions ───────────────────────────────────────────────────────
@@ -1806,7 +2256,10 @@ class _ReviewView extends StatelessWidget {
                     ? null
                     : Icons.check,
                 loading: saving,
-                onPressed: onSave,
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  onSave();
+                },
               ),
             ),
           ],

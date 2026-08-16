@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/flutter-ui/flutter_ui.dart';
+import 'core/focus/floating_bubble_service.dart';
 import 'core/navigation/app_routes.dart';
 import 'core/settings/app_settings.dart';
 import 'core/settings/settings_repository.dart';
@@ -51,11 +52,40 @@ void main() {
   });
 }
 
-class HabitFlowApp extends ConsumerWidget {
+class HabitFlowApp extends ConsumerStatefulWidget {
   const HabitFlowApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HabitFlowApp> createState() => _HabitFlowAppState();
+}
+
+class _HabitFlowAppState extends ConsumerState<HabitFlowApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        FloatingBubblePlatformService().notifyAppForeground();
+      },
+      onPause: () {
+        FloatingBubblePlatformService().notifyAppBackground();
+      },
+      onHide: () {
+        FloatingBubblePlatformService().notifyAppBackground();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Settings drive theme mode, accent colour and text size app-wide. Until
     // they load from the database we fall back to the defaults, so the very
     // first frame still renders.

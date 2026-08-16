@@ -44,6 +44,7 @@ class AiConversationSession {
 
   AiConversationSession copyWith({
     CaptureDraft? draft,
+    List<AiConversationStep>? steps,
     List<AiCompletedAnswer>? completedAnswers,
     int? currentStepIndex,
     bool? isComplete,
@@ -51,7 +52,7 @@ class AiConversationSession {
       AiConversationSession(
         type: type,
         draft: draft ?? this.draft,
-        steps: steps,
+        steps: steps ?? this.steps,
         completedAnswers: completedAnswers ?? this.completedAnswers,
         currentStepIndex: currentStepIndex ?? this.currentStepIndex,
         isComplete: isComplete ?? this.isComplete,
@@ -130,10 +131,32 @@ class AiConversationEngine {
     CaptureDraft draft,
     List<AiCompletedAnswer> answers,
   ) {
+    final currentSteps = List<AiConversationStep>.from(session.steps);
+
+    // Adaptive branching: If user chooses 'Study' for habit, offer course linking
+    if (draft.type == CaptureType.habit && draft.category == 'Study') {
+      final hasCourseStep = currentSteps.any((s) => s.field == 'courseId');
+      if (!hasCourseStep) {
+        final insertIndex = (session.currentStepIndex + 1).clamp(0, currentSteps.length);
+        currentSteps.insert(
+          insertIndex,
+          const AiConversationStep(
+            field: 'courseId',
+            question: 'Link this study habit to a course?',
+            subtitle: 'Optionally associate it with your course tracker.',
+            answerType: AiAnswerType.radioChips,
+            optional: true,
+            options: [],
+          ),
+        );
+      }
+    }
+
     final nextIndex = session.currentStepIndex + 1;
-    final done = nextIndex >= session.steps.length;
+    final done = nextIndex >= currentSteps.length;
     return session.copyWith(
       draft: draft,
+      steps: currentSteps,
       completedAnswers: answers,
       currentStepIndex: nextIndex,
       isComplete: done,

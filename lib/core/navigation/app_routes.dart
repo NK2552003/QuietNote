@@ -428,9 +428,6 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildPage(int index) {
-    if (!_visitedIndices.contains(index)) {
-      return const SizedBox.shrink();
-    }
     final Widget content = switch (index) {
       0 => const HomeScreen(),
       1 => const TodosScreen(),

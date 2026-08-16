@@ -15,12 +15,17 @@ import 'package:quietnote/core/database/repositories/course_repository.dart';
 import 'package:quietnote/core/database/repositories/focus_session_repository.dart';
 import 'package:quietnote/core/database/repositories/journal_repository.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/focus/focus_timer_service.dart';
 import 'package:quietnote/core/notifications/notification_service.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
 import 'package:quietnote/features/clock/focus_preset.dart';
 import 'package:quietnote/features/routines/routines_screen.dart';
 import 'package:quietnote/core/audio/ambient_audio_service.dart';
+
+import 'focus_history_screen.dart';
+import 'zen_focus_screen.dart';
+import 'package:flutter/services.dart';
 
 class ClockScreen extends ConsumerStatefulWidget {
   const ClockScreen({super.key});
@@ -32,6 +37,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   late DateTime _now;
   Timer? _ticker;
   int _minutes = 25;
+  int _customBreakMinutes = 5;
   bool _scheduling = false;
   bool _finishingExpiredSession = false;
 
@@ -64,10 +70,12 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   void dispose() {
     _ticker?.cancel();
     AmbientAudioService().stop();
+    AmbientAudioService().stopAlarm();
     super.dispose();
   }
 
   Future<void> _selectAmbientSound(String soundKey) async {
+    HapticFeedback.selectionClick();
     setState(() => _activeAmbientSound = soundKey);
     await AmbientAudioService().setSound(soundKey);
   }
@@ -76,6 +84,12 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       _preset ?? focusPresetFromId(settings.lastUsedPresetId);
 
   Future<void> _pickPreset(FocusPreset preset) async {
+    HapticFeedback.selectionClick();
+    if (preset == FocusPreset.custom) {
+      setState(() => _preset = preset);
+      await _showCustomDurationDialog();
+      return;
+    }
     setState(() {
       _preset = preset;
       final cfg = preset.config;
@@ -86,51 +100,184 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
         .update((s) => s.copyWith(lastUsedPresetId: preset.name));
   }
 
-  Future<void> _startTimer() async {
-    if (_scheduling) return;
-    setState(() => _scheduling = true);
-    final settings = ref.read(settingsProvider).value ?? const AppSettings();
-    final preset = _selectedPreset(settings);
-    final minutes = preset?.config?.work ?? _minutes;
-    final scheduled = DateTime.now().add(Duration(minutes: minutes));
+  Future<void> _showCustomDurationDialog() async {
+    final workCtrl = TextEditingController(text: '$_minutes');
+    final breakCtrl = TextEditingController(text: '$_customBreakMinutes');
 
-    await ref.read(focusSessionRepositoryProvider).start(
-          endsAt: scheduled,
-          minutes: minutes,
-          presetId: preset?.name,
-          courseId: _selectedCourseId,
-          taskId: _selectedTaskId,
-          habitId: _selectedHabitId,
-        );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.edit_calendar_outlined, color: context.uiColors.primary),
+            const SizedBox(width: 8),
+            const Text('Custom Duration'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Set your customized focus and break interval:',
+                style: context.uiText.body),
+            const SizedBox(height: 16),
+            TextField(
+              controller: workCtrl,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Focus / Work Duration (minutes)',
+                hintText: 'e.g. 35',
+                prefixIcon: Icon(Icons.timer_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: breakCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Break Duration (minutes, 0 for none)',
+                hintText: 'e.g. 5',
+                prefixIcon: Icon(Icons.coffee_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Set Duration'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final work = int.tryParse(workCtrl.text.trim()) ?? _minutes;
+      final brk = int.tryParse(breakCtrl.text.trim()) ?? _customBreakMinutes;
+      if (work > 0) {
+        setState(() {
+          _minutes = work.clamp(1, 300);
+          _customBreakMinutes = brk.clamp(0, 120);
+          _preset = FocusPreset.custom;
+        });
+        await ref
+            .read(settingsProvider.notifier)
+            .update((s) => s.copyWith(lastUsedPresetId: FocusPreset.custom.name));
+      }
+    }
+  }
+
+  Future<void> _extendFocus(int mins) async {
+    HapticFeedback.lightImpact();
+    final currentSettings = ref.read(settingsProvider).value;
+    final baseEnd = currentSettings?.focusSessionEndsAt ?? DateTime.now();
+    final scheduled = baseEnd.add(Duration(minutes: mins));
+    await ref
+        .read(focusSessionRepositoryProvider)
+        .extendActive(endsAt: scheduled);
     await ref
         .read(settingsProvider.notifier)
         .update((s) => s.copyWith(focusSessionEndsAt: scheduled));
+
+    final activeSession = ref.read(activeFocusSessionProvider).value;
+    final courses = ref.read(coursesStreamProvider).value ?? const <Course>[];
+    final tasks = ref.read(tasksStreamProvider).value ?? const <Task>[];
+    final course = courses.where((c) => c.id == activeSession?.courseId).firstOrNull;
+    final task = tasks.where((t) => t.id == activeSession?.taskId).firstOrNull;
+    final linkedTitle = course != null ? (course.code ?? course.name) : task?.title;
+
+    unawaited(NotificationService().showFocusTimerStatus(
+      scheduled,
+      phase: _phase,
+      presetLabel: focusPresetFromId(activeSession?.presetId)?.chipLabel,
+      linkedTitle: linkedTitle,
+    ));
+    unawaited(_scheduleAlert(
+      scheduled,
+      'Focus timer complete',
+      'Your focus session is complete.',
+    ));
+    if (mounted) {
+      setState(() {});
+      UiToast.show(
+        context,
+        title: 'Extended by +$mins min',
+        message: 'Focus session will now complete at ${DateFormat.jm().format(scheduled)}.',
+        intent: UiIntent.primary,
+        icon: Icons.more_time_rounded,
+      );
+    }
+  }
+
+  void _openZenMode(DateTime end, String? presetLabel, String? linkedTitle, {DateTime? startedAt}) {
+    ZenFocusScreen.open(
+      context,
+      ref,
+      end: end,
+      startedAt: startedAt,
+      presetLabel: presetLabel,
+      linkedTitle: linkedTitle,
+    );
+  }
+
+  Future<void> _startTimer() async => _startFocus(_minutes);
+
+  Future<void> _startFocus(int minutes) async {
+    final preset = _preset;
+    final int breakMinutes = (preset == null || preset == FocusPreset.custom)
+        ? _customBreakMinutes
+        : (preset.config?.brk ?? _customBreakMinutes);
+    setState(() => _scheduling = true);
+
+    final courses = ref.read(coursesStreamProvider).value ?? const <Course>[];
+    final tasks = ref.read(tasksStreamProvider).value ?? const <Task>[];
+    final course =
+        courses.where((c) => c.id == _selectedCourseId).firstOrNull;
+    final task = tasks.where((t) => t.id == _selectedTaskId).firstOrNull;
+    final linkedTitle =
+        course != null ? (course.code ?? course.name) : task?.title;
+
+    await FocusTimerService().startSession(
+      ref,
+      workMinutes: minutes,
+      breakMinutes: breakMinutes,
+      preset: preset,
+      courseId: _selectedCourseId,
+      taskId: _selectedTaskId,
+      habitId: _selectedHabitId,
+      linkedTitle: linkedTitle,
+    );
+
     if (!mounted) return;
     setState(() {
       _scheduling = false;
       _phase = 'work';
     });
+
+    final scheduled = DateTime.now().add(Duration(minutes: minutes));
     UiToast.show(
       context,
       title: 'Focus session started',
-      message: 'Ends at ${DateFormat.jm().format(scheduled)}. Saved to focus history.',
+      message:
+          'Ends at ${DateFormat.jm().format(scheduled)}. Saved to focus history.',
       intent: UiIntent.success,
       icon: Icons.timer_outlined,
     );
-    unawaited(_scheduleAlert(
-      scheduled,
-      'Focus timer complete',
-      'Your $minutes-minute focus session is complete.',
-    ));
-    unawaited(NotificationService().showFocusTimerStatus(scheduled));
   }
 
-  Future<void> _scheduleAlert(DateTime scheduled, String title, String body) async {
+  Future<void> _scheduleAlert(
+      DateTime scheduled, String title, String body) async {
     final ok = await NotificationService().scheduleReminder(
       NotificationService.focusStatusNotificationId,
       title,
       body,
       scheduled,
+      feature: NotificationFeature.focus,
     );
     if (!mounted || ok) return;
     UiToast.show(
@@ -143,24 +290,16 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   }
 
   Future<void> _cancelFocus() async {
-    await NotificationService().clearFocusTimerStatus();
-    await ref.read(focusSessionRepositoryProvider).finishActive(cancelled: true);
-    await ref
-        .read(settingsProvider.notifier)
-        .update((s) => s.copyWith(clearFocusSession: true));
-    if (mounted) setState(() => _phase = 'work');
+    HapticFeedback.lightImpact();
+    await _finishSession(cancelled: true);
   }
 
-  Future<void> _finishSession({bool cancelled = false}) async {
+  Future<void> _finishSession({bool? cancelled}) async {
     final active = ref.read(activeFocusSessionProvider).value;
-    await ref.read(focusSessionRepositoryProvider).finishActive(cancelled: cancelled);
-    await NotificationService().clearFocusTimerStatus();
-    await ref
-        .read(settingsProvider.notifier)
-        .update((s) => s.copyWith(clearFocusSession: true));
+    await FocusTimerService().finishSession(ref, cancelled: cancelled);
     if (mounted) setState(() => _phase = 'work');
 
-    if (!cancelled && active != null && mounted) {
+    if (cancelled != true && active != null && mounted) {
       await _promptPostSessionReflection(active);
     }
   }
@@ -193,7 +332,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
               maxLines: 3,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'e.g. Completed Chapter 3 notes, solved 5 problem set questions.',
+                hintText:
+                    'e.g. Completed Chapter 3 notes, solved 5 problem set questions.',
               ),
             ),
             const SizedBox(height: 12),
@@ -212,15 +352,21 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Skip')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save Reflection')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Skip')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save Reflection')),
         ],
       ),
     );
 
     if (ok == true && controller.text.trim().isNotEmpty) {
       final reflectionText = controller.text.trim();
-      await ref.read(focusSessionRepositoryProvider).saveReflection(session.id, reflectionText);
+      await ref
+          .read(focusSessionRepositoryProvider)
+          .saveReflection(session.id, reflectionText);
 
       if (saveToJournal.value) {
         await ref.read(journalRepositoryProvider).addEntry(
@@ -230,89 +376,25 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
             );
       }
       if (mounted) {
-        UiToast.show(context, title: 'Reflection saved', intent: UiIntent.success);
+        UiToast.show(context,
+            title: 'Reflection saved', intent: UiIntent.success);
       }
     }
-  }
-
-  Future<void> _continuePhase(
-    int minutes,
-    String nextPhase,
-    String alertTitle,
-    String alertBody,
-  ) async {
-    final scheduled = DateTime.now().add(Duration(minutes: minutes));
-    await ref.read(focusSessionRepositoryProvider).extendActive(endsAt: scheduled);
-    await ref
-        .read(settingsProvider.notifier)
-        .update((s) => s.copyWith(focusSessionEndsAt: scheduled));
-    if (mounted) setState(() => _phase = nextPhase);
-    unawaited(_scheduleAlert(scheduled, alertTitle, alertBody));
-    unawaited(NotificationService().showFocusTimerStatus(scheduled));
   }
 
   Future<void> _handleTimerExpiry() async {
     if (_finishingExpiredSession) return;
     _finishingExpiredSession = true;
-    final active = ref.read(activeFocusSessionProvider).value;
-    final cfg = focusPresetFromId(active?.presetId)?.config;
-
-    if (cfg != null && cfg.brk > 0 && _phase == 'work') {
+    try {
+      await FocusTimerService().handleTimerExpiry(ref, context: context);
+      if (mounted) {
+        final settings = ref.read(settingsProvider).value;
+        setState(() {
+          _phase = settings?.focusSessionPhase ?? 'work';
+        });
+      }
+    } finally {
       _finishingExpiredSession = false;
-      await _promptStartBreak(cfg);
-      return;
-    }
-    if (cfg != null && cfg.brk > 0 && _phase == 'break') {
-      _finishingExpiredSession = false;
-      await _promptStartNextWork(cfg);
-      return;
-    }
-    await _finishSession();
-    _finishingExpiredSession = false;
-  }
-
-  Future<void> _promptStartBreak(FocusPresetConfig cfg) async {
-    if (!mounted) return;
-    final start = await UiDialog.confirm(
-      context,
-      title: 'Work interval complete',
-      description: 'Start your ${cfg.brk}-minute break?',
-      confirmLabel: 'Start break',
-      cancelLabel: 'Skip break',
-    );
-    if (!mounted) return;
-    if (start) {
-      await _continuePhase(
-        cfg.brk,
-        'break',
-        'Break complete',
-        'Your ${cfg.brk}-minute break is complete.',
-      );
-    } else {
-      await _finishSession();
-    }
-  }
-
-  Future<void> _promptStartNextWork(FocusPresetConfig cfg) async {
-    await ref.read(focusSessionRepositoryProvider).incrementCycle();
-    if (!mounted) return;
-    final start = await UiDialog.confirm(
-      context,
-      title: 'Break complete',
-      description: 'Start the next ${cfg.work}-minute work interval?',
-      confirmLabel: 'Start work',
-      cancelLabel: 'End session',
-    );
-    if (!mounted) return;
-    if (start) {
-      await _continuePhase(
-        cfg.work,
-        'work',
-        'Focus timer complete',
-        'Your ${cfg.work}-minute focus session is complete.',
-      );
-    } else {
-      await _finishSession();
     }
   }
 
@@ -413,8 +495,23 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
             _FocusLiveCard(
               end: focusEnd,
               now: _now,
+              startedAt: settings.focusSessionStartedAt ?? activeSession?.startedAt,
               onCancel: _cancelFocus,
-              phase: _phase,
+              onExtend: () => _extendFocus(5),
+              onZen: () {
+                final course = courses.where((c) => c.id == activeSession?.courseId).firstOrNull;
+                final task = tasks.where((t) => t.id == activeSession?.taskId).firstOrNull;
+                final linkedTitle = course != null
+                    ? (course.code ?? course.name)
+                    : task?.title;
+                _openZenMode(
+                  focusEnd,
+                  focusPresetFromId(activeSession?.presetId)?.chipLabel,
+                  linkedTitle,
+                  startedAt: settings.focusSessionStartedAt ?? activeSession?.startedAt,
+                );
+              },
+              phase: settings.focusSessionPhase,
               cyclesCompleted: activeSession?.cyclesCompleted ?? 0,
               presetLabel: focusPresetFromId(activeSession?.presetId)?.chipLabel,
             ),
@@ -685,19 +782,17 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                 ],
                 Text('Study preset', style: context.uiText.caption),
                 const SizedBox(height: 8),
-                UiToggleGroup<FocusPreset>(
-                  variant: UiToggleGroupVariant.segmented,
-                  expand: true,
-                  scrollableOnMobile: true,
-                  value: selectedPreset,
-                  options: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
                     for (final preset in FocusPreset.values)
-                      UiToggleOption(
-                        value: preset,
-                        label: preset.chipLabel,
+                      _FocusPresetChip(
+                        preset: preset,
+                        selected: selectedPreset == preset,
+                        onTap: () => _pickPreset(preset),
                       ),
                   ],
-                  onChanged: _pickPreset,
                 ),
                 const SizedBox(height: 14),
                 if (selectedPreset != null && selectedPreset != FocusPreset.custom) ...[
@@ -707,29 +802,50 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                         Icon(Icons.route_outlined, size: 18, color: context.uiColors.primary),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            '${presetCfg!.label} — work ${presetCfg.work} min'
-                            '${presetCfg.brk > 0 ? ', break ${presetCfg.brk} min' : ' (no break)'}',
-                            style: context.uiText.caption,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${presetCfg!.label} — work ${presetCfg.work} min'
+                                '${presetCfg.brk > 0 ? ', break ${presetCfg.brk} min' : ' (no break)'}',
+                                style: context.uiText.bodyStrong,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                presetCfg.subtitle,
+                                style: context.uiText.caption.copyWith(color: context.uiColors.foregroundMuted),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
-                ] else
-                  UiToggleGroup<int>(
-                    variant: UiToggleGroupVariant.segmented,
-                    expand: true,
-                    value: _minutes,
-                    options: const [
-                      UiToggleOption(value: 5, label: '5 min'),
-                      UiToggleOption(value: 25, label: '25 min'),
-                      UiToggleOption(value: 50, label: '50 min'),
-                    ],
-                    onChanged: (value) => setState(() => _minutes = value),
+                ] else ...[
+                  UiCard(
+                    child: Row(
+                      children: [
+                        Icon(Icons.tune_outlined, size: 18, color: context.uiColors.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Custom: $_minutes min focus · $_customBreakMinutes min break',
+                            style: context.uiText.bodyStrong,
+                          ),
+                        ),
+                        UiButton(
+                          label: 'Edit',
+                          variant: UiVariant.ghost,
+                          size: UiSize.xs,
+                          leadingIcon: Icons.edit_outlined,
+                          onPressed: _showCustomDurationDialog,
+                        ),
+                      ],
+                    ),
                   ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: UiButton(
@@ -744,32 +860,83 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
           ),
           if (focusHistory.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Text('Focus History', style: context.uiText.bodyStrong),
-                const Spacer(),
-                Text(
-                  '${focusHistory.where((s) => s.status == 'completed').length} completed ($totalCyclesInHistory cycles)',
-                  style: context.uiText.caption,
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => FocusHistoryScreen.show(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Text('Focus History', style: context.uiText.bodyStrong),
+                    const SizedBox(width: 6),
+                    Icon(Icons.arrow_forward_ios_rounded,
+                        size: 12, color: context.uiColors.primary),
+                    const Spacer(),
+                    Text(
+                      '${focusHistory.where((s) => s.status == 'completed').length} completed ($totalCyclesInHistory cycles)',
+                      style: context.uiText.caption,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 10),
             ...focusHistory.take(5).map((s) {
               final course = courses.where((c) => c.id == s.courseId).firstOrNull;
               final task = tasks.where((t) => t.id == s.taskId).firstOrNull;
+              final isActive = s.status == 'active';
+              final isCompleted = s.status == 'completed';
+
+              final sessionTotalSec = s.endsAt.difference(s.startedAt).inSeconds;
+              final elapsedSec = _now.difference(s.startedAt).inSeconds;
+              final sessionProgress = sessionTotalSec > 0
+                  ? (elapsedSec / sessionTotalSec).clamp(0.0, 1.0)
+                  : 0.0;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: UiCard(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => FocusHistoryScreen.show(context),
+                  child: UiCard(
                   child: Row(
                     children: [
-                      Icon(
-                        s.status == 'completed' ? Icons.check_circle : Icons.cancel,
-                        color: s.status == 'completed'
-                            ? context.uiColors.primary
-                            : context.uiColors.destructive,
-                      ),
+                      if (isActive)
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                value: sessionProgress,
+                                strokeWidth: 2.6,
+                                strokeCap: StrokeCap.round,
+                                backgroundColor: context.uiColors.primary
+                                    .withValues(alpha: 0.15),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    context.uiColors.primary),
+                              ),
+                            ),
+                            Icon(
+                              Icons.timer_outlined,
+                              size: 11,
+                              color: context.uiColors.primary,
+                            ),
+                          ],
+                        )
+                      else if (isCompleted)
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: context.uiColors.primary,
+                          size: 22,
+                        )
+                      else
+                        Icon(
+                          Icons.cancel_outlined,
+                          color: context.uiColors.foregroundMuted,
+                          size: 22,
+                        ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -777,9 +944,28 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                           children: [
                             Row(
                               children: [
-                                Text('${s.durationMinutes} min focus session', style: context.uiText.bodyStrong),
+                                Text('${s.durationMinutes} min focus session',
+                                    style: context.uiText.bodyStrong),
+                                const SizedBox(width: 8),
+                                if (isActive)
+                                  const UiBadge(
+                                    label: 'In Progress',
+                                    intent: UiIntent.primary,
+                                    size: UiSize.xs,
+                                  )
+                                else if (isCompleted)
+                                  const UiBadge(
+                                    label: 'Completed',
+                                    intent: UiIntent.success,
+                                    size: UiSize.xs,
+                                  )
+                                else
+                                  const UiBadge(
+                                    label: 'Cancelled',
+                                    size: UiSize.xs,
+                                  ),
                                 if (course != null) ...[
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                   UiBadge(
                                     label: course.code ?? course.name,
                                     intent: UiIntent.primary,
@@ -806,7 +992,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                     ],
                   ),
                 ),
-              );
+              ),
+            );
             }),
           ],
           const SizedBox(height: 20),
@@ -911,14 +1098,20 @@ class _FocusLiveCard extends StatelessWidget {
   const _FocusLiveCard({
     required this.end,
     required this.now,
+    this.startedAt,
     required this.onCancel,
+    this.onExtend,
+    this.onZen,
     required this.phase,
     required this.cyclesCompleted,
     this.presetLabel,
   });
   final DateTime end;
   final DateTime now;
+  final DateTime? startedAt;
   final VoidCallback onCancel;
+  final VoidCallback? onExtend;
+  final VoidCallback? onZen;
   final String phase;
   final int cyclesCompleted;
   final String? presetLabel;
@@ -929,46 +1122,104 @@ class _FocusLiveCard extends StatelessWidget {
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;
     final isBreak = phase == 'break';
+    final accentColor = isBreak ? const Color(0xFFF59E0B) : context.uiColors.primary;
+
+    final effectiveStart = startedAt ??
+        end.subtract(
+          Duration(
+            seconds: (totalSeconds > 0 ? totalSeconds : 25 * 60),
+          ),
+        );
+    final sessionTotalSec = end.difference(effectiveStart).inSeconds;
+    final elapsedSec = now.difference(effectiveStart).inSeconds;
+    final progress = sessionTotalSec > 0
+        ? (elapsedSec / sessionTotalSec).clamp(0.0, 1.0)
+        : 0.0;
+
     return UiCard(
-      accentColor: context.uiColors.primary,
+      accentColor: accentColor,
+      onTap: onZen,
       child: Row(
         children: [
-          Icon(
-            isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined,
-            color: context.uiColors.primary,
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 3.2,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor:
+                      accentColor.withValues(alpha: 0.15),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(accentColor),
+                ),
+              ),
+              Icon(
+                isBreak ? Icons.local_cafe_outlined : Icons.timer_outlined,
+                size: 15,
+                color: accentColor,
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
+                Text(
+                  isBreak ? 'Rest & recharge in progress' : 'Focus session active',
+                  style: context.uiText.bodyStrong,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      isBreak ? 'Break in progress' : 'Focus session in progress',
-                      style: context.uiText.bodyStrong,
+                      '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')} remaining',
+                      style: context.uiText.caption.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: accentColor,
+                      ),
                     ),
-                    if (presetLabel != null) ...[
-                      const SizedBox(width: 8),
+                    if (isBreak)
+                      const UiBadge(label: 'Break', intent: UiIntent.warning, size: UiSize.xs)
+                    else if (presetLabel != null)
                       UiBadge(label: presetLabel!, size: UiSize.xs),
-                    ],
-                    if (cyclesCompleted > 0) ...[
-                      const SizedBox(width: 6),
+                    if (cyclesCompleted > 0)
                       UiBadge(
                         label: 'Cycle ${cyclesCompleted + 1}',
                         intent: UiIntent.primary,
                         size: UiSize.xs,
                       ),
-                    ],
                   ],
-                ),
-                Text(
-                  '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')} remaining',
-                  style: context.uiText.caption,
                 ),
               ],
             ),
           ),
+          if (onExtend != null) ...[
+            UiIconButton(
+              icon: Icons.more_time_rounded,
+              tooltip: 'Extend +5 Min',
+              onPressed: onExtend,
+            ),
+            const SizedBox(width: 2),
+          ],
+          if (onZen != null) ...[
+            UiIconButton(
+              icon: Icons.fullscreen_outlined,
+              tooltip: 'Full Screen Zen Mode',
+              onPressed: onZen,
+            ),
+            const SizedBox(width: 2),
+          ],
           UiIconButton(
             icon: Icons.stop_circle_outlined,
             tooltip: 'End focus session',
@@ -1005,4 +1256,56 @@ class _LiveMetric extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _FocusPresetChip extends StatelessWidget {
+  const _FocusPresetChip({
+    required this.preset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final FocusPreset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.uiColors;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? c.primary.withValues(alpha: 0.16)
+              : c.surfaceHover.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? c.primary : c.border,
+            width: selected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              preset.icon,
+              size: 15,
+              color: selected ? c.primary : c.foregroundMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              preset.chipLabel,
+              style: context.uiText.caption.copyWith(
+                color: selected ? c.primary : c.foreground,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

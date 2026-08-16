@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:quietnote/core/flutter-ui/flutter_ui.dart';
+import 'package:quietnote/core/focus/floating_bubble_service.dart';
 import 'package:quietnote/core/settings/app_settings.dart';
 import 'package:quietnote/core/settings/settings_repository.dart';
 import 'package:quietnote/core/notifications/notification_service.dart';
@@ -661,12 +662,14 @@ class _RemindersStep extends StatefulWidget {
 
 class _RemindersStepState extends State<_RemindersStep> {
   bool _permissionGranted = false;
+  bool _overlayPermissionGranted = false;
   bool _checkingPermission = true;
 
   @override
   void initState() {
     super.initState();
     _checkPermissionStatus();
+    _checkOverlayPermissionStatus();
   }
 
   Future<void> _checkPermissionStatus() async {
@@ -685,6 +688,15 @@ class _RemindersStepState extends State<_RemindersStep> {
     }
   }
 
+  Future<void> _checkOverlayPermissionStatus() async {
+    try {
+      final granted = await FloatingBubblePlatformService().checkPermission();
+      if (mounted) {
+        setState(() => _overlayPermissionGranted = granted);
+      }
+    } catch (_) {}
+  }
+
   Future<void> _requestNotificationPermission() async {
     setState(() => _checkingPermission = true);
     final granted = await NotificationService().requestPermissions();
@@ -697,6 +709,16 @@ class _RemindersStepState extends State<_RemindersStep> {
         widget.onReminders(true);
       }
     }
+  }
+
+  Future<void> _requestOverlayPermission() async {
+    try {
+      await FloatingBubblePlatformService().requestPermission();
+      final granted = await FloatingBubblePlatformService().checkPermission();
+      if (mounted) {
+        setState(() => _overlayPermissionGranted = granted);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -804,6 +826,74 @@ class _RemindersStepState extends State<_RemindersStep> {
                     onPressed: _checkingPermission
                         ? null
                         : _requestNotificationPermission,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        SizedBox(height: context.sp(theme.spacing.md)),
+        UiCard(
+          variant: UiCardVariant.elevated,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: context.sz(40),
+                    height: context.sz(40),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (_overlayPermissionGranted
+                              ? UiIntent.success.color(context)
+                              : theme.colors.primary)
+                          .withValues(alpha: 0.12),
+                      borderRadius: context.radius(theme.radii.md),
+                    ),
+                    child: Icon(
+                      _overlayPermissionGranted
+                          ? Icons.check_circle_outline
+                          : Icons.bubble_chart_outlined,
+                      color: _overlayPermissionGranted
+                          ? UiIntent.success.color(context)
+                          : theme.colors.primary,
+                      size: 22,
+                    ),
+                  ),
+                  SizedBox(width: context.sp(theme.spacing.md)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          _overlayPermissionGranted
+                              ? 'Floating Focus Bubble Enabled'
+                              : 'Floating Focus Overlay Bubble',
+                          style: context.uiText.bodyStrong,
+                        ),
+                        Text(
+                          _overlayPermissionGranted
+                              ? 'The timer bubble can float across your screen during deep focus.'
+                              : 'Show an interactive draggable timer bubble over other apps.',
+                          style: context.uiText.caption.copyWith(
+                            color: theme.colors.foregroundMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (!_overlayPermissionGranted) ...<Widget>[
+                SizedBox(height: context.sp(theme.spacing.md)),
+                SizedBox(
+                  width: double.infinity,
+                  child: UiButton(
+                    label: 'Allow Floating Overlay',
+                    leadingIcon: Icons.bubble_chart_outlined,
+                    variant: UiVariant.secondary,
+                    onPressed: _requestOverlayPermission,
                   ),
                 ),
               ],

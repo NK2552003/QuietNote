@@ -81,10 +81,13 @@ class FocusSessionRepository {
     );
   }
 
-  Future<void> finishActive({bool cancelled = false, String? reflection}) async {
+  Future<void> finishActive({bool? cancelled, String? reflection}) async {
+    final active = await (_db.select(_db.focusSessions)..where((t) => t.status.equals('active'))).getSingleOrNull();
+    final bool isActuallyCancelled = (cancelled == true) &&
+        (active != null && active.endsAt.isAfter(DateTime.now().add(const Duration(seconds: 2))));
     await (_db.update(_db.focusSessions)..where((t) => t.status.equals('active'))).write(
       FocusSessionsCompanion(
-        status: drift.Value(cancelled ? 'cancelled' : 'completed'),
+        status: drift.Value(isActuallyCancelled ? 'cancelled' : 'completed'),
         endedAt: drift.Value(DateTime.now()),
         reflection: reflection != null ? drift.Value(reflection) : const drift.Value.absent(),
       ),
