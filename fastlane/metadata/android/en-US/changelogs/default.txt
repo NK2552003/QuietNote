@@ -1,8 +1,7 @@
-• Initial release of QuietNote on F-Droid.
-• Offline notes with Markdown, LaTeX math, and code syntax highlighting.
-• Tasks, subtasks, habits, and streak tracking.
-• Zen Focus session timer with optional floating edge pill overlay.
-• Spaced repetition flashcards, courses, and exam calendars.
-• Customizable Navigation Dock sizing (Compact/Standard/Spacious) and hand alignment (Left/Center/Right).
-• Native biometric authentication and screen lock protection.
-• 100% offline-first storage with zero trackers or telemetry.
+• Initial release of QuietNote.
+• Offline Markdown notes with LaTeX math & syntax highlighting.
+• Tasks, habits, daily routines, and calendar timeline.
+• Spaced repetition flashcards and course manager.
+• Zen Focus timer with optional floating edge pill overlay.
+• Customizable Navigation Dock sizing and hand alignment.
+• Native biometric lock and 100% private offline SQLite.
